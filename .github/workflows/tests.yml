@@ -104,7 +104,9 @@ jobs:
           include-hidden-files: true
   action:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A hang guard for the full declared suite: measured 12.7, 13.8 and 14.1 minutes for alpha.26–.28;
+    # alpha.29's added gate-experiment tests crossed 15 and were cancelled. Twice the measured time.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

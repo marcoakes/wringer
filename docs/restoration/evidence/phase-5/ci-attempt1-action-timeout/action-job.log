@@ -1,0 +1,513 @@
+action	Set up job	﻿2026-09-30T10:27:13.6003972Z Current runner version: '2.337.0'
+action	Set up job	2026-09-30T10:27:13.6031342Z ##[group]Runner Image Provisioner
+action	Set up job	2026-09-30T10:27:13.6032242Z Hosted Compute Agent
+action	Set up job	2026-09-30T10:27:13.6032868Z Version: 20260901.588
+action	Set up job	2026-09-30T10:27:13.6033594Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+action	Set up job	2026-09-30T10:27:13.6034357Z Build Date: 2026-09-01T19:56:44Z
+action	Set up job	2026-09-30T10:27:13.6035650Z Worker ID: {2864b246-0878-472d-93ec-688857275bd8}
+action	Set up job	2026-09-30T10:27:13.6036532Z Azure Region: eastus2
+action	Set up job	2026-09-30T10:27:13.6037193Z ##[endgroup]
+action	Set up job	2026-09-30T10:27:13.6038828Z ##[group]Operating System
+action	Set up job	2026-09-30T10:27:13.6039571Z Ubuntu
+action	Set up job	2026-09-30T10:27:13.6040173Z 24.04.5
+action	Set up job	2026-09-30T10:27:13.6040822Z LTS
+action	Set up job	2026-09-30T10:27:13.6041396Z ##[endgroup]
+action	Set up job	2026-09-30T10:27:13.6042035Z ##[group]Runner Image
+action	Set up job	2026-09-30T10:27:13.6042731Z Image: ubuntu-24.04
+action	Set up job	2026-09-30T10:27:13.6043418Z Version: 20260927.320.1
+action	Set up job	2026-09-30T10:27:13.6044600Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+action	Set up job	2026-09-30T10:27:13.6047160Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+action	Set up job	2026-09-30T10:27:13.6048335Z ##[endgroup]
+action	Set up job	2026-09-30T10:27:13.6049628Z ##[group]GITHUB_TOKEN Permissions
+action	Set up job	2026-09-30T10:27:13.6051928Z Contents: read
+action	Set up job	2026-09-30T10:27:13.6052593Z Metadata: read
+action	Set up job	2026-09-30T10:27:13.6053296Z ##[endgroup]
+action	Set up job	2026-09-30T10:27:13.6055802Z Secret source: Actions
+action	Set up job	2026-09-30T10:27:13.6057019Z Cache mode: write
+action	Set up job	2026-09-30T10:27:13.6058091Z Prepare workflow directory
+action	Set up job	2026-09-30T10:27:13.6399385Z Prepare all required actions
+action	Set up job	2026-09-30T10:27:13.6448355Z Getting action download info
+action	Set up job	2026-09-30T10:27:13.9106968Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+action	Set up job	2026-09-30T10:27:13.9954453Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+action	Set up job	2026-09-30T10:27:14.1767768Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+action	Set up job	2026-09-30T10:27:14.2688240Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+action	Set up job	2026-09-30T10:27:14.4930091Z Complete job name: action
+action	Run actions/checkout@v4	﻿2026-09-30T10:27:14.5778023Z ##[group]Run actions/checkout@v4
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5778983Z with:
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5779462Z   repository: marcoakes/wringer
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5783714Z   token: ***
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5784159Z   ssh-strict: true
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5784610Z   ssh-user: git
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5785067Z   persist-credentials: true
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5785767Z   clean: true
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5786229Z   sparse-checkout-cone-mode: true
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5786756Z   fetch-depth: 1
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5787196Z   fetch-tags: false
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5787646Z   show-progress: true
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5788101Z   lfs: false
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5788539Z   submodules: false
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5788991Z   set-safe-directory: true
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5789499Z   allow-unsafe-pr-checkout: false
+action	Run actions/checkout@v4	2026-09-30T10:27:14.5790303Z ##[endgroup]
+action	Run actions/checkout@v4	2026-09-30T10:27:14.6931489Z Syncing repository: marcoakes/wringer
+action	Run actions/checkout@v4	2026-09-30T10:27:14.6934369Z ##[group]Getting Git version info
+action	Run actions/checkout@v4	2026-09-30T10:27:14.6935950Z Working directory is '/home/runner/work/wringer/wringer'
+action	Run actions/checkout@v4	2026-09-30T10:27:14.6937719Z [command]/usr/bin/git version
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7030097Z git version 2.55.0
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7047562Z ##[endgroup]
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7066469Z Temporarily overriding HOME='/home/runner/work/_temp/7a204fc7-b734-4f60-94c5-4cccace30e51' before making global git config changes
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7068667Z Adding repository directory to the temporary git global config as a safe directory
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7071656Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/wringer/wringer
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7121171Z Deleting the contents of '/home/runner/work/wringer/wringer'
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7137601Z ##[group]Initializing the repository
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7139157Z [command]/usr/bin/git init /home/runner/work/wringer/wringer
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7231953Z hint: Using 'master' as the name for the initial branch. This default branch name
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7236037Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7237574Z hint: to use in all of your new repositories, which will suppress this warning,
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7238376Z hint: call:
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7238925Z hint:
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7239542Z hint: 	git config --global init.defaultBranch <name>
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7240191Z hint:
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7240797Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7241754Z hint: 'development'. The just-created branch can be renamed via this command:
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7242509Z hint:
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7242939Z hint: 	git branch -m <name>
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7243496Z hint:
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7244359Z hint: Disable this message with "git config set advice.defaultBranchName false"
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7246306Z Initialized empty Git repository in /home/runner/work/wringer/wringer/.git/
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7249069Z [command]/usr/bin/git remote add origin https://github.com/marcoakes/wringer
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7294696Z ##[endgroup]
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7295782Z ##[group]Disabling automatic garbage collection
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7298989Z [command]/usr/bin/git config --local gc.auto 0
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7332900Z ##[endgroup]
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7334109Z ##[group]Setting up auth
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7340579Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7373336Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7791967Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+action	Run actions/checkout@v4	2026-09-30T10:27:14.7832200Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+action	Run actions/checkout@v4	2026-09-30T10:27:14.8061146Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+action	Run actions/checkout@v4	2026-09-30T10:27:14.8100187Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+action	Run actions/checkout@v4	2026-09-30T10:27:14.8331401Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+action	Run actions/checkout@v4	2026-09-30T10:27:14.8372577Z ##[endgroup]
+action	Run actions/checkout@v4	2026-09-30T10:27:14.8373462Z ##[group]Fetching the repository
+action	Run actions/checkout@v4	2026-09-30T10:27:14.8383009Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +c1860cdd3201faa45c8f080ad3a599acb5ebf045:refs/remotes/origin/main
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8052182Z From https://github.com/marcoakes/wringer
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8055144Z  * [new ref]         c1860cdd3201faa45c8f080ad3a599acb5ebf045 -> origin/main
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8060652Z ##[endgroup]
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8062825Z ##[group]Determining the checkout info
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8065416Z ##[endgroup]
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8067221Z [command]/usr/bin/git sparse-checkout disable
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8123490Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8157439Z ##[group]Checking out the ref
+action	Run actions/checkout@v4	2026-09-30T10:27:15.8196335Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+action	Run actions/checkout@v4	2026-09-30T10:27:15.9657389Z Switched to a new branch 'main'
+action	Run actions/checkout@v4	2026-09-30T10:27:15.9666777Z branch 'main' set up to track 'origin/main'.
+action	Run actions/checkout@v4	2026-09-30T10:27:15.9675820Z ##[endgroup]
+action	Run actions/checkout@v4	2026-09-30T10:27:15.9724210Z [command]/usr/bin/git log -1 --format=%H
+action	Run actions/checkout@v4	2026-09-30T10:27:15.9752615Z c1860cdd3201faa45c8f080ad3a599acb5ebf045
+action	Run oven-sh/setup-bun@v2	﻿2026-09-30T10:27:16.0206302Z ##[group]Run oven-sh/setup-bun@v2
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.0207665Z with:
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.0208556Z   bun-version: 1.4.2
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.0209554Z   no-cache: false
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.0220615Z   token: ***
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.0221826Z ##[endgroup]
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.2805967Z Cache hit for: bun-gmoqYqdUbaYsI0KujeXt7Zg/p0I=
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.6184899Z Received 35684133 of 35684133 (100.0%), 134.5 MBs/sec
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.6186171Z Cache Size: ~34 MB (35684133 B)
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.6253747Z [command]/usr/bin/tar -xf /home/runner/work/_temp/04a2772e-b841-4eee-b9e3-7fd56bdebdc6/cache.tzst -P -C /home/runner/work/wringer/wringer --use-compress-program unzstd
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.7730304Z Cache restored successfully
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.7760498Z [command]/home/runner/.bun/bin/bun --revision
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.7807764Z 1.4.2+744846f84
+action	Run oven-sh/setup-bun@v2	2026-09-30T10:27:16.7814172Z Using a cached version of Bun: 1.4.2+744846f84
+action	Run actions/setup-node@v4	﻿2026-09-30T10:27:16.8012156Z ##[group]Run actions/setup-node@v4
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.8012508Z with:
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.8012750Z   node-version: 24
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.8012978Z   always-auth: false
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.8013202Z   check-latest: false
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.8016255Z   token: ***
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.8016498Z ##[endgroup]
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.9427710Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.9432449Z (node:2353) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.9433221Z (Use `node --trace-deprecation ...` to show where the warning was created)
+action	Run actions/setup-node@v4	2026-09-30T10:27:16.9435493Z ##[group]Environment details
+action	Run actions/setup-node@v4	2026-09-30T10:27:19.6973264Z node: v24.21.0
+action	Run actions/setup-node@v4	2026-09-30T10:27:19.6973768Z npm: 11.19.0
+action	Run actions/setup-node@v4	2026-09-30T10:27:19.6974036Z yarn: 1.22.22
+action	Run actions/setup-node@v4	2026-09-30T10:27:19.6974540Z ##[endgroup]
+action	Run bun install --frozen-lockfile	﻿2026-09-30T10:27:19.7096995Z ##[group]Run bun install --frozen-lockfile
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.7097427Z ^[[36;1mbun install --frozen-lockfile^[[0m
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.7403722Z shell: /usr/bin/bash -e {0}
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.7404032Z ##[endgroup]
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.7537695Z bun install v1.4.2 (744846f84)
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.9056053Z 
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.9056711Z + @types/bun@1.4.1
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.9057195Z + playwright@1.63.0
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.9057689Z + typescript@5.9.3
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.9059027Z + ajv@8.20.0
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.9059501Z + ajv-formats@3.0.1
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.9059744Z 
+action	Run bun install --frozen-lockfile	2026-09-30T10:27:19.9060026Z 14 packages installed [151.00ms]
+action	Install the browser required by this repository's declared checks	﻿2026-09-30T10:27:19.9097630Z ##[group]Run bun node_modules/playwright/cli.js install --with-deps chromium
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:19.9098215Z ^[[36;1mbun node_modules/playwright/cli.js install --with-deps chromium^[[0m
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:19.9167509Z shell: /usr/bin/bash -e {0}
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:19.9167787Z ##[endgroup]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.6561546Z Installing dependencies...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.6752699Z Switching to root user to install dependencies...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.7467530Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.7853038Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.7866189Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.7919108Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.7928217Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.7929794Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9140411Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [503 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9377859Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [454 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9608023Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1322 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9667716Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [299 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9685493Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [181 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9699643Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1699 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9781820Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [341 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9800483Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9847077Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1662 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9946434Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [379 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:20.9970007Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0229219Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5760 B]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0686025Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [12.6 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0740752Z Get:20 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1066 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0808299Z Get:21 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [220 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0827807Z Get:22 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [46.4 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0832192Z Get:23 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1216 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0899853Z Get:24 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [244 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0917664Z Get:25 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.3 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.0928698Z Get:26 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1566 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:21.1020209Z Get:27 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [361 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:25.3398443Z Fetched 12.4 MB in 1s (9279 kB/s)
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.1551459Z Reading package lists...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.1791162Z Reading package lists...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.3851871Z Building dependency tree...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.3859824Z Reading state information...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5486999Z libasound2t64 is already the newest version (1.2.11-1ubuntu0.3).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5488033Z libasound2t64 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5488954Z libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5490450Z libatk-bridge2.0-0t64 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5491348Z libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5492178Z libatk1.0-0t64 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5493052Z libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5493922Z libatspi2.0-0t64 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5494797Z libcairo2 is already the newest version (1.18.0-3build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5496020Z libcairo2 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5496960Z libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5497751Z libcups2t64 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5498657Z libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5499431Z libdbus-1-3 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5500257Z libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5501089Z libdrm2 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5501887Z libglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.9).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5502680Z libglib2.0-0t64 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5503490Z libnspr4 is already the newest version (2:4.35-1.1build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5504489Z libnspr4 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5505502Z libnss3 is already the newest version (2:3.98-1ubuntu0.2).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5506399Z libnss3 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5507179Z libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5508102Z libpango-1.0-0 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5508862Z libx11-6 is already the newest version (2:1.8.7-1build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5509966Z libx11-6 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5510669Z libxcb1 is already the newest version (1.15-1ubuntu2).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5511533Z libxcb1 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5512358Z libxcomposite1 is already the newest version (1:0.4.5-1build3).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5513143Z libxcomposite1 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5513970Z libxdamage1 is already the newest version (1:1.1.6-1build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5514957Z libxdamage1 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5515952Z libxext6 is already the newest version (2:1.3.4-1build2).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5516683Z libxext6 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5517433Z libxfixes3 is already the newest version (1:6.0.0-2build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5518180Z libxfixes3 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5518986Z libxkbcommon0 is already the newest version (1.6.0-1build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5519792Z libxkbcommon0 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5520613Z libxrandr2 is already the newest version (2:1.5.2-2build1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5521375Z libxrandr2 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5522150Z xvfb is already the newest version (2:21.1.12-1ubuntu1.8).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5523186Z fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5524276Z libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5525074Z libfontconfig1 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5526230Z libfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.1).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5527055Z libfreetype6 set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5527816Z fonts-liberation is already the newest version (1:2.1.5-3).
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5528573Z fonts-liberation set to manually installed.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5529319Z The following additional packages will be installed:
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5530195Z   libgl1-mesa-dri libglx-mesa0 libwayland-server0 mesa-libgallium
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5530973Z   xfonts-encodings xfonts-utils
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5531536Z Recommended packages:
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5532050Z   fonts-ipafont-mincho fonts-tlwg-loma
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5721654Z The following NEW packages will be installed:
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5722759Z   fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5731125Z   fonts-wqy-zenhei libwayland-server0 xfonts-cyrillic xfonts-encodings
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5731895Z   xfonts-scalable xfonts-utils
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5736998Z The following packages will be upgraded:
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5742477Z   libgbm1 libgl1-mesa-dri libglx-mesa0 mesa-libgallium
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5918503Z 4 upgraded, 10 newly installed, 0 to remove and 16 not upgraded.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5919323Z Need to get 32.1 MB of archives.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5920096Z After this operation, 79.7 MB of additional disk space will be used.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.5920969Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.6129997Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.6517155Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.7401614Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.7432262Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.7909894Z Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.8845812Z Get:7 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgl1-mesa-dri amd64 25.2.8-0ubuntu0.24.04.3 [37.9 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.8867495Z Get:8 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libwayland-server0 amd64 1.22.0-2.1build1 [33.9 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.8894731Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libglx-mesa0 amd64 25.2.8-0ubuntu0.24.04.3 [110 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.8931744Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgbm1 amd64 25.2.8-0ubuntu0.24.04.3 [34.3 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.8962112Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 mesa-libgallium amd64 25.2.8-0ubuntu0.24.04.3 [10.8 MB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.9825784Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.9917666Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:26.9943968Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.0004303Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.2710265Z Fetched 32.1 MB in 0s (76.0 MB/s)
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.2949531Z Selecting previously unselected package fonts-ipafont-gothic.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3221924Z (Reading database ... 
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3222796Z (Reading database ... 5%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3223503Z (Reading database ... 10%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3224017Z (Reading database ... 15%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3224646Z (Reading database ... 20%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3225136Z (Reading database ... 25%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3225847Z (Reading database ... 30%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3226317Z (Reading database ... 35%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3226787Z (Reading database ... 40%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3227251Z (Reading database ... 45%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3227713Z (Reading database ... 50%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.3270709Z (Reading database ... 55%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.4296466Z (Reading database ... 60%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.6361474Z (Reading database ... 65%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:27.8308692Z (Reading database ... 70%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.0287303Z (Reading database ... 75%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.1455825Z (Reading database ... 80%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.3287710Z (Reading database ... 85%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.4401086Z (Reading database ... 90%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.5882521Z (Reading database ... 95%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.5883241Z (Reading database ... 100%
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.5884212Z (Reading database ... 202296 files and directories currently installed.)
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.5926227Z Preparing to unpack .../00-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.6016726Z Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.8255160Z Selecting previously unselected package fonts-freefont-ttf.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.8382820Z Preparing to unpack .../01-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.8393359Z Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.9172271Z Selecting previously unselected package fonts-tlwg-loma-otf.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.9297575Z Preparing to unpack .../02-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.9305925Z Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.9520171Z Selecting previously unselected package fonts-unifont.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.9646201Z Preparing to unpack .../03-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:28.9655012Z Unpacking fonts-unifont (1:15.1.01-1build1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.0751384Z Selecting previously unselected package fonts-wqy-zenhei.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.0878884Z Preparing to unpack .../04-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.0982109Z Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.5709197Z Preparing to unpack .../05-libgl1-mesa-dri_25.2.8-0ubuntu0.24.04.3_amd64.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.5851622Z Unpacking libgl1-mesa-dri:amd64 (25.2.8-0ubuntu0.24.04.3) over (25.2.8-0ubuntu0.24.04.2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.6213085Z Selecting previously unselected package libwayland-server0:amd64.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.6340532Z Preparing to unpack .../06-libwayland-server0_1.22.0-2.1build1_amd64.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.6360022Z Unpacking libwayland-server0:amd64 (1.22.0-2.1build1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.6682340Z Preparing to unpack .../07-libglx-mesa0_25.2.8-0ubuntu0.24.04.3_amd64.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.6708055Z Unpacking libglx-mesa0:amd64 (25.2.8-0ubuntu0.24.04.3) over (25.2.8-0ubuntu0.24.04.2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.7063871Z Preparing to unpack .../08-libgbm1_25.2.8-0ubuntu0.24.04.3_amd64.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.7088263Z Unpacking libgbm1:amd64 (25.2.8-0ubuntu0.24.04.3) over (25.2.8-0ubuntu0.24.04.2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.7444612Z Preparing to unpack .../09-mesa-libgallium_25.2.8-0ubuntu0.24.04.3_amd64.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.7468285Z Unpacking mesa-libgallium:amd64 (25.2.8-0ubuntu0.24.04.3) over (25.2.8-0ubuntu0.24.04.2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.9185108Z Selecting previously unselected package xfonts-encodings.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.9311713Z Preparing to unpack .../10-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.9319625Z Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.9603020Z Selecting previously unselected package xfonts-utils.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.9730301Z Preparing to unpack .../11-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:29.9760911Z Unpacking xfonts-utils (1:7.7+6build3) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.0103374Z Selecting previously unselected package xfonts-cyrillic.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.0229889Z Preparing to unpack .../12-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.0237640Z Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.0575053Z Selecting previously unselected package xfonts-scalable.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.0700906Z Preparing to unpack .../13-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.0709696Z Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1162057Z Setting up libwayland-server0:amd64 (1.22.0-2.1build1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1183160Z Setting up mesa-libgallium:amd64 (25.2.8-0ubuntu0.24.04.3) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1202769Z Setting up libgbm1:amd64 (25.2.8-0ubuntu0.24.04.3) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1225415Z Setting up libgl1-mesa-dri:amd64 (25.2.8-0ubuntu0.24.04.3) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1299598Z Setting up fonts-wqy-zenhei (0.9.45-8) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1412061Z Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1427796Z Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1446731Z Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1464178Z Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1528527Z update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1542072Z Setting up fonts-unifont (1:15.1.01-1build1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1557881Z Setting up libglx-mesa0:amd64 (25.2.8-0ubuntu0.24.04.3) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1574606Z Setting up xfonts-utils (1:7.7+6build3) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1612721Z Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.1909761Z Setting up xfonts-scalable (1:1.0.3-1.3) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.2218476Z Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.2535693Z Processing triggers for man-db (2.12.0-4build2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.2557222Z Not building database; man-db/auto-update is not 'true'.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.2572237Z Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9688422Z 
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9689476Z Running kernel seems to be up-to-date.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9689938Z 
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9690210Z No services need to be restarted.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9690547Z 
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9690814Z No containers need to be restarted.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9691132Z 
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9691471Z No user sessions are running outdated binaries.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9691862Z 
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:30.9692363Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:31.8470650Z Downloading Chrome for Testing 153.0.8010.12 (playwright chromium v1243) from https://cdn.playwright.dev/builds/cft/153.0.8010.12/linux64/chrome-linux64.zip
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.2081601Z |                                                                                |   0% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.3352649Z |■■■■■■■■                                                                        |  10% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.3994462Z |■■■■■■■■■■■■■■■■                                                                |  20% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.4525579Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.5147209Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.5708896Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.6306958Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.6824367Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.7419948Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.8060028Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:32.8656991Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 186.8 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.1708246Z Chrome for Testing 153.0.8010.12 (playwright chromium v1243) downloaded to /home/runner/.cache/ms-playwright/chromium-1243
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.1710895Z Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5312171Z |                                                                                |   0% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5435482Z |■■■■■■■■                                                                        |  10% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5511474Z |■■■■■■■■■■■■■■■■                                                                |  20% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5555071Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5596863Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5622294Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5655412Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  61% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5668485Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  71% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5688346Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5722377Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  95% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.5795543Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.6470825Z FFmpeg (playwright ffmpeg v1011) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1011
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:36.6473565Z Downloading Chrome Headless Shell 153.0.8010.12 (playwright chromium-headless-shell v1243) from https://cdn.playwright.dev/builds/cft/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.0034604Z |                                                                                |   0% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.0942628Z |■■■■■■■■                                                                        |  10% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.1330925Z |■■■■■■■■■■■■■■■■                                                                |  20% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.1634844Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.1968779Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.2370865Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.2696538Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.3082591Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.3460815Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.3868343Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:37.4239373Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 114.3 MiB
+action	Install the browser required by this repository's declared checks	2026-09-30T10:27:39.8298761Z Chrome Headless Shell 153.0.8010.12 (playwright chromium-headless-shell v1243) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1243
+﻿2026-09-30T10:27:39.8566493Z Prepare all required actions
+2026-09-30T10:27:39.8567176Z Getting action download info
+2026-09-30T10:27:39.9759194Z ##[group]Run ./
+2026-09-30T10:27:39.9759431Z with:
+2026-09-30T10:27:39.9759630Z   mode: source
+2026-09-30T10:27:39.9759835Z   repository: .
+2026-09-30T10:27:39.9760043Z   config: .wringer.yaml
+2026-09-30T10:27:39.9760267Z   prove: false
+2026-09-30T10:27:39.9760473Z   selection: []
+2026-09-30T10:27:39.9760675Z ##[endgroup]
+2026-09-30T10:27:39.9820835Z ##[start-action display=Run actions/setup-node@v4;id=__self.__actions_setup-node]
+2026-09-30T10:27:39.9871767Z ##[group]Run actions/setup-node@v4
+2026-09-30T10:27:39.9872042Z with:
+2026-09-30T10:27:39.9872238Z   node-version: 24
+2026-09-30T10:27:39.9872454Z   always-auth: false
+2026-09-30T10:27:39.9872674Z   check-latest: false
+2026-09-30T10:27:39.9875496Z   token: ***
+2026-09-30T10:27:39.9875723Z ##[endgroup]
+2026-09-30T10:27:40.1328706Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+2026-09-30T10:27:40.1334375Z (node:3080) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-30T10:27:40.1336103Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-30T10:27:40.1337177Z ##[group]Environment details
+2026-09-30T10:27:40.3068406Z node: v24.21.0
+2026-09-30T10:27:40.3069067Z npm: 11.19.0
+2026-09-30T10:27:40.3069490Z yarn: 1.22.22
+2026-09-30T10:27:40.3070232Z ##[endgroup]
+2026-09-30T10:27:40.3185590Z ##[end-action id=__self.__actions_setup-node;outcome=success;conclusion=success;duration_ms=336]
+2026-09-30T10:27:40.3188824Z ##[start-action display=Run oven-sh/setup-bun@v2;id=__self.__oven-sh_setup-bun]
+2026-09-30T10:27:40.3231156Z ##[group]Run oven-sh/setup-bun@v2
+2026-09-30T10:27:40.3231418Z with:
+2026-09-30T10:27:40.3231612Z   bun-version: 1.4.2
+2026-09-30T10:27:40.3231826Z   no-cache: false
+2026-09-30T10:27:40.3234428Z   token: ***
+2026-09-30T10:27:40.3234634Z ##[endgroup]
+2026-09-30T10:27:40.4982696Z [command]/home/runner/.bun/bin/bun --revision
+2026-09-30T10:27:40.5046044Z 1.4.2+744846f84
+2026-09-30T10:27:40.5097894Z Using existing Bun installation: 1.4.2+744846f84
+2026-09-30T10:27:40.5179929Z ##[end-action id=__self.__oven-sh_setup-bun;outcome=success;conclusion=success;duration_ms=199]
+2026-09-30T10:27:40.5190863Z ##[start-action display=Explicit source development build;id=__self.__run]
+2026-09-30T10:27:40.5211769Z ##[group]Run set -euo pipefail
+2026-09-30T10:27:40.5212092Z ^[[36;1mset -euo pipefail^[[0m
+2026-09-30T10:27:40.5212354Z ^[[36;1mcd "$WRINGER_ACTION_ROOT"^[[0m
+2026-09-30T10:27:40.5212635Z ^[[36;1mbun install --frozen-lockfile^[[0m
+2026-09-30T10:27:40.5212912Z ^[[36;1mbun run build^[[0m
+2026-09-30T10:27:40.5290161Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-30T10:27:40.5290785Z env:
+2026-09-30T10:27:40.5291242Z   WRINGER_ACTION_ROOT: /home/runner/work/wringer/wringer/./
+2026-09-30T10:27:40.5291809Z ##[endgroup]
+2026-09-30T10:27:40.5454527Z bun install v1.4.2 (744846f84)
+2026-09-30T10:27:40.5501997Z 
+2026-09-30T10:27:40.5502914Z Checked 42 installs across 29 packages (no changes) [5.00ms]
+2026-09-30T10:27:40.5534624Z $ bun run scripts/build.ts
+2026-09-30T10:27:41.1472076Z  [321ms]  bundle  398 modules
+2026-09-30T10:27:41.2746304Z  [127ms] compile  /home/runner/work/wringer/wringer/build/distribution-2f332363-d681-4043-a75e-9c33327367c6/wring
+2026-09-30T10:27:42.1867934Z Distribution: /home/runner/work/wringer/wringer/dist
+2026-09-30T10:27:42.1868778Z 503 entries; 14 named historical omissions.
+2026-09-30T10:27:42.1984759Z ##[end-action id=__self.__run;outcome=success;conclusion=success;duration_ms=1679]
+2026-09-30T10:27:42.1990862Z ##[start-action display=Run checks and retain their exit status;id=__self.verify]
+2026-09-30T10:27:42.2010944Z ##[group]Run node "$WRINGER_ACTION_ROOT/packaging/action.mjs"
+2026-09-30T10:27:42.2011399Z ^[[36;1mnode "$WRINGER_ACTION_ROOT/packaging/action.mjs"^[[0m
+2026-09-30T10:27:42.2075659Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-30T10:27:42.2076043Z env:
+2026-09-30T10:27:42.2076686Z   WRINGER_ACTION_ROOT: /home/runner/work/wringer/wringer/./
+2026-09-30T10:27:42.2077036Z   WRINGER_ACTION_REF: 
+2026-09-30T10:27:42.2077265Z   WRINGER_REPOSITORY: .
+2026-09-30T10:27:42.2077520Z   WRINGER_CONFIG: .wringer.yaml
+2026-09-30T10:27:42.2077783Z   WRINGER_MODE: source
+2026-09-30T10:27:42.2078054Z   WRINGER_PROVE: false
+2026-09-30T10:27:42.2078272Z   WRINGER_SELECTION: []
+2026-09-30T10:27:42.2078496Z ##[endgroup]
+2026-09-30T10:42:25.9543115Z ##[error]The operation was canceled.
+2026-09-30T10:42:25.9551583Z ##[end-action id=__self.verify;outcome=cancelled;conclusion=cancelled;duration_ms=883755]
+action	Run actions/upload-artifact@v4	﻿2026-09-30T10:42:25.9663399Z ##[group]Run actions/upload-artifact@v4
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:25.9663868Z with:
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:25.9664129Z   name: action-evidence
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:25.9664492Z   path: .wringer/runs/
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:25.9664851Z   include-hidden-files: true
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:25.9665448Z   if-no-files-found: error
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:25.9666172Z   compression-level: 6
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:25.9666553Z   overwrite: false
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:25.9666881Z ##[endgroup]
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.1872026Z (node:39014) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.1873174Z (Use `node --trace-deprecation ...` to show where the warning was created)
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.2049929Z With the provided path, there will be 13 files uploaded
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.2051021Z Artifact name is valid!
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.2051622Z Root directory input is valid!
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.4368112Z Beginning upload of artifact content to blob storage
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.4803980Z (node:39014) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.6102980Z Uploaded bytes 4950
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.6104344Z Finished uploading artifact content to blob storage!
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.6105997Z SHA256 digest of uploaded artifact zip is 45188bf8d3e66a38a51380f1274766a00354a7958112a8905dc5589dd8faf681
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.6107225Z Finalizing artifact upload
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.7510403Z Artifact action-evidence.zip successfully finalized. Artifact ID 11090469156
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.7512133Z Artifact action-evidence has been successfully uploaded! Final size is 4950 bytes. Artifact ID is 11090469156
+action	Run actions/upload-artifact@v4	2026-09-30T10:42:26.7513950Z Artifact download URL: https://github.com/marcoakes/wringer/actions/runs/36702505464/artifacts/11090469156
+action	Post Run ./	﻿2026-09-30T10:42:26.7746570Z Post job cleanup.
+action	Post Run ./	2026-09-30T10:42:26.7751725Z ##[start-action display=Run oven-sh/setup-bun@v2;id=__7e0ece7f-e526-403c-b34f-8ae184d81e04.__oven-sh_setup-bun]
+action	Post Run ./	2026-09-30T10:42:26.7754446Z ##[end-action id=__7e0ece7f-e526-403c-b34f-8ae184d81e04.__oven-sh_setup-bun;outcome=skipped;conclusion=skipped;duration_ms=0]
+action	Post Run ./	2026-09-30T10:42:26.7756858Z ##[start-action display=Run actions/setup-node@v4;id=__7e0ece7f-e526-403c-b34f-8ae184d81e04.__actions_setup-node]
+action	Post Run ./	2026-09-30T10:42:26.7758974Z ##[end-action id=__7e0ece7f-e526-403c-b34f-8ae184d81e04.__actions_setup-node;outcome=skipped;conclusion=skipped;duration_ms=0]
+action	Post Run actions/checkout@v4	﻿2026-09-30T10:42:26.7852733Z Post job cleanup.
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.8992983Z [command]/usr/bin/git version
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9028666Z git version 2.55.0
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9091475Z Temporarily overriding HOME='/home/runner/work/_temp/f026b01f-f32f-428e-86fe-d07d65a4047d' before making global git config changes
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9093055Z Adding repository directory to the temporary git global config as a safe directory
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9094457Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/wringer/wringer
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9127400Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9170074Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9449290Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9483448Z http.https://github.com/.extraheader
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9494201Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+action	Post Run actions/checkout@v4	2026-09-30T10:42:26.9569512Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+action	Post Run actions/checkout@v4	2026-09-30T10:42:27.0056596Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+action	Post Run actions/checkout@v4	2026-09-30T10:42:27.0349672Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+action	Complete job	﻿2026-09-30T10:42:27.0605086Z Cleaning up orphan processes
+action	Complete job	2026-09-30T10:42:27.0922701Z Terminate orphan process: pid (3172) (MainThread)
+action	Complete job	2026-09-30T10:42:27.0959179Z Terminate orphan process: pid (3183) (wring)
+action	Complete job	2026-09-30T10:42:27.0989423Z Terminate orphan process: pid (3240) (sh)
+action	Complete job	2026-09-30T10:42:27.1035675Z Terminate orphan process: pid (3241) (bun)
+action	Complete job	2026-09-30T10:42:27.1068312Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -252,6 +252,13 @@ GitHub access; anonymous-install qualification was not measured. The
   and 12,994 assertions ([record](evidence/phase-5/local-validation.json)). One
   attempt at the rerun is kept as a [harness error](evidence/phase-5/validation-rerun-harness-error.log):
   the validation clone had not moved to the corrected commit.
+- The first remote run of `c1860cd` passed five of six test jobs. The `action` job,
+  which runs the repository's full declared checks, was cancelled at its
+  15-minute hang guard: it had measured 12.7, 13.8 and 14.1 minutes for
+  alpha.26 to alpha.28, and phase 5's tests pushed it over. No tag was created.
+  The guard is now 30 minutes, and alpha.29 is released from that commit. The
+  [cancelled run](evidence/phase-5/ci-attempt1-action-timeout/ci-tests.json) and
+  its [job log](evidence/phase-5/ci-attempt1-action-timeout/action-job.log) are kept.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.
