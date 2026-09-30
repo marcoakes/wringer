@@ -1,0 +1,14 @@
+13 | async function execute(label: string, argv: string[], options: { expected?: number | "nonzero"; build?: boolean } = {}) {
+14 |     const result = await runProcess(argv, { cwd: directory, env: options.build ? process.env : environment, timeout: 180, maxBytes: 8 * 1024 * 1024 });
+15 |     transcript.push({ label, exit: result.exit_code });
+16 |     await writeFile(join(directory, "transcript.json"), JSON.stringify(transcript, null, 2) + "\n");
+17 |     const expected = options.expected ?? 0;
+18 |     if (result.timed_out || (expected === "nonzero" ? result.exit_code === 0 : result.exit_code !== expected)) throw new Error(`${label}: unexpected exit ${result.exit_code}\n${result.stdout}\n${result.stderr}`);
+                                                                                                                              ^
+error: compile-fixture-only-driver: unexpected exit 1
+
+ENOENT opening root directory "scripts/fixtures"
+
+      at execute ([checkout]/scripts/gate-experiment-distribution.ts:18:122)
+
+Bun v1.4.2 (macOS arm64)

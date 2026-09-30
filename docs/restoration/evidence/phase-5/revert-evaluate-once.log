@@ -1,0 +1,21 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+28 |         try { await link(pending, path); }
+29 |         catch (error: any) {
+30 |             if (error.code !== "EEXIST") throw error;
+31 |             // JSON object order is not authority. Hash the complete semantic
+32 |             // record, just as the frozen plan/journal contract does.
+33 |             if (hashValue(await readControllerFile(path)) !== hashValue(value)) throw new Error("Immutable controller input differs from the retained approval");
+                                                                                               ^
+error: Immutable controller input differs from the retained approval
+      at immutableControllerFile ([isolated-checkout]/packages/application/src/controller.ts:33:91)
+      at async <anonymous> ([isolated-checkout]/packages/application/src/gate-experiments.ts:327:15)
+      at async locked ([isolated-checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) an unavailable held-out run makes evidence incomplete and is never rerun [5721.30ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [5.89s]

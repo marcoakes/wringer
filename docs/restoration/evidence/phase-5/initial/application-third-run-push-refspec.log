@@ -1,0 +1,47 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+83 |     expect(result.summary.candidate.heldOut).toMatchObject({ caught: 4, missed: 0, falsePositives: 0 });
+84 |     expect(result.summary.baseline.heldOut).toMatchObject({ caught: 2, missed: 2, falsePositives: 0 });
+85 |     expect(result.qualification).toEqual({ qualified: true, reasons: [] });
+86 |     expect(c.runs).toHaveLength(2 * variants.length);
+87 |     const ajv = addFormats(new Ajv2020({ strict: false }));
+88 |     expect(ajv.validate(await Bun.file(new URL("../../../schema/gate-evaluation-v1.schema.json", import.meta.url)).json(), result)).toBe(true);
+                                                                                                                        ^
+ENOENT: no such file or directory, open '[checkout]/schema/gate-evaluation-v1.schema.json'
+    path: "[checkout]/schema/gate-evaluation-v1.schema.json",
+ syscall: "open",
+   errno: -2,
+    code: "ENOENT"
+
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:88:116)
+(fail) a useful gate qualifies: it catches more held-out defects than the baseline without failing a control [5619.61ms]
+12 | import { adoptGateSelection, createGateOracle, createGateProposal, evaluateGateExperiment, prepareGateChange, readGateExperiment, readGateSelections, registerGateExperiment, registerWorkflowExperiment, sendGateChange, undoGateSelection, type GateDeclaration } from "../src";
+13 | 
+14 | const directories: string[] = [];
+15 | afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }); });
+16 | const env = { PATH: "/usr/bin:/bin", GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" };
+17 | function git(args: string[], cwd?: string) { const r = Bun.spawnSync(["git", "-c", "user.name=Gate fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], { cwd, env, stdout: "pipe", stderr: "pipe" }); if (r.exitCode) throw new Error(r.stderr.toString()); return r.stdout.toString().trim(); }
+                                                                                                                                                                                                                                                                                                                 ^
+error: error: The destination you provided is not a full refname (i.e.,
+starting with "refs/"). We tried to guess what you meant by:
+
+- Looking for a ref that matches 'main' on the remote side.
+- Checking if the <src> being pushed ('HEAD')
+  is a ref in "refs/{heads,tags}/". If so we add a corresponding
+  refs/{heads,tags}/ prefix on the remote side.
+
+Neither worked, so we gave up. You must fully qualify the ref.
+hint: The <src> part of the refspec is a commit object.
+hint: Did you mean to create a new branch by pushing to
+hint: 'HEAD:refs/heads/main'?
+error: failed to push some refs to '[tmp]/wringer-gate-experiment-gZ37LV/origin.git'
+
+      at git ([checkout]/packages/application/test/gate-experiments.test.ts:17:301)
+      at <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:138:138)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [5750.67ms]
+
+ 11 pass
+ 2 fail
+ 28 expect() calls
+Ran 13 tests across 1 file. [58.00s]

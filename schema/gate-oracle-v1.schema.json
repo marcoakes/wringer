@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The frozen independent evaluator's labels",
+  "description": "Held by the evaluator outside every proposer's repository. Only its digest is registered before any run; evaluation refuses an oracle whose digest differs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpusId",
+    "labels",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.gate-oracle.v1"
+    },
+    "corpusId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "labels": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "itemId",
+          "label"
+        ],
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "label": {
+            "enum": [
+              "defect",
+              "control"
+            ]
+          }
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

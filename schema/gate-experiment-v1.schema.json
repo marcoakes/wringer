@@ -1,0 +1,459 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A registered gate or workflow comparison",
+  "description": "Frozen before any run: exact corpus commits and splits, the oracle commitment, both arms' gates pinned by content in evaluator commits, the prediction, the run budget and the holdout policy. A workflow arm is the set of gates its loops require and its required human holds.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "taskFamily",
+    "repository",
+    "runtime",
+    "proposalSha256",
+    "corpus",
+    "prediction",
+    "limits",
+    "holdout",
+    "order",
+    "stoppingRule",
+    "accounting",
+    "changedVariable",
+    "arms",
+    "maximumAdditionalHolds",
+    "registeredAt",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.gate-experiment.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "taskFamily": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "kind",
+        "image",
+        "network",
+        "env"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "apple-container",
+            "gvisor-kubernetes"
+          ]
+        },
+        "image": {
+          "type": "string",
+          "pattern": "@sha256:[a-f0-9]{64}$"
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "const": "deny"
+            }
+          }
+        },
+        "env": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "proposalSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "items",
+        "oracleSha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "maxLength": 80
+        },
+        "items": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "split",
+              "commit",
+              "tree"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "split": {
+                "enum": [
+                  "development",
+                  "held-out"
+                ]
+              },
+              "commit": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              },
+              "tree": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              }
+            }
+          }
+        },
+        "oracleSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "minimumAdditionalDefectsCaught",
+        "maximumAdditionalFalsePositives",
+        "minimumHeldOutDefects",
+        "minimumHeldOutControls"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "minimumAdditionalDefectsCaught": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximumAdditionalFalsePositives": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimumHeldOutDefects": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimumHeldOutControls": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxGateRuns",
+        "wallClockSeconds"
+      ],
+      "properties": {
+        "maxGateRuns": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "holdout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateIteration",
+        "maximumCandidateIterations",
+        "proposalSawHeldOut"
+      ],
+      "properties": {
+        "candidateIteration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximumCandidateIterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proposalSawHeldOut": {
+          "const": false
+        }
+      }
+    },
+    "order": {
+      "const": "fixed-corpus-order"
+    },
+    "stoppingRule": {
+      "const": "fixed-sample-no-extension"
+    },
+    "accounting": {
+      "const": "all-planned-runs-including-unavailable"
+    },
+    "changedVariable": {
+      "enum": [
+        "acceptance-gates",
+        "workflow"
+      ]
+    },
+    "arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "candidate"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gates",
+            "requiredHolds",
+            "graphSha256",
+            "commit"
+          ],
+          "properties": {
+            "gates": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "argv",
+                  "cwd",
+                  "timeout_seconds",
+                  "files"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "maxLength": 80
+                  },
+                  "argv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  },
+                  "cwd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3600
+                  },
+                  "files": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "path",
+                        "content"
+                      ],
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "content": {
+                          "type": "string",
+                          "maxLength": 262144
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "requiredHolds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "graphSha256": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        },
+        "candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gates",
+            "requiredHolds",
+            "graphSha256",
+            "commit"
+          ],
+          "properties": {
+            "gates": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "argv",
+                  "cwd",
+                  "timeout_seconds",
+                  "files"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "maxLength": 80
+                  },
+                  "argv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  },
+                  "cwd": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3600
+                  },
+                  "files": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "path",
+                        "content"
+                      ],
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "content": {
+                          "type": "string",
+                          "maxLength": 262144
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "requiredHolds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "graphSha256": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        }
+      }
+    },
+    "maximumAdditionalHolds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "registeredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

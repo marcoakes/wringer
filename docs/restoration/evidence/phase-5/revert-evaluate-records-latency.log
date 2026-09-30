@@ -1,0 +1,63 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+37 |     expect(result.summary.candidate.heldOut).toMatchObject({ caught: 4, missed: 0, falsePositives: 0 });
+38 |     expect(result.summary.baseline.heldOut).toMatchObject({ caught: 2, missed: 2, falsePositives: 0 });
+39 |     expect(result.qualification).toEqual({ qualified: true, reasons: [] });
+40 |     expect(c.runs).toHaveLength(2 * variants.length);
+41 |     // Latency is the gate commands' reported durations (the fixture reports 1 ms per command).
+42 |     expect(result.summary.candidate).toMatchObject({ gateRuns: variants.length, durationMs: variants.length }); expect(result.runs.every(run => run.durationMs === 1)).toBe(true);
+                                          ^
+error: expect(received).toMatchObject(expected)
+
+  {
+-   "durationMs": 8,
++   "all": {
++     "caught": 5,
++     "controls": 3,
++     "controlsPassed": 3,
++     "defects": 5,
++     "falsePositives": 0,
++     "items": 8,
++     "missed": 0,
++     "passRate": 0.375,
++     "unavailable": 0,
++   },
++   "development": {
++     "caught": 1,
++     "controls": 1,
++     "controlsPassed": 1,
++     "defects": 1,
++     "falsePositives": 0,
++     "items": 2,
++     "missed": 0,
++     "passRate": 0.5,
++     "unavailable": 0,
++   },
++   "durationMs": 0,
+    "gateRuns": 8,
++   "heldOut": {
++     "caught": 4,
++     "controls": 2,
++     "controlsPassed": 2,
++     "defects": 4,
++     "falsePositives": 0,
++     "items": 6,
++     "missed": 0,
++     "passRate": 0.3333333333333333,
++     "unavailable": 0,
++   },
++   "requiredHolds": 0,
+  }
+
+- Expected  - 1
++ Received  + 35
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:42:38)
+(fail) a useful gate qualifies: it catches more held-out defects than the baseline without failing a control [5711.43ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 5 expect() calls
+Ran 1 test across 1 file. [5.90s]

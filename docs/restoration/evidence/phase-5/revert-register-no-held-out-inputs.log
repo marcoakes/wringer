@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+68 |     await expect(evaluateGateExperiment(state, swapped, { runCommands: c.runCommands, evidenceKind: "deterministic-fixture" })).rejects.toThrow("oracle");
+69 |     expect(c.runs).toEqual([]);
+70 | }, 120000);
+71 | test("a proposal built from a held-out item cannot be registered", async () => {
+72 |     const c = await corpus(), proposed = proposal(c, [gates.property], ["correct-sum", "sign-flip"]);
+73 |     await expect(registerGateExperiment(join(c.root, "experiment"), experiment(c, proposed), proposed, c.bundle)).rejects.toThrow("held-out");
+                                                                                                                               ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:73:123)
+(fail) a proposal built from a held-out item cannot be registered [4863.15ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.03s]

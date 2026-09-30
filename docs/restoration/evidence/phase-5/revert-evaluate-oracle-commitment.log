@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+63 | }, 120000);
+64 | test("an oracle that differs from the registered commitment is refused before any run", async () => {
+65 |     const c = await corpus(), proposed = proposal(c, [gates.property]), state = join(c.root, "experiment");
+66 |     await registerGateExperiment(state, experiment(c, proposed), proposed, c.bundle);
+67 |     const swapped = createGateOracle("totals", variants.map(v => ({ itemId: v.id, label: v.id === "sign-flip" ? "control" : v.label })));
+68 |     await expect(evaluateGateExperiment(state, swapped, { runCommands: c.runCommands, evidenceKind: "deterministic-fixture" })).rejects.toThrow("oracle");
+                                                                                                                                             ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:68:137)
+(fail) an oracle that differs from the registered commitment is refused before any run [5689.10ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.86s]

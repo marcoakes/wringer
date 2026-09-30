@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+ 99 |     await expect(prepareGateChange(state, join(c.root, "change-again"))).rejects.toThrow("already prepared");
+100 |     expect(git(["--git-dir", origin, "branch", "--list", "wringer/gate-property"])).toBe("");
+101 |     const actor = "Scripted engineering fixture";
+102 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "main", actor })).rejects.toThrow("non-default review branch");
+103 |     const trunk = join(c.root, "trunk.git"); git(["init", "-q", "--bare", "-b", "trunk", trunk]); git(["-C", c.repo, "push", "-q", trunk, "HEAD:refs/heads/trunk"]);
+104 |     await expect(sendGateChange(state, { remote: trunk, sourceBranch: "trunk", actor })).rejects.toThrow("remote default branch");
+                                                                                                       ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "remote default branch"
+Received message: "The review branch already exists with different content; nothing was sent"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:104:98)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [6066.01ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [6.24s]

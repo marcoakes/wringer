@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.28
+Wringer · Bun/TypeScript · 1.0.0-alpha.29
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -295,7 +295,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.28
+Wringer assistant entry point — 1.0.0-alpha.29
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.
@@ -646,6 +646,7 @@ ending only; it grants zero agent sessions and never extends original approval.
 Research reviews never become product Yes or Send. Promotion and rollback select an exact
 approach for FUTURE unapproved plans only; they do not start or approve a job.
 Fixtures cannot prove live benefit. Guide: docs/native/EXPERIMENTS.md
+Gate and workflow proposals, judged by a frozen oracle: wring experiment gate --help
 
 Connect the optional card to an existing assistant workspace (operator setup):
   wring experiment connect --assistant-state CONTROLLER --research-root PRIVATE_ROOT
@@ -654,6 +655,40 @@ Read structured failures from ordinary jobs without collecting anything:
   wring experiment patterns --from ORDINARY_CONTROLLER [--from ANOTHER] --task-family FAMILY
 Comparisons live in PRIVATE_ROOT/experiments/<registered-id>. Paths are never accepted
 from the coding-app tool or a browser decision. Connecting starts and approves nothing.
+```
+
+## wring experiment gate
+
+```text
+wring experiment gate · compare a proposed check against a frozen oracle
+
+  wring experiment gate propose --input PROPOSAL-INPUT.json --output PROPOSAL.json
+  wring experiment gate oracle --corpus ID --labels LABELS.json --output ORACLE.json
+  wring experiment gate register --input EXPERIMENT.json --proposal PROPOSAL.json --source-bundle CORPUS.bundle --state DIR
+  wring experiment workflow register --input EXPERIMENT.json --proposal PROPOSAL.json --source-bundle CORPUS.bundle --state DIR
+  wring experiment gate evaluate --state DIR --oracle ORACLE.json --yes
+  wring experiment gate status --state DIR
+  wring experiment gate change --state DIR --output NEW-DIRECTORY
+  wring experiment gate send --state DIR --remote URL_OR_BARE_PATH --source-branch REVIEW --by NAME --yes
+  wring experiment gate adopt --state DIR --registry DIR --by NAME [--revision SHA] --yes
+  wring experiment gate undo --registry DIR --by NAME --revision SHA --yes
+  wring experiment gate selections --registry DIR
+
+A proposal changes how work is checked, so it never grades itself. Registration
+freezes exact corpus commits and splits, a commitment to the oracle's labels,
+both arms' gates pinned by content, the prediction and a fixed run budget. The
+oracle stays with the evaluator until evaluation. Every run executes in a fresh
+contained verifier with the arm's gate files overlaid; a reserved run without a
+record is uncertain and never rerun. Qualification is decided on the held-out
+split against the oracle, never by a gate's own pass rate.
+
+A workflow arm is the set of gates its loops require plus its required human
+holds, compared on the same corpus (EXPERIMENT.json names baselineGraph and
+candidateGraph files). This is a static evaluation of recorded candidates, not a
+live run. Preparing a source change, sending it and adopting it for future plans
+are separate actions; none changes an active plan, grader or approval.
+Exit: 0 done or qualified, 3 evaluated but not qualified, 2 refused.
+Guide: docs/native/GATE_EXPERIMENTS.md
 ```
 
 ## wring drive graph

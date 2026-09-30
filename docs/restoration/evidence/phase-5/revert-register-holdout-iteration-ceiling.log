@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+171 |     const c = await corpus(), proposed = proposal(c, [gates.property]), input = experiment(c, proposed), at = (name: string) => join(c.root, name);
+172 |     await expect(registerGateExperiment(at("a"), { ...input, runtime: { ...runtime, image: "fixture.invalid/verifier:latest" } }, proposed, c.bundle)).rejects.toThrow("pinned by digest");
+173 |     await expect(registerGateExperiment(at("b"), { ...input, runtime: { ...runtime, network: { policy: "allow" } } as any }, proposed, c.bundle)).rejects.toThrow("deny the network");
+174 |     await expect(registerGateExperiment(at("c"), { ...input, runtime: { ...runtime, env: ["TOKEN"] } }, proposed, c.bundle)).rejects.toThrow("no credentials");
+175 |     await expect(registerGateExperiment(at("d"), { ...input, corpus: { ...input.corpus, items: input.corpus.items.map((item, index) => index === 3 ? { ...item, tree: input.corpus.items[0]!.tree } : item) } }, proposed, c.bundle)).rejects.toThrow("registered tree");
+176 |     await expect(registerGateExperiment(at("e"), { ...input, holdout: { ...input.holdout, candidateIteration: 4 } }, proposed, c.bundle)).rejects.toThrow("exhausted");
+                                                                                                                                                        ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:176:147)
+(fail) registration refuses an unpinned or networked verifier, a wrong item tree and an exhausted holdout [6873.76ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 5 expect() calls
+Ran 1 test across 1 file. [7.06s]

@@ -1,20 +1,22 @@
 # Current product evidence — 30 September 2026
 
 The current verified public release is
-[1.0.0-alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26),
-commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`: serial graphs of contained
-loops. All five test jobs, the Linux DAC job and all six release jobs passed on
-their first attempt. All 14 public assets matched the clean source, both archives'
-signed provenance verified, and public macOS extraction/installation passed 17/13
-checks. Linux ran in native CI. See the [release verification](docs/restoration/evidence/phase-3/release.json)
-for hashes, jobs and the authenticated-download limitation. The previous release,
-[alpha.25](docs/restoration/evidence/phase-2/release.json), retains its Linux
-browser retry.
+[1.0.0-alpha.28](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.28),
+commit `b7e9827cc94ddcb3521556ea5b2192b5d750b80c`: parallel branches with verified
+integration. All six test jobs, now including macOS 14, the Linux DAC job and all
+six release jobs passed on this commit's first attempt. All 14 public assets
+matched the clean source, both archives' signed provenance verified, and public
+macOS extraction/installation passed 17/13 checks. Linux ran in native CI. See
+the [release verification](docs/restoration/evidence/phase-4/release.json) for
+hashes, jobs and the authenticated-download limitation. The previous release,
+[alpha.26](docs/restoration/evidence/phase-3/release.json), carried serial graphs.
 
-Phase 4 adds parallel branches with verified integration as alpha.28; it is under
-local qualification and not yet a published release. The `v1.0.0-alpha.27` tag's
-release build failed on macOS 14 and was never published; see the
-[release attempt](docs/restoration/evidence/phase-4/release-attempt-alpha27/ci-release.json).
+Phase 4's parallel branches were published as
+[alpha.28](docs/restoration/evidence/phase-4/release.json) after the
+`v1.0.0-alpha.27` tag's release build failed on macOS 14 and was never published
+([release attempt](docs/restoration/evidence/phase-4/release-attempt-alpha27/ci-release.json)).
+Phase 5 adds gate and workflow proposals as alpha.29; it is under local
+qualification and not yet a published release.
 
 Graph execution is fixture-tested: 81 isolated reversions, a compiled public
 walkthrough with two crash probes and a Node-only export check. Live agent

@@ -59,9 +59,11 @@ ending only; it grants zero agent sessions and never extends original approval.
 Research reviews never become product Yes or Send. Promotion and rollback select an exact
 approach for FUTURE unapproved plans only; they do not start or approve a job.
 Fixtures cannot prove live benefit. Guide: docs/native/EXPERIMENTS.md
+Gate and workflow proposals, judged by a frozen oracle: wring experiment gate --help
 `;
 const confirmed = (a: Args) => { if (!flag(a, "yes")) throw new Error("This separate operator action needs --yes after reviewing its exact finite allowance or adoption evidence. No action was taken."); };
 export async function experimentCommand(a: Args, repo: string): Promise<Answer> {
+    if (["gate", "workflow"].includes(a.words[0] ?? "")) { const { gateExperimentCommand } = await import("./gate-experiment-cli"); return gateExperimentCommand(a, repo); }
     if (flag(a, "help")) return { value: { help: EXPERIMENT_HELP }, text: EXPERIMENT_HELP };
     positionals(a, 1); const operation = a.words[0];
     if (a.flags.has("job")) {

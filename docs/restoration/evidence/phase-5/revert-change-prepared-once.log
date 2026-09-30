@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+94 |     const registry = join(c.root, "registry"), origin = join(c.root, "origin.git"); git(["init", "-q", "--bare", "-b", "main", origin]); git(["-C", c.repo, "push", "-q", origin, "HEAD:refs/heads/main"]);
+95 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "wringer/gate-property", actor: "Scripted engineering fixture" })).rejects.toThrow(/prepare/i);
+96 |     const change = await prepareGateChange(state, join(c.root, "change"));
+97 |     expect(await readFile(join(c.root, "change/PROPOSAL.md"), "utf8")).toContain("Rollback");
+98 |     expect(await readFile(join(c.root, "change/change.patch"), "utf8")).toContain("gates/property.sh");
+99 |     await expect(prepareGateChange(state, join(c.root, "change-again"))).rejects.toThrow("already prepared");
+                                                                                      ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:99:82)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [6064.40ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [6.23s]

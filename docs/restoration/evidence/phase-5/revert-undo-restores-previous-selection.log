@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+112 |     const adopted = await adoptGateSelection(state, registry, { actor, expectedRevision: null });
+113 |     expect(adopted.evaluationSha256).toBe(result.sha256); expect((await readGateSelections(registry)).current?.gates.map(g => g.id)).toEqual(["property"]);
+114 |     await expect(adoptGateSelection(state, registry, { actor, expectedRevision: null })).rejects.toThrow("revision");
+115 |     const again = await adoptGateSelection(state, registry, { actor, expectedRevision: adopted.sha256 });
+116 |     const undone = await undoGateSelection(registry, { actor, expectedRevision: again.sha256 });
+117 |     expect(undone.action).toBe("undo"); expect((await readGateSelections(registry)).current?.sha256).toBe(adopted.sha256);
+                                                                                                           ^
+error: expect(received).toBe(expected)
+
+Expected: "b8c705c41163d5a5cf90926b111bc2b73a3fdaf86b5aadb13ce40071e087f2b2"
+Received: undefined
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:117:102)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [6832.59ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 19 expect() calls
+Ran 1 test across 1 file. [7.00s]

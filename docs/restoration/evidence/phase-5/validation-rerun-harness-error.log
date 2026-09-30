@@ -1,0 +1,20 @@
+$ bun scripts/validate.ts standalone-build compiled-cli-reference adoption-examples compiled-board compiled-drive compiled-assistant compiled-figma-broker compiled-assistant-lifecycle local-source-route assistant-launch-rehearsal guided-pm-rehearsal design-pm-rehearsal figma-api-pm-rehearsal local-pm-rehearsal local-design-rehearsal improvements-browser-rehearsal job-improvements-browser-rehearsal adoption-connections-rehearsal verification-browser-rehearsal
+Checking standalone-build…
+standalone-build: PASS (1093 ms)
+Checking compiled-cli-reference…
+compiled-cli-reference: FAIL (5093 ms)
+16 | }
+17 | if (import.meta.main) {
+18 |     const args = process.argv.slice(2), check = args[0] === "--check", binary = check ? args[1] : undefined;
+19 |     if (args.length && (!check || args.length > 2)) throw new Error("Usage: bun scripts/cli-reference.ts [--check [ABSOLUTE_BINARY]]");
+20 |     const text = await generateCliReference(binary ? [resolve(binary)] : undefined);
+21 |     if (check) { if (await readFile(output, "utf8") !== text) throw new Error("CLI reference differs from executable help"); }
+                                                                             ^
+error: CLI reference differs from executable help
+      at [validation-clone]/scripts/cli-reference.ts:21:73
+
+Bun v1.4.2 (macOS arm64)
+
+Validation record: [validation-clone]/.wringer/native-validation-2026-09-30T10-12-31-778Z
+error: script "validate" exited with code 1
+exit=1

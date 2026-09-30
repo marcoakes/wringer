@@ -1,0 +1,235 @@
+{
+  "schema_version": "wringer.restoration-phase5-measurement.v1",
+  "kind": "deterministic: real Git corpus and real gate commands on exported trees; labels are the frozen oracle",
+  "git": "git version 2.50.1 (Apple Git-155)",
+  "playbookContract": {
+    "gateChange": "Only the worker playbook may differ: source, intent, tests, grader, runtime, agents, scope, authority ceilings and protected paths must remain identical",
+    "variableNamed": "Experiments permit one worker-playbook variable, a fixed alternating sample and repository-only data",
+    "reading": "The only comparable variable is the worker playbook; check, grader and plan structure must be identical, so a gate or workflow proposal cannot be registered or evaluated today."
+  },
+  "corpus": {
+    "items": [
+      {
+        "id": "correct-sum",
+        "label": "control",
+        "split": "development"
+      },
+      {
+        "id": "correct-expr",
+        "label": "control",
+        "split": "held-out"
+      },
+      {
+        "id": "correct-awk",
+        "label": "control",
+        "split": "held-out"
+      },
+      {
+        "id": "tautology-two-three",
+        "label": "defect",
+        "split": "development"
+      },
+      {
+        "id": "tautology-held-out",
+        "label": "defect",
+        "split": "held-out"
+      },
+      {
+        "id": "sign-flip",
+        "label": "defect",
+        "split": "held-out"
+      },
+      {
+        "id": "unchanged-bug",
+        "label": "defect",
+        "split": "held-out"
+      }
+    ],
+    "defects": 4,
+    "controls": 3
+  },
+  "gates": {
+    "narrow": {
+      "all": {
+        "caught": 2,
+        "missed": 2,
+        "falsePositives": 0,
+        "passRate": 0.7142857142857143
+      },
+      "heldOut": {
+        "caught": 2,
+        "missed": 1,
+        "falsePositives": 0,
+        "passRate": 0.6
+      },
+      "perItem": {
+        "correct-sum": {
+          "passed": true,
+          "ms": 7.8
+        },
+        "correct-expr": {
+          "passed": true,
+          "ms": 10.3
+        },
+        "correct-awk": {
+          "passed": true,
+          "ms": 11.2
+        },
+        "tautology-two-three": {
+          "passed": true,
+          "ms": 8.1
+        },
+        "tautology-held-out": {
+          "passed": true,
+          "ms": 7.9
+        },
+        "sign-flip": {
+          "passed": false,
+          "ms": 7.3
+        },
+        "unchanged-bug": {
+          "passed": false,
+          "ms": 7.7
+        }
+      }
+    },
+    "weakened": {
+      "all": {
+        "caught": 0,
+        "missed": 4,
+        "falsePositives": 0,
+        "passRate": 1
+      },
+      "heldOut": {
+        "caught": 0,
+        "missed": 3,
+        "falsePositives": 0,
+        "passRate": 1
+      },
+      "perItem": {
+        "correct-sum": {
+          "passed": true,
+          "ms": 7.6
+        },
+        "correct-expr": {
+          "passed": true,
+          "ms": 8.6
+        },
+        "correct-awk": {
+          "passed": true,
+          "ms": 8.5
+        },
+        "tautology-two-three": {
+          "passed": true,
+          "ms": 7.4
+        },
+        "tautology-held-out": {
+          "passed": true,
+          "ms": 7.2
+        },
+        "sign-flip": {
+          "passed": true,
+          "ms": 7.1
+        },
+        "unchanged-bug": {
+          "passed": true,
+          "ms": 7.2
+        }
+      }
+    },
+    "noisy": {
+      "all": {
+        "caught": 3,
+        "missed": 1,
+        "falsePositives": 2,
+        "passRate": 0.2857142857142857
+      },
+      "heldOut": {
+        "caught": 2,
+        "missed": 1,
+        "falsePositives": 2,
+        "passRate": 0.2
+      },
+      "perItem": {
+        "correct-sum": {
+          "passed": true,
+          "ms": 10.7
+        },
+        "correct-expr": {
+          "passed": false,
+          "ms": 10.4
+        },
+        "correct-awk": {
+          "passed": false,
+          "ms": 10.7
+        },
+        "tautology-two-three": {
+          "passed": false,
+          "ms": 9.2
+        },
+        "tautology-held-out": {
+          "passed": true,
+          "ms": 9.2
+        },
+        "sign-flip": {
+          "passed": false,
+          "ms": 7.6
+        },
+        "unchanged-bug": {
+          "passed": false,
+          "ms": 7.8
+        }
+      }
+    },
+    "property": {
+      "all": {
+        "caught": 4,
+        "missed": 0,
+        "falsePositives": 0,
+        "passRate": 0.42857142857142855
+      },
+      "heldOut": {
+        "caught": 3,
+        "missed": 0,
+        "falsePositives": 0,
+        "passRate": 0.4
+      },
+      "perItem": {
+        "correct-sum": {
+          "passed": true,
+          "ms": 52
+        },
+        "correct-expr": {
+          "passed": true,
+          "ms": 70.1
+        },
+        "correct-awk": {
+          "passed": true,
+          "ms": 70.5
+        },
+        "tautology-two-three": {
+          "passed": false,
+          "ms": 7.7
+        },
+        "tautology-held-out": {
+          "passed": false,
+          "ms": 7.4
+        },
+        "sign-flip": {
+          "passed": false,
+          "ms": 11.5
+        },
+        "unchanged-bug": {
+          "passed": false,
+          "ms": 7.7
+        }
+      }
+    }
+  },
+  "readings": [
+    "The weakened gate passes every item: the highest pass rate and the fewest caught defects. A pass rate cannot judge a gate; the oracle's labels can.",
+    "The noisy gate catches defects but fails correct controls that use another valid implementation; false positives only show on controls.",
+    "The property gate catches every seeded defect without failing a control on the held-out split.",
+    "The narrow existing gate passes the tautology written for its one example; its own pass rate would call that change correct."
+  ]
+}

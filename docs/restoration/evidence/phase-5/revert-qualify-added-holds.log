@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+157 | test("a workflow that adds a required human hold does not qualify, however many defects it catches", async () => {
+158 |     const c = await corpus(), state = join(c.root, "workflow"), proposed = workflowProposal([gates.narrow, gates.property]);
+159 |     await registerWorkflowExperiment(state, workflowInput(c, proposed, workflowGraph(c, [gates.narrow], 0), workflowGraph(c, [gates.narrow, gates.property], 1)), proposed, c.bundle);
+160 |     const result = await evaluateGateExperiment(state, c.oracle, { runCommands: c.runCommands, evidenceKind: "deterministic-fixture" });
+161 |     expect(result.summary.candidate.heldOut.caught).toBe(4);
+162 |     expect(result.qualification.qualified).toBe(false); expect(result.qualification.reasons.join(" ")).toContain("required human holds");
+                                                 ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:162:44)
+(fail) a workflow that adds a required human hold does not qualify, however many defects it catches [6141.50ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [6.31s]

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+101 |     const actor = "Scripted engineering fixture";
+102 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "main", actor })).rejects.toThrow("non-default review branch");
+103 |     const trunk = join(c.root, "trunk.git"); git(["init", "-q", "--bare", "-b", "trunk", trunk]); git(["-C", c.repo, "push", "-q", trunk, "HEAD:refs/heads/trunk"]);
+104 |     await expect(sendGateChange(state, { remote: trunk, sourceBranch: "trunk", actor })).rejects.toThrow("remote default branch");
+105 |     git(["-C", c.repo, "push", "-q", origin, "HEAD:refs/heads/wringer/taken"]);
+106 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "wringer/taken", actor })).rejects.toThrow("already exists with different content");
+                                                                                                                ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:106:107)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [6652.54ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 8 expect() calls
+Ran 1 test across 1 file. [6.82s]

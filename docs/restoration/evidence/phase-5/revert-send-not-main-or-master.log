@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+ 97 |     expect(await readFile(join(c.root, "change/PROPOSAL.md"), "utf8")).toContain("Rollback");
+ 98 |     expect(await readFile(join(c.root, "change/change.patch"), "utf8")).toContain("gates/property.sh");
+ 99 |     await expect(prepareGateChange(state, join(c.root, "change-again"))).rejects.toThrow("already prepared");
+100 |     expect(git(["--git-dir", origin, "branch", "--list", "wringer/gate-property"])).toBe("");
+101 |     const actor = "Scripted engineering fixture";
+102 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "main", actor })).rejects.toThrow("non-default review branch");
+                                                                                                       ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "non-default review branch"
+Received message: "The review branch is the remote default branch; nothing was sent"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:102:98)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [6064.06ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 6 expect() calls
+Ran 1 test across 1 file. [6.24s]

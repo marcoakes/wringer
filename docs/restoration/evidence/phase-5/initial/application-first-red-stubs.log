@@ -1,0 +1,131 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:76:21)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:82:33)
+(fail) a useful gate qualifies: it catches more held-out defects than the baseline without failing a control [599.49ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:76:21)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:91:30)
+(fail) a weakened gate looks greener but fails the independent comparison [574.39ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:76:21)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:96:30)
+(fail) a noisy gate exposes false positives on correct controls [574.13ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:76:21)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:101:30)
+(fail) an item cannot rewrite the gate that judges it [573.86ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:76:21)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:105:30)
+(fail) a missed prediction does not qualify [572.70ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:109:21)
+(fail) an oracle that differs from the registered commitment is refused before any run [569.59ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:116:21)
+(fail) a proposal built from a held-out item cannot be registered [567.49ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:120:21)
+(fail) a proposal that differs from the registered digest is refused [574.50ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:124:21)
+(fail) a plan larger than its run budget is refused at registration [581.29ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:128:21)
+(fail) an unavailable held-out run makes evidence incomplete and is never rerun [575.93ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:76:21)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:137:40)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [570.40ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:76:21)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:154:32)
+(fail) an unqualified proposal cannot prepare a change or be adopted [582.00ms]
+1 | /** Gate and workflow proposals evaluated against a frozen oracle (stubs; red first). */
+2 | export interface GateDeclaration { id: string; argv: string[]; cwd: string; timeout_seconds: number; files: { path: string; content: string }[]; }
+3 | const pending = (name: string) => { throw new Error(`${name} not implemented`); };
+                                                  ^
+error: createGateOracle not implemented
+      at pending ([checkout]/packages/application/src/gate-experiments.ts:3:47)
+      at corpus ([checkout]/packages/application/test/gate-experiments.test.ts:50:20)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:159:21)
+(fail) a workflow proposal is compared through the gates and holds its graph requires [584.99ms]
+
+ 0 pass
+ 13 fail
+Ran 13 tests across 1 file. [7.69s]

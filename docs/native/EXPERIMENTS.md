@@ -9,6 +9,10 @@ your judgement, then make a separate handover decision. Improvement work is
 optional and receives a **separate finite allowance**. No background experiment,
 automatic paid analysis, model supervisor or automatic promotion is enabled.
 
+This page covers worker playbooks. A proposal that changes the checks or the
+workflow changes the grader, so it has its own route with a frozen oracle:
+[gate and workflow proposals](GATE_EXPERIMENTS.md).
+
 ## What is implemented
 
 | Operation | What happens | What does not happen |

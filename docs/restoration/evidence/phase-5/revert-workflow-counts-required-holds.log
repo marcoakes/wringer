@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+148 | }
+149 | test("a workflow proposal is compared through the gates and holds its graph requires", async () => {
+150 |     const c = await corpus(), state = join(c.root, "workflow"), proposed = workflowProposal([gates.narrow, gates.property]);
+151 |     await registerWorkflowExperiment(state, workflowInput(c, proposed, workflowGraph(c, [gates.narrow], 1), workflowGraph(c, [gates.narrow, gates.property], 1)), proposed, c.bundle);
+152 |     const result = await evaluateGateExperiment(state, c.oracle, { runCommands: c.runCommands, evidenceKind: "deterministic-fixture" });
+153 |     expect(result.summary.candidate.heldOut.caught).toBe(4); expect(result.summary.candidate.requiredHolds).toBe(1);
+                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: 1
+Received: 0
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:153:109)
+(fail) a workflow proposal is compared through the gates and holds its graph requires [6094.53ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [6.27s]

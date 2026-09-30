@@ -32,6 +32,7 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
     if (["setup", "job", "connect", "recover", "diagnostics", "storage"].includes(a.command)) return (await import("./adoption-cli")).adoptionCommand(a, context);
     if (a.command === "runtime") return (await import("./runtime-cli")).runtimeCommand(a, context);
     if (["install", "upgrade", "uninstall"].includes(a.command)) return (await import("./install-cli")).installationCommand(a);
+    if (a.command === "experiment" && ["gate", "workflow"].includes(a.words[0] ?? "")) return experimentCommand(a, repo);
     if (flag(a, "help") || !a.command)
         return { text: a.command === "design" ? DESIGN_HELP : a.command === "experiment" ? EXPERIMENT_HELP + IMPROVEMENT_CONNECT_HELP : commandHelp[a.command] || HELP };
     context.signal?.throwIfAborted();

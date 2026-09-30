@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+214 | test("an infrastructure failure stops collection and keeps every remaining run in the denominator", async () => {
+215 |     const c = await corpus(), proposed = proposal(c, [gates.property]), state = join(c.root, "experiment");
+216 |     await registerGateExperiment(state, experiment(c, proposed), proposed, c.bundle);
+217 |     let calls = 0; const broken = async (request: ContainedCommandRequest) => { if (++calls === 4) throw new Error("runtime lost"); return c.runCommands(request); };
+218 |     const result = await evaluateGateExperiment(state, c.oracle, { runCommands: broken, evidenceKind: "deterministic-fixture" });
+219 |     expect(calls).toBe(4); expect(result.runs[3]!.outcome).toBe("unavailable");
+                        ^
+error: expect(received).toBe(expected)
+
+Expected: 4
+Received: 16
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:219:19)
+(fail) an infrastructure failure stops collection and keeps every remaining run in the denominator [5669.80ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.85s]

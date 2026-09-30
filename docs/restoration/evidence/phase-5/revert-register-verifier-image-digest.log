@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+167 |     const exact = workflowProposal([gates.narrow, gates.property]);
+168 |     await expect(registerWorkflowExperiment(join(c.root, "b"), workflowInput(c, exact, workflowGraph(c, [gates.narrow], 0), workflowGraph(c, [gates.narrow, gates.property], 0, c.items[0]!.commit)), exact, c.bundle)).rejects.toThrow("pin the corpus base");
+169 | }, 120000);
+170 | test("registration refuses an unpinned or networked verifier, a wrong item tree and an exhausted holdout", async () => {
+171 |     const c = await corpus(), proposed = proposal(c, [gates.property]), input = experiment(c, proposed), at = (name: string) => join(c.root, name);
+172 |     await expect(registerGateExperiment(at("a"), { ...input, runtime: { ...runtime, image: "fixture.invalid/verifier:latest" } }, proposed, c.bundle)).rejects.toThrow("pinned by digest");
+                                                                                                                                                                     ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:172:160)
+(fail) registration refuses an unpinned or networked verifier, a wrong item tree and an exhausted holdout [4442.77ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [4.62s]

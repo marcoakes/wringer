@@ -10,8 +10,8 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 1. Loops and portable evidence | Published and verified | [alpha.24](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.24), commit `40421292da044b91a7d8b072e64066f4d56d6aa4`; [release verification](evidence/phase-1/release.json) |
 | 2. Improvement workflow | Published and verified | [alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25), commit `599ea5f3694035822d214229f6e3bd212dabe455`; [release evidence](evidence/phase-2/release.json) |
 | 3. Serial graphs | Published and verified | [alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26), commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`; [release evidence](evidence/phase-3/release.json); [measurements](PHASE_3_MEASUREMENTS.md) |
-| 4. Parallel branches/integration | The `v1.0.0-alpha.27` release build failed on macOS 14 (Git 2.39) and was never published; fixed as alpha.28; local qualification passed; remote release pending | Fork/join compiler, multi-cursor kernel, deterministic integration with fresh verification against every branch plan, graph-evidence delivery, four sibling schemas; [measurements](PHASE_4_MEASUREMENTS.md) |
-| 5. Gate/workflow improvement | Pending | — |
+| 4. Parallel branches/integration | Published and verified | [alpha.28](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.28), commit `b7e9827cc94ddcb3521556ea5b2192b5d750b80c`; [release evidence](evidence/phase-4/release.json); [measurements](PHASE_4_MEASUREMENTS.md). The `v1.0.0-alpha.27` tag's release build failed on macOS 14 and was never published |
+| 5. Gate/workflow improvement | alpha.29 local qualification passed; remote release pending | Gate and workflow proposals judged on held-out items against a frozen oracle, pinned gate overlays, reviewable change, separate Send and future-only adoption, five sibling schemas; [measurements](PHASE_5_MEASUREMENTS.md) |
 | 6. Tournament/prosecutor | Pending | — |
 | 7. Temporal durability | Pending | — |
 | 8. Platform interfaces | Pending | — |
@@ -219,6 +219,39 @@ GitHub access; anonymous-install qualification was not measured. The
   [phase 4 record](PHASE_4_MEASUREMENTS.md). Full local validation of the fix
   passed all 38 stages: 1,325 pass, one Linux-only skip, zero fail and 12,870
   assertions ([record](evidence/phase-4/local-validation-alpha28.json)).
+
+## Phase 5 measurements
+
+- Baseline (on alpha.27's source): the playbook comparison correctly refuses any
+  change to checks. On one labelled corpus a weakened gate had the highest pass
+  rate (100%) and caught none of four seeded defects; a noisy gate caught three
+  and failed two of three correct controls; a property gate caught all four with
+  no false positive. See the [baseline](PHASE_5_MEASUREMENTS.md).
+- The design follows those measurements: a sibling experiment contract with a
+  frozen oracle registered by digest, gates pinned by content and overlaid on
+  every item, a fixed sample judged on the held-out split, and proposal,
+  evaluation, change, Send and future-only adoption as separate records.
+- Measurement found one product defect in my own first cut: `wring experiment
+  gate --help` answered with the general experiment help, because the generic
+  help ran first. The first help test was vacuous; it matched text both helps
+  contain. The route and the test were fixed.
+- Measurement errors are retained: a first red run that needed stubs to fail on
+  behaviour, 5 s timeouts, a fixture push to an unqualified refname, a
+  case-sensitive message match and a walkthrough compiled from the wrong
+  directory. A full validation run inside a Git worktree failed 15 delivery tests
+  because `.git` is a file there; that is a separate, pre-existing defect.
+- All **48 individual reversions** failed as intended and every restoration and
+  both controls passed: a refusal vanished in 21, recorded state changed in 23
+  and a different guard refused in 4. Four layered guards are listed with what
+  masks them. See the [reversion record](evidence/phase-5/reversions.json) and
+  [effects](evidence/phase-5/effects.json).
+- Full local validation stopped once, at the CLI reference check: `docs/CLI.md`
+  still named alpha.28 after the version bump. It was regenerated, and the build
+  and every stage from that check on passed on the corrected commit. All 39
+  stages passed across the two runs: 1,352 pass, one Linux-only skip, zero fail
+  and 12,994 assertions ([record](evidence/phase-5/local-validation.json)). One
+  attempt at the rerun is kept as a [harness error](evidence/phase-5/validation-rerun-harness-error.log):
+  the validation clone had not moved to the corrected commit.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.

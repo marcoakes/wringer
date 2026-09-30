@@ -1,0 +1,540 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A gate or workflow comparison judged by its frozen oracle",
+  "description": "Every planned run once, in a fixed order; a reserved run without a record is uncertain and never rerun. Qualification is decided on the held-out split against the oracle's labels: more defects caught than the baseline as predicted, no added false positives on correct controls, no added required holds beyond the allowance, complete evidence and no holdout leakage. A gate's own pass rate never qualifies it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experimentSha256",
+    "oracleSha256",
+    "evidenceKind",
+    "runs",
+    "summary",
+    "qualification",
+    "evaluatedAt",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.gate-evaluation.v1"
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "oracleSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidenceKind": {
+      "enum": [
+        "contained",
+        "deterministic-fixture"
+      ]
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "itemId",
+          "arm",
+          "outcome",
+          "exitCodes",
+          "outputSha256",
+          "runtimeId",
+          "sourceTree",
+          "durationMs"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "itemId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "arm": {
+            "enum": [
+              "baseline",
+              "candidate"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "unavailable",
+              "uncertain",
+              "not-started"
+            ]
+          },
+          "exitCodes": {
+            "type": "array",
+            "items": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "outputSha256": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            ]
+          },
+          "runtimeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceTree": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              }
+            ]
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "candidate"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "all",
+            "development",
+            "heldOut",
+            "requiredHolds",
+            "gateRuns",
+            "durationMs"
+          ],
+          "properties": {
+            "all": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "items",
+                "defects",
+                "controls",
+                "caught",
+                "missed",
+                "falsePositives",
+                "controlsPassed",
+                "unavailable",
+                "passRate"
+              ],
+              "properties": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "defects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "caught": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "missed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "falsePositives": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controlsPassed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unavailable": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "passRate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "development": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "items",
+                "defects",
+                "controls",
+                "caught",
+                "missed",
+                "falsePositives",
+                "controlsPassed",
+                "unavailable",
+                "passRate"
+              ],
+              "properties": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "defects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "caught": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "missed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "falsePositives": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controlsPassed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unavailable": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "passRate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "heldOut": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "items",
+                "defects",
+                "controls",
+                "caught",
+                "missed",
+                "falsePositives",
+                "controlsPassed",
+                "unavailable",
+                "passRate"
+              ],
+              "properties": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "defects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "caught": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "missed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "falsePositives": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controlsPassed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unavailable": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "passRate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "requiredHolds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gateRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "all",
+            "development",
+            "heldOut",
+            "requiredHolds",
+            "gateRuns",
+            "durationMs"
+          ],
+          "properties": {
+            "all": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "items",
+                "defects",
+                "controls",
+                "caught",
+                "missed",
+                "falsePositives",
+                "controlsPassed",
+                "unavailable",
+                "passRate"
+              ],
+              "properties": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "defects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "caught": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "missed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "falsePositives": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controlsPassed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unavailable": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "passRate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "development": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "items",
+                "defects",
+                "controls",
+                "caught",
+                "missed",
+                "falsePositives",
+                "controlsPassed",
+                "unavailable",
+                "passRate"
+              ],
+              "properties": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "defects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "caught": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "missed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "falsePositives": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controlsPassed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unavailable": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "passRate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "heldOut": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "items",
+                "defects",
+                "controls",
+                "caught",
+                "missed",
+                "falsePositives",
+                "controlsPassed",
+                "unavailable",
+                "passRate"
+              ],
+              "properties": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "defects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "caught": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "missed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "falsePositives": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "controlsPassed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unavailable": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "passRate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "requiredHolds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gateRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualified",
+        "reasons"
+      ],
+      "properties": {
+        "qualified": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "evaluatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

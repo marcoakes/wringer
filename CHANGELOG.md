@@ -4,6 +4,29 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.29 — gate and workflow proposals judged by a frozen oracle
+
+- `wring experiment gate` compares a proposed set of checks with the current one
+  on a labelled corpus of exact commits. Registration freezes the corpus and its
+  splits, a digest of the oracle's labels, both arms' gates pinned by content, the
+  prediction, the run budget and the holdout policy before any run.
+- Every run overlays the arm's pinned gate files on the item, so an item cannot
+  rewrite the gate that judges it. A run that cannot show its exact item in a
+  contained verifier is `unavailable`; a reservation without a record is
+  `uncertain` and never rerun; a missing runtime refuses before any reservation.
+- Qualification is decided on the held-out split against the oracle: extra
+  defects caught as predicted, no added false positives on correct controls, no
+  added required holds, complete evidence and no holdout leakage. Per-arm latency
+  and holds are recorded. A gate's own pass rate never qualifies it.
+- `wring experiment workflow register` compares two graphs through the gates their
+  loops require and their required human holds.
+- A qualified evaluation can prepare a reviewable source change with its
+  prediction, results, scope limits and rollback. Send to a review branch and
+  future-only adoption or undo are separate, confirmed, recorded actions.
+- New sibling contracts: `wringer.gate-proposal.v1`, `-oracle.v1`,
+  `-experiment.v1`, `-evaluation.v1` and `-adoption.v1`. Fixture-tested only; see
+  the [qualification record](docs/restoration/STATUS.md).
+
 ## 1.0.0-alpha.28 — parallel branches with verified integration
 
 - A join now integrates with Git 2.38 and 2.39, where Git computes the merge base
@@ -16,7 +39,6 @@ package version and are listed per release.
   build platform.
 
 The rest of this entry was written for that tag:
-
 
 - Version 2 graphs add `fork` and `join`. A fork opens 2–8 private branches, run
   at once up to a declared `parallelism`; each branch reads only the fork's input

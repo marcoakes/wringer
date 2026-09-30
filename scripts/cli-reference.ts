@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { commandHelp } from "../packages/cli/src/help";
 import { runProcess } from "../packages/engine/src/process";
 const root = resolve(import.meta.dir, ".."), output = resolve(root, "docs/CLI.md");
-export const referenceCommands = ["", ...Object.keys(commandHelp), "setup", "runtime", "install", "assistant", "drive", "board", "headless", "figma-broker", "design", "experiment", "drive graph"];
+export const referenceCommands = ["", ...Object.keys(commandHelp), "setup", "runtime", "install", "assistant", "drive", "board", "headless", "figma-broker", "design", "experiment", "experiment gate", "drive graph"];
 export async function generateCliReference(launcher = [process.execPath, resolve(root, "packages/cli/src/launcher.ts")]) {
     const sections = [];
     for (const command of [...new Set(referenceCommands)]) {

@@ -1,0 +1,214 @@
+{
+  "layered": [
+    {
+      "guard": "the oracle labels exactly the registered corpus",
+      "maskedBy": "the registered oracle commitment: any other label set has another digest"
+    },
+    {
+      "guard": "an oracle's and a proposal's own digests",
+      "maskedBy": "the registration commitments: a rebuilt record with another digest never matches what was registered"
+    },
+    {
+      "guard": "holdout leakage reason at qualification",
+      "maskedBy": "registration refuses a proposal whose inputs name a held-out item, so a leaked proposal never reaches evaluation"
+    },
+    {
+      "guard": "the remote confirms the exact sent commit",
+      "maskedBy": "unmeasured: no fixture remote accepts a push and then reports another commit"
+    }
+  ],
+  "effects": [
+    {
+      "name": "proposal-one-content-per-path",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "proposal-author-is-not-a-verdict",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-proposal-digest",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-no-held-out-inputs",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-proposal-never-saw-held-out",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-holdout-iteration-ceiling",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-run-budget",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-item-tree",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-verifier-image-digest",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-network-denied",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "register-no-credentials",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "workflow-candidate-gates-match-proposal",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "workflow-graph-pins-corpus-base",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "workflow-counts-required-holds",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-oracle-commitment",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "evaluate-once",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-reserved-run-is-uncertain",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-wall-clock",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-stop-after-infrastructure-failure",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-gate-overlay",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-arm-uses-its-own-gates",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-provenance-exact-commit",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-provenance-verifier-role",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-provenance-cloned-inside",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-provenance-no-host-mounts",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-every-planned-gate-reported",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-source-tree-matches-item",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-records-latency",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "evaluate-unavailable-exit-is-not-a-verdict",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "qualify-incomplete-evidence",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "qualify-fewer-defects",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "qualify-registered-prediction",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "qualify-false-positives",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "qualify-added-holds",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "change-needs-qualification",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "change-prepared-once",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "send-needs-prepared-change",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "send-once",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "send-not-main-or-master",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "send-not-remote-default",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "send-no-overwrite",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "adopt-expected-revision",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "undo-restores-previous-selection",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "selections-contiguous",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "selections-chained",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "cli-evaluate-needs-yes",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "cli-gate-help-routed",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "cli-runtime-preflight",
+      "effect": "refusal-vanished"
+    }
+  ]
+}

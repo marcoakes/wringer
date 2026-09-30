@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+90 |     expect(c.runs.length).toBe(count); expect(again.sha256).toBe(result.sha256);
+91 | }, 120000);
+92 | test("proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions", async () => {
+93 |     const { c, state, result } = await run([gates.property]);
+94 |     const registry = join(c.root, "registry"), origin = join(c.root, "origin.git"); git(["init", "-q", "--bare", "-b", "main", origin]); git(["-C", c.repo, "push", "-q", origin, "HEAD:refs/heads/main"]);
+95 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "wringer/gate-property", actor: "Scripted engineering fixture" })).rejects.toThrow(/prepare/i);
+                                                                                                                                                       ^
+error: expect(received).toThrow(expected)
+
+Expected pattern: /prepare/i
+Received message: "null is not an object (evaluating 'current.change.commit')"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:95:147)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [5928.12ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [6.10s]

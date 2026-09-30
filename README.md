@@ -34,8 +34,10 @@ development failures → predicted improvement → fixed comparison → future a
 | **Durable, bounded work** | One allowance covers the journey. Resume retains reservations and reconciles uncertain effects; it does not silently buy another attempt. |
 | **Composable workflows** | A graph of contained loops, fresh checks, typed routers, human holds and deliveries. Each step hands the next an exact candidate; a failed requirement cannot be routed to success; a hold binds the exact revision and input; Send stays separate. Export verifies with Node alone. |
 | **Parallel branches with verified integration** | A fork runs private branches at once under one ceiling; a join merges their exact candidates deterministically and re-checks the result against every branch plan. Two changes that each pass can still fail together, and Wringer says so: `integrated`, `failed`, `conflict` or `unavailable`, never a silent merge. |
+| **Proposals that change how work is checked** | A proposed gate or workflow is compared with the current one on a labelled corpus and judged on held-out items against a frozen oracle, never by its own pass rate. A weakened gate looks greener and fails; a noisy gate shows its false positives. A qualified proposal becomes a reviewable source change; Send and future-only adoption stay separate. |
 
 Explore [graphs and parallel branches](docs/native/GRAPHS.md),
+[gate and workflow proposals](docs/native/GATE_EXPERIMENTS.md),
 [loops and inspection](docs/native/LOOP_INSPECTION.md),
 [portable evidence](examples/evidence/README.md),
 [improvements from ordinary jobs](docs/native/JOB_IMPROVEMENTS.md) and
@@ -43,9 +45,10 @@ Explore [graphs and parallel branches](docs/native/GRAPHS.md),
 
 **The platform direction is composable workflows that improve through evidence.**
 Serial graphs of contained loops shipped in 1.0.0-alpha.26; parallel branches with
-verified integration ship in 1.0.0-alpha.28. Both are proven with deterministic
-fixtures and not yet with live agents. Gate/workflow proposals, candidate
-tournaments, Temporal and A2A are the ordered next steps in
+verified integration in 1.0.0-alpha.28; gate and workflow proposals judged by a
+frozen oracle ship in 1.0.0-alpha.29. All are proven with deterministic fixtures
+and not yet with live agents. Candidate tournaments, Temporal and A2A are the
+ordered next steps in
 the [restoration plan](docs/SOTA_RESTORATION_PLAN.md). Their exact current status
 is listed in [capabilities](docs/CAPABILITIES.md); planned features are not
 release claims.

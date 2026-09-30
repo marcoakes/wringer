@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+129 |     await write(join(root, "relinked"), [[0, first], [1, record(1, null)]]);
+130 |     await expect(readGateSelections(join(root, "relinked"))).rejects.toThrow("broken");
+131 | });
+132 | test("an unqualified proposal cannot prepare a change or be adopted", async () => {
+133 |     const { c, state } = await run([gates.weakened]);
+134 |     await expect(prepareGateChange(state, join(c.root, "change"))).rejects.toThrow("qualified");
+                                                                                 ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:134:76)
+(fail) an unqualified proposal cannot prepare a change or be adopted [5643.40ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.82s]

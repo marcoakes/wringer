@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+44 |     expect(ajv.validate(await Bun.file(new URL("../../../schema/gate-evaluation-v1.schema.json", import.meta.url)).json(), result)).toBe(true);
+45 | }, 120000);
+46 | test("a weakened gate looks greener but fails the independent comparison", async () => {
+47 |     const { result } = await run([gates.weakened]);
+48 |     expect(result.summary.candidate.all.passRate).toBeGreaterThan(result.summary.baseline.all.passRate);
+49 |     expect(result.qualification.qualified).toBe(false); expect(result.qualification.reasons.join(" ")).toContain("fewer held-out defects");
+                                                                                                            ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "fewer held-out defects"
+Received: "the registered prediction was not met: -2 additional held-out defects caught against the predicted 1"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:49:104)
+(fail) a weakened gate looks greener but fails the independent comparison [5568.17ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [5.74s]

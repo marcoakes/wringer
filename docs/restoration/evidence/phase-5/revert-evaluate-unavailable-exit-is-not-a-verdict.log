@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+83 | test("an unavailable held-out run makes evidence incomplete and is never rerun", async () => {
+84 |     const c = await corpus(), proposed = proposal(c, [gates.property]), state = join(c.root, "experiment");
+85 |     await registerGateExperiment(state, experiment(c, proposed), proposed, c.bundle);
+86 |     const flaky = async (request: ContainedCommandRequest) => { const r = await c.runCommands(request); if (request.repo.commit === c.items.find(i => i.id === "sign-flip")!.commit && request.commands[0]!.id === "candidate/property") r.results[0]!.code = 127; return r; };
+87 |     const result = await evaluateGateExperiment(state, c.oracle, { runCommands: flaky, evidenceKind: "deterministic-fixture" });
+88 |     expect(result.qualification.qualified).toBe(false); expect(result.qualification.reasons.join(" ")).toContain("incomplete");
+                                                ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:88:44)
+(fail) an unavailable held-out run makes evidence incomplete and is never rerun [5726.54ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.90s]

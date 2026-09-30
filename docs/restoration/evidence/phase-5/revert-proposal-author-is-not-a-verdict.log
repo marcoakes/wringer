@@ -1,0 +1,53 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+177 |     await expect(registerGateExperiment(at("f"), { ...input, holdout: { ...input.holdout, proposalSawHeldOut: true } } as any, proposed, c.bundle)).rejects.toThrow("saw held-out");
+178 | }, 120000);
+179 | test("a proposal cannot pin one gate path two ways or claim a human verdict", () => {
+180 |     const clash = { ...gates.property, id: "other", files: [{ path: "gates/property.sh", content: "exit 0\n" }] };
+181 |     expect(() => createGateProposal({ id: "clash", taskFamily: "totals", candidateGates: [gates.property, clash], rationale: "Two contents.", inputs: { developmentItems: [] }, author: { actor: "Fixture", kind: "operator" } })).toThrow("two different contents");
+182 |     expect(() => createGateProposal({ id: "verdict", taskFamily: "totals", candidateGates: [gates.property], rationale: "A person accepted it.", inputs: { developmentItems: [] }, author: { actor: "Fixture", kind: "human" as any } })).toThrow("never a human verdict");
+                                                                                                                                                                                                                                                ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "never a human verdict"
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.gate-proposal.v1",
+  id: "verdict",
+  taskFamily: "totals",
+  candidateGates: [
+    {
+      id: "property",
+      argv: [ "sh", "gates/property.sh" ],
+      cwd: ".",
+      timeout_seconds: 10,
+      files: [
+        {
+          path: "gates/property.sh",
+          content: "for a in 0 2 7 11; do for b in 0 3 5; do test \"$(sh src/total.sh $a $b)\" = $(( a + b )) || exit 1; done; done\n",
+        }
+      ],
+    }
+  ],
+  rationale: "A person accepted it.",
+  inputs: {
+    developmentItems: [],
+  },
+  author: {
+    actor: "Fixture",
+    kind: "human",
+  },
+  createdAt: "2026-09-30T09:32:53.898Z",
+  sha256: "93e6724a25f84c649949b388c0646914dbcba0f967c24d6ab82973c8734e56a6",
+}
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:182:235)
+(fail) a proposal cannot pin one gate path two ways or claim a human verdict [1.81ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [161.00ms]

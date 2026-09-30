@@ -1,0 +1,36 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+32 |     return { c, state, proposed, result: await evaluateGateExperiment(state, c.oracle, { runCommands: c.runCommands, evidenceKind: "deterministic-fixture" }) };
+33 | }
+34 | 
+35 | test("a useful gate qualifies: it catches more held-out defects than the baseline without failing a control", async () => {
+36 |     const { result, c } = await run([gates.property]);
+37 |     expect(result.summary.candidate.heldOut).toMatchObject({ caught: 4, missed: 0, falsePositives: 0 });
+                                                  ^
+error: expect(received).toMatchObject(expected)
+
+  {
+-   "caught": 4,
++   "caught": 0,
++   "controls": 2,
++   "controlsPassed": 0,
++   "defects": 4,
+    "falsePositives": 0,
++   "items": 6,
+    "missed": 0,
++   "passRate": 0,
++   "unavailable": 6,
+  }
+
+- Expected  - 1
++ Received  + 7
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:37:46)
+(fail) a useful gate qualifies: it catches more held-out defects than the baseline without failing a control [4897.96ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.07s]

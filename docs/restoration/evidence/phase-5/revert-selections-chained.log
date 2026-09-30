@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+125 |     const first = record(0, null), second = record(1, first.sha256);
+126 |     await write(join(root, "good"), [[0, first], [1, second]]); expect((await readGateSelections(join(root, "good"))).current?.sha256).toBe(second.sha256);
+127 |     await write(join(root, "gap"), [[0, first], [2, record(2, first.sha256)]]);
+128 |     await expect(readGateSelections(join(root, "gap"))).rejects.toThrow("contiguous");
+129 |     await write(join(root, "relinked"), [[0, first], [1, record(1, null)]]);
+130 |     await expect(readGateSelections(join(root, "relinked"))).rejects.toThrow("broken");
+                                                                           ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:130:70)
+(fail) a gate selection history with a missing or re-linked record is refused [3.87ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [172.00ms]

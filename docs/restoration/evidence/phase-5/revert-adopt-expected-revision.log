@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+109 |     expect(git(["--git-dir", origin, "rev-parse", "wringer/gate-property"])).toBe(change.commit); expect(sent.commit).toBe(change.commit);
+110 |     expect(git(["--git-dir", origin, "rev-parse", "main"])).toBe(c.base);
+111 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "wringer/gate-property", actor })).rejects.toThrow("already sent");
+112 |     const adopted = await adoptGateSelection(state, registry, { actor, expectedRevision: null });
+113 |     expect(adopted.evaluationSha256).toBe(result.sha256); expect((await readGateSelections(registry)).current?.gates.map(g => g.id)).toEqual(["property"]);
+114 |     await expect(adoptGateSelection(state, registry, { actor, expectedRevision: null })).rejects.toThrow("revision");
+                                                                                                       ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:114:98)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [6842.64ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 17 expect() calls
+Ran 1 test across 1 file. [7.02s]

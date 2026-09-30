@@ -1,0 +1,18 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/gate-experiment-cli.test.ts:
+ 6 | import { dispatch } from "../src/app";
+ 7 | import { corpus, gates, runtime, variants } from "../../application/fixtures/gate-corpus";
+ 8 | 
+ 9 | const directories: string[] = [];
+10 | afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }); });
+11 | async function refused(action: Promise<unknown>) { return action.then(() => { throw new Error("expected a refusal"); }, (error: any) => error); }
+                                                                                             ^
+error: expected a refusal
+      at <anonymous> ([isolated-checkout]/packages/cli/test/gate-experiment-cli.test.ts:11:89)
+(fail) evaluation needs --yes and refuses a missing runtime before reserving any run [5014.25ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+Ran 1 test across 1 file. [5.18s]

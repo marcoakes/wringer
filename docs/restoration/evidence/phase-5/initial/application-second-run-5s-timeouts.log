@@ -1,0 +1,194 @@
+bun test v1.4.2 (744846f84)
+killed 1 dangling process
+
+packages/application/test/gate-experiments.test.ts:
+(fail) a useful gate qualifies: it catches more held-out defects than the baseline without failing a control [5013.82ms]
+  ^ this test timed out after 5000ms.
+
+# Unhandled error between tests
+-------------------------------
+78 |     return { c, state, proposed, result: await evaluateGateExperiment(state, c.oracle, { runCommands: c.runCommands, evidenceKind: "deterministic-fixture" }) };
+79 | }
+80 | 
+81 | test("a useful gate qualifies: it catches more held-out defects than the baseline without failing a control", async () => {
+82 |     const { result, c } = await run([gates.property]);
+83 |     expect(result.summary.candidate.heldOut).toMatchObject({ caught: 4, missed: 0, falsePositives: 0 });
+                                                  ^
+error: expect(received).toMatchObject(expected)
+
+  {
+-   "caught": 4,
++   "caught": 0,
++   "controls": 2,
++   "controlsPassed": 0,
++   "defects": 4,
+    "falsePositives": 0,
++   "items": 6,
+    "missed": 0,
++   "passRate": 0,
++   "unavailable": 6,
+  }
+
+- Expected  - 1
++ Received  + 7
+
+      at <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:83:46)
+-------------------------------
+
+killed 1 dangling process
+(fail) a weakened gate looks greener but fails the independent comparison [5012.98ms]
+  ^ this test timed out after 5000ms.
+
+# Unhandled error between tests
+-------------------------------
+87 |     const ajv = addFormats(new Ajv2020({ strict: false }));
+88 |     expect(ajv.validate(await Bun.file(new URL("../../../schema/gate-evaluation-v1.schema.json", import.meta.url)).json(), result)).toBe(true);
+89 | });
+90 | test("a weakened gate looks greener but fails the independent comparison", async () => {
+91 |     const { result } = await run([gates.weakened]);
+92 |     expect(result.summary.candidate.all.passRate).toBeGreaterThan(result.summary.baseline.all.passRate);
+                                                       ^
+error: expect(received).toBeGreaterThan(expected)
+
+Expected: > 0.25
+Received: 0.25
+
+      at <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:92:51)
+-------------------------------
+
+killed 1 dangling process
+
+# Unhandled error between tests
+-------------------------------
+30 |             if (error.code !== "EEXIST") throw error;
+31 |             // JSON object order is not authority. Hash the complete semantic
+32 |             // record, just as the frozen plan/journal contract does.
+33 |             if (hashValue(await readControllerFile(path)) !== hashValue(value)) throw new Error("Immutable controller input differs from the retained approval");
+34 |         }
+35 |     } finally { await unlink(pending); }
+                           ^
+ENOENT: no such file or directory, unlink '[tmp]/wringer-gate-experiment-t7OHda/experiment/runs/0009.json.2af0c060-139f-4a9c-9469-51ad0b250fdc.tmp'
+    path: "[tmp]/wringer-gate-experiment-t7OHda/experiment/runs/0009.json.2af0c060-139f-4a9c-9469-51ad0b250fdc.tmp",
+ syscall: "unlink",
+   errno: -2,
+    code: "ENOENT"
+
+      at async immutableControllerFile ([checkout]/packages/application/src/controller.ts:35:23)
+      at async <anonymous> ([checkout]/packages/application/src/gate-experiments.ts:303:23)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:78:48)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:96:30)
+-------------------------------
+
+(fail) a noisy gate exposes false positives on correct controls [5015.13ms]
+  ^ this test timed out after 5000ms.
+killed 1 dangling process
+(fail) an item cannot rewrite the gate that judges it [5012.56ms]
+  ^ this test timed out after 5000ms.
+
+# Unhandled error between tests
+-------------------------------
+ 97 |     expect(result.summary.candidate.heldOut.falsePositives).toBe(2);
+ 98 |     expect(result.qualification.qualified).toBe(false); expect(result.qualification.reasons.join(" ")).toContain("false positives");
+ 99 | });
+100 | test("an item cannot rewrite the gate that judges it", async () => {
+101 |     const { result } = await run([gates.property]);
+102 |     expect(result.runs.find(row => row.itemId === "rewrites-its-gate" && row.arm === "candidate")!.outcome).toBe("failed");
+                                                                                                                  ^
+error: expect(received).toBe(expected)
+
+Expected: "failed"
+Received: "not-started"
+
+      at <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:102:109)
+-------------------------------
+
+killed 1 dangling process
+(fail) a missed prediction does not qualify [5014.83ms]
+  ^ this test timed out after 5000ms.
+killed 1 dangling process
+(fail) an unavailable held-out run makes evidence incomplete and is never rerun [5014.68ms]
+  ^ this test timed out after 5000ms.
+
+# Unhandled error between tests
+-------------------------------
+ 8 | import { measureControllerEnvironment } from "./discovery";
+ 9 | import { loadExistingCredentials } from "./credentials";
+10 | import { assertContainedDisplayVisuals } from "@wringer/workflow";
+11 | 
+12 | export async function readControllerFile(path: string): Promise<any> {
+13 |     const info = await lstat(path);
+                            ^
+ENOENT: no such file or directory, lstat '[tmp]/wringer-gate-experiment-By46z9/experiment/experiment.json'
+    path: "[tmp]/wringer-gate-experiment-By46z9/experiment/experiment.json",
+ syscall: "lstat",
+   errno: -2,
+    code: "ENOENT"
+
+      at async readControllerFile ([checkout]/packages/application/src/controller.ts:13:24)
+      at async readGateExperiment ([checkout]/packages/application/src/gate-experiments.ts:247:39)
+      at async <anonymous> ([checkout]/packages/application/src/gate-experiments.ts:284:74)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:133:48)
+-------------------------------
+
+killed 1 dangling process
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [5024.23ms]
+  ^ this test timed out after 5000ms.
+
+# Unhandled error between tests
+-------------------------------
+21 |     if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Controller state must be a real directory, not a symlink");
+22 | }
+23 | export async function immutableControllerFile(path: string, value: unknown) {
+24 |     const bytes = JSON.stringify(value, null, 2) + "\n";
+25 |     const pending = `${path}.${crypto.randomUUID()}.tmp`;
+26 |     await writeFile(pending, bytes, { flag: "wx", mode: 0o600 });
+               ^
+ENOENT: no such file or directory, open '[tmp]/wringer-gate-experiment-IOyoC9/experiment/runs/0004.json.e32c0905-3f43-4c3c-836f-8dc0922d2333.tmp'
+    path: "[tmp]/wringer-gate-experiment-IOyoC9/experiment/runs/0004.json.e32c0905-3f43-4c3c-836f-8dc0922d2333.tmp",
+ syscall: "open",
+   errno: -2,
+    code: "ENOENT"
+
+      at async immutableControllerFile ([checkout]/packages/application/src/controller.ts:26:11)
+      at async <anonymous> ([checkout]/packages/application/src/gate-experiments.ts:322:19)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:78:48)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:137:40)
+-------------------------------
+
+killed 1 dangling process
+(fail) an unqualified proposal cannot prepare a change or be adopted [5020.15ms]
+  ^ this test timed out after 5000ms.
+
+# Unhandled error between tests
+-------------------------------
+21 |     if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Controller state must be a real directory, not a symlink");
+22 | }
+23 | export async function immutableControllerFile(path: string, value: unknown) {
+24 |     const bytes = JSON.stringify(value, null, 2) + "\n";
+25 |     const pending = `${path}.${crypto.randomUUID()}.tmp`;
+26 |     await writeFile(pending, bytes, { flag: "wx", mode: 0o600 });
+               ^
+ENOENT: no such file or directory, open '[tmp]/wringer-gate-experiment-OA5zCV/experiment/runs/0005.json.bd949878-bedf-47dd-b98b-fdf801ffe26d.tmp'
+    path: "[tmp]/wringer-gate-experiment-OA5zCV/experiment/runs/0005.json.bd949878-bedf-47dd-b98b-fdf801ffe26d.tmp",
+ syscall: "open",
+   errno: -2,
+    code: "ENOENT"
+
+      at async immutableControllerFile ([checkout]/packages/application/src/controller.ts:26:11)
+      at async <anonymous> ([checkout]/packages/application/src/gate-experiments.ts:322:19)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+      at async run ([checkout]/packages/application/test/gate-experiments.test.ts:78:48)
+      at async <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:154:32)
+-------------------------------
+
+(fail) a workflow proposal is compared through the gates and holds its graph requires [5024.20ms]
+  ^ this test timed out after 5000ms.
+
+ 4 pass
+ 9 fail
+ 7 errors
+ 12 expect() calls
+Ran 13 tests across 1 file. [51.97s]

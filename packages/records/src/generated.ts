@@ -4124,6 +4124,35 @@ export type ForgePublicationV2 = {
 };
 
 /**
+ * A future-only gate selection decision
+ *
+ * Generated from `schema/gate-adoption-v1.schema.json`. Do not edit.
+ */
+export type GateAdoptionV1 = {
+  "schema_version": "wringer.gate-adoption.v1";
+  "action": "adopt" | "undo";
+  "taskFamily": string;
+  "repository": string;
+  "gates": {
+    "id": string;
+    "argv": string[];
+    "cwd": string;
+    "timeout_seconds": number;
+    "files": {
+      "path": string;
+      "content": string;
+    }[];
+  }[];
+  "experimentSha256": null | string;
+  "evaluationSha256": null | string;
+  "previousSha256": null | string;
+  "actor": string;
+  "at": string;
+  "futureOnly": true;
+  "sha256": string;
+};
+
+/**
  * wringer.gate-artifacts.v1
  *
  * Generated from `schema/gate-artifacts.schema.json`. Do not edit.
@@ -4200,6 +4229,248 @@ export type GateAssertionsV1 = {
   }[];
   /** What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests. */
   "limits": string[];
+};
+
+/**
+ * A gate or workflow comparison judged by its frozen oracle
+ *
+ * Generated from `schema/gate-evaluation-v1.schema.json`. Do not edit.
+ */
+export type GateEvaluationV1 = {
+  "schema_version": "wringer.gate-evaluation.v1";
+  "experimentSha256": string;
+  "oracleSha256": string;
+  "evidenceKind": "contained" | "deterministic-fixture";
+  "runs": {
+    "index": number;
+    "itemId": string;
+    "arm": "baseline" | "candidate";
+    "outcome": "passed" | "failed" | "unavailable" | "uncertain" | "not-started";
+    "exitCodes": number | null[];
+    "outputSha256": null | string;
+    "runtimeId": string | null;
+    "sourceTree": null | string;
+    "durationMs": number | null;
+  }[];
+  "summary": {
+    "baseline": {
+      "all": {
+        "items": number;
+        "defects": number;
+        "controls": number;
+        "caught": number;
+        "missed": number;
+        "falsePositives": number;
+        "controlsPassed": number;
+        "unavailable": number;
+        "passRate": number;
+      };
+      "development": {
+        "items": number;
+        "defects": number;
+        "controls": number;
+        "caught": number;
+        "missed": number;
+        "falsePositives": number;
+        "controlsPassed": number;
+        "unavailable": number;
+        "passRate": number;
+      };
+      "heldOut": {
+        "items": number;
+        "defects": number;
+        "controls": number;
+        "caught": number;
+        "missed": number;
+        "falsePositives": number;
+        "controlsPassed": number;
+        "unavailable": number;
+        "passRate": number;
+      };
+      "requiredHolds": number;
+      "gateRuns": number;
+      "durationMs": number;
+    };
+    "candidate": {
+      "all": {
+        "items": number;
+        "defects": number;
+        "controls": number;
+        "caught": number;
+        "missed": number;
+        "falsePositives": number;
+        "controlsPassed": number;
+        "unavailable": number;
+        "passRate": number;
+      };
+      "development": {
+        "items": number;
+        "defects": number;
+        "controls": number;
+        "caught": number;
+        "missed": number;
+        "falsePositives": number;
+        "controlsPassed": number;
+        "unavailable": number;
+        "passRate": number;
+      };
+      "heldOut": {
+        "items": number;
+        "defects": number;
+        "controls": number;
+        "caught": number;
+        "missed": number;
+        "falsePositives": number;
+        "controlsPassed": number;
+        "unavailable": number;
+        "passRate": number;
+      };
+      "requiredHolds": number;
+      "gateRuns": number;
+      "durationMs": number;
+    };
+  };
+  "qualification": {
+    "qualified": boolean;
+    "reasons": string[];
+  };
+  "evaluatedAt": string;
+  "sha256": string;
+};
+
+/**
+ * A registered gate or workflow comparison
+ *
+ * Generated from `schema/gate-experiment-v1.schema.json`. Do not edit.
+ */
+export type GateExperimentV1 = {
+  "schema_version": "wringer.gate-experiment.v1";
+  "id": string;
+  "taskFamily": string;
+  "repository": {
+    "url": string;
+    "commit": string;
+  };
+  "runtime": {
+    "kind": "apple-container" | "gvisor-kubernetes";
+    "image": string;
+    "network": {
+      "policy"?: "deny";
+    };
+    "env": unknown[];
+  };
+  "proposalSha256": string;
+  "corpus": {
+    "id": string;
+    "items": {
+      "id": string;
+      "split": "development" | "held-out";
+      "commit": string;
+      "tree": string;
+    }[];
+    "oracleSha256": string;
+  };
+  "prediction": {
+    "statement": string;
+    "minimumAdditionalDefectsCaught": number;
+    "maximumAdditionalFalsePositives": number;
+    "minimumHeldOutDefects": number;
+    "minimumHeldOutControls": number;
+  };
+  "limits": {
+    "maxGateRuns": number;
+    "wallClockSeconds": number;
+  };
+  "holdout": {
+    "candidateIteration": number;
+    "maximumCandidateIterations": number;
+    "proposalSawHeldOut": false;
+  };
+  "order": "fixed-corpus-order";
+  "stoppingRule": "fixed-sample-no-extension";
+  "accounting": "all-planned-runs-including-unavailable";
+  "changedVariable": "acceptance-gates" | "workflow";
+  "arms": {
+    "baseline": {
+      "gates": {
+        "id": string;
+        "argv": string[];
+        "cwd": string;
+        "timeout_seconds": number;
+        "files": {
+          "path": string;
+          "content": string;
+        }[];
+      }[];
+      "requiredHolds": number;
+      "graphSha256": null | string;
+      "commit": string;
+    };
+    "candidate": {
+      "gates": {
+        "id": string;
+        "argv": string[];
+        "cwd": string;
+        "timeout_seconds": number;
+        "files": {
+          "path": string;
+          "content": string;
+        }[];
+      }[];
+      "requiredHolds": number;
+      "graphSha256": null | string;
+      "commit": string;
+    };
+  };
+  "maximumAdditionalHolds": number;
+  "registeredAt": string;
+  "sha256": string;
+};
+
+/**
+ * The frozen independent evaluator's labels
+ *
+ * Generated from `schema/gate-oracle-v1.schema.json`. Do not edit.
+ */
+export type GateOracleV1 = {
+  "schema_version": "wringer.gate-oracle.v1";
+  "corpusId": string;
+  "labels": {
+    "itemId": string;
+    "label": "defect" | "control";
+  }[];
+  "sha256": string;
+};
+
+/**
+ * A proposed change to how work is checked
+ *
+ * Generated from `schema/gate-proposal-v1.schema.json`. Do not edit.
+ */
+export type GateProposalV1 = {
+  "schema_version": "wringer.gate-proposal.v1";
+  "id": string;
+  "taskFamily": string;
+  "candidateGates": {
+    "id": string;
+    "argv": string[];
+    "cwd": string;
+    "timeout_seconds": number;
+    "files": {
+      "path": string;
+      "content": string;
+    }[];
+  }[];
+  "rationale": string;
+  "inputs": {
+    "developmentItems": string[];
+  };
+  "author": {
+    "actor": string;
+    "kind": "operator" | "delegated-agent";
+  };
+  "createdAt": string;
+  "sha256": string;
 };
 
 /**
@@ -7263,8 +7534,13 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "fleetscope.schema.json": "wringer.fleetscope.v1",
   "forge-intent-v2.schema.json": "wringer.forge-intent.v2",
   "forge-publication-v2.schema.json": "wringer.forge-publication.v2",
+  "gate-adoption-v1.schema.json": "wringer.gate-adoption.v1",
   "gate-artifacts.schema.json": "wringer.gate-artifacts.v1",
   "gate-assertions-v1.schema.json": "wringer.gate-assertions.v1",
+  "gate-evaluation-v1.schema.json": "wringer.gate-evaluation.v1",
+  "gate-experiment-v1.schema.json": "wringer.gate-experiment.v1",
+  "gate-oracle-v1.schema.json": "wringer.gate-oracle.v1",
+  "gate-proposal-v1.schema.json": "wringer.gate-proposal.v1",
   "gate-result.schema.json": null,
   "gatespec-v2.schema.json": "wringer.gatespec.v2",
   "gatespec.schema.json": "wringer.gatespec.v1",
@@ -7453,8 +7729,13 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.fleetscope.v1": "fleetscope.schema.json",
   "wringer.forge-intent.v2": "forge-intent-v2.schema.json",
   "wringer.forge-publication.v2": "forge-publication-v2.schema.json",
+  "wringer.gate-adoption.v1": "gate-adoption-v1.schema.json",
   "wringer.gate-artifacts.v1": "gate-artifacts.schema.json",
   "wringer.gate-assertions.v1": "gate-assertions-v1.schema.json",
+  "wringer.gate-evaluation.v1": "gate-evaluation-v1.schema.json",
+  "wringer.gate-experiment.v1": "gate-experiment-v1.schema.json",
+  "wringer.gate-oracle.v1": "gate-oracle-v1.schema.json",
+  "wringer.gate-proposal.v1": "gate-proposal-v1.schema.json",
   "wringer.gatespec.v2": "gatespec-v2.schema.json",
   "wringer.gatespec.v1": "gatespec.schema.json",
   "wringer.graph.v1": "graph-manifest.schema.json",

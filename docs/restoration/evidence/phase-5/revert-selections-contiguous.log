@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+123 |     const record = (index: number, previousSha256: string | null) => { const body = { schema_version: "wringer.gate-adoption.v1", action: "adopt", taskFamily: "totals", repository: URL_, gates: [gates.property], experimentSha256: "b".repeat(64), evaluationSha256: "c".repeat(64), previousSha256, actor: "Fixture", at: `2026-09-30T00:00:0${index}.000Z`, futureOnly: true }; return { ...body, sha256: hashValue(body) }; };
+124 |     const write = async (registry: string, rows: [number, ReturnType<typeof record>][]) => { await mkdir(join(registry, "selections"), { recursive: true, mode: 0o700 }); for (const [index, row] of rows) await writeFile(join(registry, "selections", `${String(index).padStart(4, "0")}.json`), JSON.stringify(row), { mode: 0o600 }); };
+125 |     const first = record(0, null), second = record(1, first.sha256);
+126 |     await write(join(root, "good"), [[0, first], [1, second]]); expect((await readGateSelections(join(root, "good"))).current?.sha256).toBe(second.sha256);
+127 |     await write(join(root, "gap"), [[0, first], [2, record(2, first.sha256)]]);
+128 |     await expect(readGateSelections(join(root, "gap"))).rejects.toThrow("contiguous");
+                                                                      ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:128:65)
+(fail) a gate selection history with a missing or re-linked record is refused [3.78ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [177.00ms]

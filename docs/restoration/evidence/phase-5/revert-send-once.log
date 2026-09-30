@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+106 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "wringer/taken", actor })).rejects.toThrow("already exists with different content");
+107 |     expect(git(["--git-dir", trunk, "rev-parse", "trunk"])).toBe(c.base); expect(git(["--git-dir", origin, "rev-parse", "wringer/taken"])).toBe(c.base);
+108 |     const sent = await sendGateChange(state, { remote: origin, sourceBranch: "wringer/gate-property", actor });
+109 |     expect(git(["--git-dir", origin, "rev-parse", "wringer/gate-property"])).toBe(change.commit); expect(sent.commit).toBe(change.commit);
+110 |     expect(git(["--git-dir", origin, "rev-parse", "main"])).toBe(c.base);
+111 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "wringer/gate-property", actor })).rejects.toThrow("already sent");
+                                                                                                                        ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "already sent"
+Received message: "Immutable controller input differs from the retained approval"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:111:115)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [7229.40ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 14 expect() calls
+Ran 1 test across 1 file. [7.40s]

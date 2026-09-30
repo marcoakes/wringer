@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+161 |     expect(result.summary.candidate.heldOut.caught).toBe(4);
+162 |     expect(result.qualification.qualified).toBe(false); expect(result.qualification.reasons.join(" ")).toContain("required human holds");
+163 | }, 120000);
+164 | test("a workflow comparison refuses a proposal naming other gates and a graph on another base", async () => {
+165 |     const c = await corpus(), proposed = workflowProposal([gates.property]);
+166 |     await expect(registerWorkflowExperiment(join(c.root, "a"), workflowInput(c, proposed, workflowGraph(c, [gates.narrow], 0), workflowGraph(c, [gates.narrow, gates.property], 0)), proposed, c.bundle)).rejects.toThrow("differ from the gates the candidate workflow requires");
+                                                                                                                                                                                                                        ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:166:211)
+(fail) a workflow comparison refuses a proposal naming other gates and a graph on another base [4873.23ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.06s]

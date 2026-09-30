@@ -1,0 +1,64 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+176 |     await expect(registerGateExperiment(at("e"), { ...input, holdout: { ...input.holdout, candidateIteration: 4 } }, proposed, c.bundle)).rejects.toThrow("exhausted");
+177 |     await expect(registerGateExperiment(at("f"), { ...input, holdout: { ...input.holdout, proposalSawHeldOut: true } } as any, proposed, c.bundle)).rejects.toThrow("saw held-out");
+178 | }, 120000);
+179 | test("a proposal cannot pin one gate path two ways or claim a human verdict", () => {
+180 |     const clash = { ...gates.property, id: "other", files: [{ path: "gates/property.sh", content: "exit 0\n" }] };
+181 |     expect(() => createGateProposal({ id: "clash", taskFamily: "totals", candidateGates: [gates.property, clash], rationale: "Two contents.", inputs: { developmentItems: [] }, author: { actor: "Fixture", kind: "operator" } })).toThrow("two different contents");
+                                                                                                                                                                                                                                         ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "two different contents"
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.gate-proposal.v1",
+  id: "clash",
+  taskFamily: "totals",
+  candidateGates: [
+    {
+      id: "property",
+      argv: [ "sh", "gates/property.sh" ],
+      cwd: ".",
+      timeout_seconds: 10,
+      files: [
+        {
+          path: "gates/property.sh",
+          content: "for a in 0 2 7 11; do for b in 0 3 5; do test \"$(sh src/total.sh $a $b)\" = $(( a + b )) || exit 1; done; done\n",
+        }
+      ],
+    }, {
+      id: "other",
+      argv: [ "sh", "gates/property.sh" ],
+      cwd: ".",
+      timeout_seconds: 10,
+      files: [
+        {
+          path: "gates/property.sh",
+          content: "exit 0\n",
+        }
+      ],
+    }
+  ],
+  rationale: "Two contents.",
+  inputs: {
+    developmentItems: [],
+  },
+  author: {
+    actor: "Fixture",
+    kind: "operator",
+  },
+  createdAt: "2026-09-30T09:32:53.560Z",
+  sha256: "caa3bedbe543e7f83c189c06b4e1be8df84a0acf21df44a87042d9a8291c8dae",
+}
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:181:228)
+(fail) a proposal cannot pin one gate path two ways or claim a human verdict [4.27ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [248.00ms]

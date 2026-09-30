@@ -1,0 +1,29 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+205 |     for (const [name, tamper] of Object.entries(tampers)) {
+206 |         const state = join(c.root, name);
+207 |         await registerGateExperiment(state, experiment(c, proposed), proposed, c.bundle);
+208 |         const runner = async (request: ContainedCommandRequest) => { const r = await c.runCommands(request); if (request.repo.commit === last.commit && request.commands[0]!.id === "candidate/property") tamper(r); return r; };
+209 |         const result = await evaluateGateExperiment(state, c.oracle, { runCommands: runner, evidenceKind: "deterministic-fixture" });
+210 |         expect({ name, outcome: result.runs.at(-1)!.outcome }).toEqual({ name, outcome: "unavailable" });
+                                                                     ^
+error: expect(received).toEqual(expected)
+
+@@ -2,3 +2,3 @@
+    "name": "host-mount",
+-   "outcome": "unavailable",
++   "outcome": "failed",
+  }
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:210:64)
+(fail) a run that cannot establish its exact item in a contained verifier is unavailable [10796.78ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [11.00s]

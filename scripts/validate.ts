@@ -38,6 +38,8 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["compiled-graph-contract", [process.execPath, "scripts/graph-distribution.ts"], workspace],
         // No-model compiled parallel graph: two branches, a verified integration and a graph-evidence Send.
         ["compiled-parallel-graph-contract", [process.execPath, "scripts/graph-parallel-distribution.ts"], workspace],
+        // No-model compiled gate proposal: oracle, register, evaluate, change, Send, future-only adoption.
+        ["compiled-gate-experiment-contract", [process.execPath, "scripts/gate-experiment-distribution.ts"], workspace],
         ["compiled-loop-inspection", [process.execPath, "scripts/loop-inspection-rehearsal.ts"], workspace],
         ["compiled-evidence-export", [process.execPath, "scripts/evidence-export-rehearsal.ts"], workspace],
         ["compiled-job-improvements", [process.execPath, "scripts/job-improvements-rehearsal.ts"], workspace],

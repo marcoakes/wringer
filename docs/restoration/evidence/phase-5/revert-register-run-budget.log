@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+76 |     const c = await corpus(), proposed = proposal(c, [gates.property]), other = proposal(c, [gates.weakened]);
+77 |     await expect(registerGateExperiment(join(c.root, "experiment"), experiment(c, proposed), other, c.bundle)).rejects.toThrow("proposal");
+78 | }, 120000);
+79 | test("a plan larger than its run budget is refused at registration", async () => {
+80 |     const c = await corpus(), proposed = proposal(c, [gates.property]), input = experiment(c, proposed);
+81 |     await expect(registerGateExperiment(join(c.root, "experiment"), { ...input, limits: { ...input.limits, maxGateRuns: 10 } }, proposed, c.bundle)).rejects.toThrow("budget");
+                                                                                                                                                                  ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:81:158)
+(fail) a plan larger than its run budget is refused at registration [5273.66ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.46s]

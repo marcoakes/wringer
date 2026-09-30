@@ -1,0 +1,43 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+223 | test("a run started after the registered wall clock is not started and still counts", async () => {
+224 |     const c = await corpus(), proposed = proposal(c, [gates.property]), state = join(c.root, "experiment");
+225 |     await registerGateExperiment(state, experiment(c, proposed), proposed, c.bundle);
+226 |     let tick = 0; const clock = () => new Date(Date.UTC(2026, 8, 30) + (tick++ ? 601000 : 0));
+227 |     const result = await evaluateGateExperiment(state, c.oracle, { runCommands: c.runCommands, evidenceKind: "deterministic-fixture", at: clock });
+228 |     expect(c.runs).toEqual([]); expect(result.runs.every(run => run.outcome === "not-started")).toBe(true);
+                         ^
+error: expect(received).toEqual(expected)
+
+- []
++ [
++   "baseline/narrow@f9783b0",
++   "candidate/property@f9783b0",
++   "baseline/narrow@ac3a2bd",
++   "candidate/property@ac3a2bd",
++   "baseline/narrow@8c318fd",
++   "candidate/property@8c318fd",
++   "baseline/narrow@d773251",
++   "candidate/property@d773251",
++   "baseline/narrow@6a7d478",
++   "candidate/property@6a7d478",
++   "baseline/narrow@ec1109a",
++   "candidate/property@ec1109a",
++   "baseline/narrow@0380048",
++   "candidate/property@0380048",
++   "baseline/narrow@b20b946",
++   "candidate/property@b20b946",
++ ]
+
+- Expected  - 1
++ Received  + 18
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:228:20)
+(fail) a run started after the registered wall clock is not started and still counts [5778.90ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.95s]

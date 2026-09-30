@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+72 |     const c = await corpus(), proposed = proposal(c, [gates.property], ["correct-sum", "sign-flip"]);
+73 |     await expect(registerGateExperiment(join(c.root, "experiment"), experiment(c, proposed), proposed, c.bundle)).rejects.toThrow("held-out");
+74 | }, 120000);
+75 | test("a proposal that differs from the registered digest is refused", async () => {
+76 |     const c = await corpus(), proposed = proposal(c, [gates.property]), other = proposal(c, [gates.weakened]);
+77 |     await expect(registerGateExperiment(join(c.root, "experiment"), experiment(c, proposed), other, c.bundle)).rejects.toThrow("proposal");
+                                                                                                                            ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:77:120)
+(fail) a proposal that differs from the registered digest is refused [4792.94ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [4.96s]

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+53 |     expect(result.summary.candidate.heldOut.falsePositives).toBe(2);
+54 |     expect(result.qualification.qualified).toBe(false); expect(result.qualification.reasons.join(" ")).toContain("false positives");
+55 | }, 120000);
+56 | test("an item cannot rewrite the gate that judges it", async () => {
+57 |     const { result } = await run([gates.property]);
+58 |     expect(result.runs.find(row => row.itemId === "rewrites-its-gate" && row.arm === "candidate")!.outcome).toBe("failed");
+                                                                                                                 ^
+error: expect(received).toBe(expected)
+
+Expected: "failed"
+Received: "passed"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/gate-experiments.test.ts:58:109)
+(fail) an item cannot rewrite the gate that judges it [5234.68ms]
+
+ 0 pass
+ 21 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.41s]

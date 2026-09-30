@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/gate-experiments.test.ts:
+134 |     expect(c.runs.length).toBe(count); expect(again.sha256).toBe(result.sha256);
+135 | }, 120000);
+136 | test("proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions", async () => {
+137 |     const { c, state, result } = await run([gates.property]);
+138 |     const registry = join(c.root, "registry"), origin = join(c.root, "origin.git"); git(["init", "-q", "--bare", "-b", "main", origin]); git(["-C", c.repo, "push", "-q", origin, "HEAD:refs/heads/main"]);
+139 |     await expect(sendGateChange(state, { remote: origin, sourceBranch: "wringer/gate-property", actor: "Scripted engineering fixture" })).rejects.toThrow("prepare");
+                                                                                                                                                        ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "prepare"
+Received message: "Prepare the source change before sending it; nothing was sent"
+
+      at <anonymous> ([checkout]/packages/application/test/gate-experiments.test.ts:139:147)
+(fail) proposal, evaluation, change preparation, Send and future-only adoption are separate recorded actions [5762.84ms]
+
+ 12 pass
+ 1 fail
+ 30 expect() calls
+Ran 13 tests across 1 file. [58.19s]

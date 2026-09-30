@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/gate-experiment-cli.test.ts:
+39 |     let unconfirmed: any, error: any;
+40 |     try {
+41 |         unconfirmed = await refused(dispatch(["experiment", "gate", "evaluate", "--state", f.state, "--oracle", f.oracle]));
+42 |         error = await refused(dispatch(["experiment", "gate", "evaluate", "--state", f.state, "--oracle", f.oracle, "--yes"]));
+43 |     } finally { process.env.PATH = path; }
+44 |     expect(unconfirmed.message).toContain("--yes");
+                                     ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "--yes"
+Received: "Containment unavailable: container is not on PATH. No gate ran and no run was reserved; the fixed sample is intact."
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/gate-experiment-cli.test.ts:44:33)
+(fail) evaluation needs --yes and refuses a missing runtime before reserving any run [4853.57ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [5.03s]
