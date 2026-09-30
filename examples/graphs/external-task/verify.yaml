@@ -1,0 +1,61 @@
+# The verification plan for the external task. Its writable scope bounds what the
+# returned patch may touch; its checks verify the patch afresh in a contained
+# verifier. Compile-only template: replace the commit and image digest.
+version: 3
+name: Fix the total
+intent: Return the sum of two integers.
+repository:
+  url: https://github.com/OWNER/REPOSITORY.git
+  commit: '0000000000000000000000000000000000000000'
+runtime:
+  kind: apple-container
+  image: example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  cpus: 2
+  memoryMiB: 4096
+  network:
+    policy: deny
+  env: [CODEX_API_KEY, ANTHROPIC_API_KEY]
+agents:
+  worker:
+    protocol: acp
+    command: codex-acp
+    env: [CODEX_API_KEY]
+    authMethod: api-key
+  judge:
+    protocol: acp
+    command: claude-agent-acp
+    env: [ANTHROPIC_API_KEY]
+environment:
+  context: [README.md]
+  tools: []
+  writable_directories: [node_modules]
+  setup:
+    - id: dependencies
+      argv: [bun, install, --frozen-lockfile]
+      cwd: .
+      timeout_seconds: 120
+  baseline: []
+scope:
+  writable: [src]
+acceptance:
+  criteria:
+    - id: total
+      title: The total is the sum of its inputs
+      quote: Return the sum of two integers.
+      kind: check
+      required: true
+  checks:
+    - id: total-check
+      argv: [bun, test, tests/acceptance.test.ts]
+      cwd: .
+      timeout_seconds: 120
+      criteria: [total]
+      files: [tests/acceptance.test.ts, package.json, bun.lock]
+  protected_paths: [tests]
+budget:
+  max_sessions: 8
+  max_worker_turns: 4
+  max_judge_turns: 4
+  max_planner_turns: 0
+  wall_clock_seconds: 3600
+  session_timeout_seconds: 900

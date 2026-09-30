@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One external A2A task and what came of it",
+  "description": "children/NODE/delegation.json. The pinned peer, the deterministic message id, the task id, every task state observed in order, whether a cancellation was requested, the outcome and its reason, and for a returned patch its digest, changed paths and the candidate commit applied to the exact base in controller storage. local-peer marks a loopback endpoint, which establishes only fixture conformance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "graphSha256",
+    "node",
+    "inputSha256",
+    "peer",
+    "messageId",
+    "taskId",
+    "states",
+    "cancelRequested",
+    "outcome",
+    "reason",
+    "artifact",
+    "candidate",
+    "evidenceKind",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-delegation.v1"
+    },
+    "graphSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "node": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "inputSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "peer": {
+      "description": "An external A2A agent: a credential-free HTTPS endpoint, or a loopback endpoint for local fixtures, and the canonical sha256 of its Agent Card.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "cardSha256",
+        "skill"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^(https://|http://(127\\.0\\.0\\.1|\\[::1\\]|localhost)(:[0-9]+)?(/|$))"
+        },
+        "cardSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "skill": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "maxLength": 80
+        }
+      }
+    },
+    "messageId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "taskId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "states": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "pattern": "^TASK_STATE_[A-Z_]+$"
+      }
+    },
+    "cancelRequested": {
+      "type": "boolean"
+    },
+    "outcome": {
+      "enum": [
+        "returned",
+        "failed",
+        "canceled",
+        "unavailable"
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "artifact": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "mediaType",
+            "changedPaths"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "mediaType": {
+              "const": "text/x-diff"
+            },
+            "changedPaths": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            }
+          }
+        }
+      ]
+    },
+    "candidate": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commit",
+            "tree"
+          ],
+          "properties": {
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "tree": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        }
+      ]
+    },
+    "evidenceKind": {
+      "enum": [
+        "live-peer",
+        "local-peer"
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

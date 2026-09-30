@@ -153,6 +153,11 @@
   "contained-graph-status-v3.schema.json": "dab85b0e6464f777e389f7dca0e22e3c461640b02d1ce2329812da899d80b0dc",
   "contained-graph-export-v3.schema.json": "181469825fabc1d54f707785e6f474106d457736f1066578f183ceca1aedbda7",
   "contained-graph-tournament-v1.schema.json": "8263e7c88433090b0993078ef73662cb7fc6471706c26849d68adfa2bcc4dbb8",
-  "contained-graph-tournament-assessment-v1.schema.json": "c277b7e6c99857bcf3a98f42b9adc4eeeac9da58a1d2515f5caef6e69857f7ca"
+  "contained-graph-tournament-assessment-v1.schema.json": "c277b7e6c99857bcf3a98f42b9adc4eeeac9da58a1d2515f5caef6e69857f7ca",
+  "contained-graph-plan-v4.schema.json": "a9d7975b5d27c33478f34ab00342b334d8df528c03ddf39f98dd49a3882fa045",
+  "contained-graph-event-v4.schema.json": "386d6a9ca4953708251f5a4fcc81b04849a77af3074dc732f881d85d0b3e29eb",
+  "contained-graph-status-v4.schema.json": "7b31009209a5d5c9bccec85e0b40bfc767b0dfd427b4327b8950a4c731834b83",
+  "contained-graph-export-v4.schema.json": "2d4b437bd9a0e91a22c2cf282f14141f0979091f850ad18abe89ce97a41b3748",
+  "contained-graph-delegation-v1.schema.json": "ac918a3d6eef3284dae1926af4ece66ece7c7202672ca8f92402b57608f43dc5"
  }
 }

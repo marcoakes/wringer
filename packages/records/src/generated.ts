@@ -1790,6 +1790,41 @@ export type ContainedGraphAuthorityV1 = {
 };
 
 /**
+ * One external A2A task and what came of it
+ *
+ * Generated from `schema/contained-graph-delegation-v1.schema.json`. Do not edit.
+ */
+export type ContainedGraphDelegationV1 = {
+  "schema_version": "wringer.contained-graph-delegation.v1";
+  "graphSha256": string;
+  "node": string;
+  "inputSha256": string;
+  /** An external A2A agent: a credential-free HTTPS endpoint, or a loopback endpoint for local fixtures, and the canonical sha256 of its Agent Card. */
+  "peer": {
+    "url": string;
+    "cardSha256": string;
+    "skill": string;
+  };
+  "messageId": string;
+  "taskId": string | null;
+  "states": string[];
+  "cancelRequested": boolean;
+  "outcome": "returned" | "failed" | "canceled" | "unavailable";
+  "reason": string | null;
+  "artifact": null | {
+    "sha256": string;
+    "mediaType": "text/x-diff";
+    "changedPaths": string[];
+  };
+  "candidate": null | {
+    "commit": string;
+    "tree": string;
+  };
+  "evidenceKind": "live-peer" | "local-peer";
+  "sha256": string;
+};
+
+/**
  * One append-only contained graph event
  *
  * Generated from `schema/contained-graph-event-v1.schema.json`. Do not edit.
@@ -1830,6 +1865,23 @@ export type ContainedGraphEventV2 = {
  */
 export type ContainedGraphEventV3 = {
   "schema_version": "wringer.contained-graph-event.v3";
+  "graphSha256": string;
+  "sequence": number;
+  "previousSha256": null | string;
+  "at": string;
+  "node": null | string;
+  "kind": "start" | "reserve" | "dispatch" | "prepared" | "send" | "result" | "decision" | "route";
+  "data": Record<string, unknown>;
+  "sha256": string;
+};
+
+/**
+ * One append-only event of a contained graph with external tasks
+ *
+ * Generated from `schema/contained-graph-event-v4.schema.json`. Do not edit.
+ */
+export type ContainedGraphEventV4 = {
+  "schema_version": "wringer.contained-graph-event.v4";
   "graphSha256": string;
   "sequence": number;
   "previousSha256": null | string;
@@ -1931,6 +1983,40 @@ export type ContainedGraphExportV3 = {
   "nodes": {
     "id": string;
     "kind": "loop" | "check" | "human-hold" | "delivery" | "join" | "tournament";
+    "evidence": string | null;
+    "prepared": string | null;
+    "delivery": null | string;
+  }[];
+  "omissions": {
+    "what": string;
+    "reason": string;
+  }[];
+  "limits": string[];
+};
+
+/**
+ * Portable contained graph export with external tasks
+ *
+ * Generated from `schema/contained-graph-export-v4.schema.json`. Do not edit.
+ */
+export type ContainedGraphExportV4 = {
+  "schema_version": "wringer.contained-graph-export.v4";
+  "graph": {
+    "id": string;
+    "sha256": string;
+    "repository": {
+      "url": string;
+      "commit": string;
+    };
+  };
+  "revision": string;
+  "eventCount": number;
+  "files": {
+    [key: string]: string;
+  };
+  "nodes": {
+    "id": string;
+    "kind": "loop" | "check" | "human-hold" | "delivery" | "join" | "tournament" | "delegate";
     "evidence": string | null;
     "prepared": string | null;
     "delivery": null | string;
@@ -2172,6 +2258,121 @@ export type ContainedGraphPlanV3 = {
 };
 
 /**
+ * Compiled contained graph with tournaments
+ *
+ * Generated from `schema/contained-graph-plan-v4.schema.json`. Do not edit.
+ */
+export type ContainedGraphPlanV4 = {
+  "schema_version": "wringer.contained-graph-plan.v4";
+  "id": string;
+  "repository": {
+    "url": string;
+    "commit": string;
+  };
+  "entry": string;
+  "required": string[];
+  "budget": {
+    "maxRoleSessions": number;
+    "maxVerificationAttempts": number;
+    "wallClockSeconds": number;
+  };
+  /** The most branch effects that may run at once; separate from the aggregate allowance. */
+  "parallelism": number;
+  "nodes": {
+    [key: string]: {
+      "kind": "loop";
+      "input": string;
+      "then": string;
+      /** A complete compiled execution plan pinned into the graph. It must itself validate as wringer.execution-plan.v3 or v4 and pin the graph's root source. */
+      "plan": {
+        "schema_version": "wringer.execution-plan.v3" | "wringer.execution-plan.v4";
+      };
+    } | {
+      "kind": "check";
+      "input": string;
+      "then": string;
+    } | {
+      "kind": "human-hold";
+      "input": string;
+      "prompt": string;
+      "then": string;
+    } | {
+      "kind": "delivery";
+      "input": string;
+      "then": string;
+      "publication": {
+        "remote": string;
+        "sourceBranch": string;
+        "targetBranch": string;
+      };
+    } | {
+      "kind": "router";
+      "input": string;
+      "routes": {
+        "outcome": string;
+        "to": string;
+      }[];
+      "otherwise": string;
+    } | {
+      "kind": "fork";
+      "input": string;
+      "branches": string[];
+      "join": string;
+    } | {
+      "kind": "join";
+      "fork": string;
+      "then": string;
+    } | {
+      "kind": "tournament";
+      "fork": string;
+      /** One contained session whose plan may write only wringer/challenges.json. It never edits a candidate. */
+      "prosecutor": {
+        /** A complete compiled execution plan pinned into the graph. It must itself validate as wringer.execution-plan.v3 or v4 and pin the graph's root source. */
+        "plan": {
+          "schema_version": "wringer.execution-plan.v3" | "wringer.execution-plan.v4";
+        };
+        "maxChallenges": number;
+      };
+      /** Trusted correct trees in the graph's root source bundle. A challenge counts only after it passes on every one; with none, challenges are advisory. */
+      "controls": {
+        "id": string;
+        "commit": string;
+      }[];
+      /** The final untouched evaluator, pinned by content. It assesses every eligible candidate after the selection is recorded and never changes it. */
+      "evaluator": {
+        "id": string;
+        "argv": string[];
+        "cwd": string;
+        "timeout_seconds": number;
+        "files": {
+          "path": string;
+          "content": string;
+        }[];
+      }[];
+      "tie": "no-winner" | "tree-order";
+      "then": string;
+    } | {
+      "kind": "delegate";
+      "input": string;
+      /** An external A2A agent: a credential-free HTTPS endpoint, or a loopback endpoint for local fixtures, and the canonical sha256 of its Agent Card. */
+      "peer": {
+        "url": string;
+        "cardSha256": string;
+        "skill": string;
+      };
+      "instruction": string;
+      /** A complete compiled execution plan pinned into the graph. It must itself validate as wringer.execution-plan.v3 or v4 and pin the graph's root source. */
+      "verify": {
+        "schema_version": "wringer.execution-plan.v3" | "wringer.execution-plan.v4";
+      };
+      "timeoutSeconds": number;
+      "then": string;
+    };
+  };
+  "sha256": string;
+};
+
+/**
  * Read-only contained graph status
  *
  * Generated from `schema/contained-graph-status-v1.schema.json`. Do not edit.
@@ -2346,6 +2547,78 @@ export type ContainedGraphStatusV3 = {
   "nodes": {
     "id": string;
     "kind": "loop" | "check" | "router" | "human-hold" | "delivery" | "fork" | "join" | "tournament";
+    "required": boolean;
+    "input": string | null;
+    "branch": null | {
+      "fork": string;
+      "branch": string;
+    };
+    "state": "not-reached" | "evaluated-inline" | "reserved" | "dispatched" | "decided" | "prepared" | "sent" | "resulted" | "complete" | "cancelled";
+    "outcome": string | null;
+    "route": null | {
+      "to": string;
+      "via": string[];
+    };
+    "candidate": null | {
+      "commit": string;
+      "tree": string;
+      "owner": string;
+    };
+    "evidenceSha256": null | string;
+    "child": string | null;
+  }[];
+  "actions": {
+    "action": "resume" | "decide" | "send" | "inspect-child";
+    "node": string | null;
+    "prompt": string | null;
+    "inputSha256": null | string;
+    "preparedSha256": null | string;
+    "command": string;
+  }[];
+};
+
+/**
+ * Read-only contained graph status with external tasks
+ *
+ * Generated from `schema/contained-graph-status-v4.schema.json`. Do not edit.
+ */
+export type ContainedGraphStatusV4 = {
+  "schema_version": "wringer.contained-graph-status.v4";
+  "graph": {
+    "id": string;
+    "sha256": string;
+    "repository": {
+      "url": string;
+      "commit": string;
+    };
+  };
+  "revision": string;
+  "phase": "pending" | "human-hold" | "send-hold" | "uncertain" | "complete" | "failed" | "expired";
+  "reason": string | null;
+  "active": string[];
+  "holds": {
+    "node": string;
+    "kind": "human" | "child" | "send";
+    "reason": string;
+  }[];
+  "cancelled": string[];
+  "startedAt": string;
+  "deadline": string;
+  "allowance": {
+    "roleSessions": {
+      "reserved": number;
+      "ceiling": number;
+    };
+    "verificationAttempts": {
+      "reserved": number;
+      "ceiling": number;
+    };
+    "wallClockSeconds": number;
+    "parallelism": number;
+  };
+  "nodes": {
+    "id": string;
+    "kind": "loop" | "check" | "router" | "human-hold" | "delivery" | "fork" | "join" | "tournament" | "delegate";
     "required": boolean;
     "input": string | null;
     "branch": null | {
@@ -7776,18 +8049,23 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "contained-delivery-view-v2.schema.json": "wringer.contained-delivery-view.v2",
   "contained-display-v2.schema.json": "wringer.contained-display.v2",
   "contained-graph-authority-v1.schema.json": "wringer.contained-graph-authority.v1",
+  "contained-graph-delegation-v1.schema.json": "wringer.contained-graph-delegation.v1",
   "contained-graph-event-v1.schema.json": "wringer.contained-graph-event.v1",
   "contained-graph-event-v2.schema.json": "wringer.contained-graph-event.v2",
   "contained-graph-event-v3.schema.json": "wringer.contained-graph-event.v3",
+  "contained-graph-event-v4.schema.json": "wringer.contained-graph-event.v4",
   "contained-graph-export-v1.schema.json": "wringer.contained-graph-export.v1",
   "contained-graph-export-v2.schema.json": "wringer.contained-graph-export.v2",
   "contained-graph-export-v3.schema.json": "wringer.contained-graph-export.v3",
+  "contained-graph-export-v4.schema.json": "wringer.contained-graph-export.v4",
   "contained-graph-plan-v1.schema.json": "wringer.contained-graph-plan.v1",
   "contained-graph-plan-v2.schema.json": "wringer.contained-graph-plan.v2",
   "contained-graph-plan-v3.schema.json": "wringer.contained-graph-plan.v3",
+  "contained-graph-plan-v4.schema.json": "wringer.contained-graph-plan.v4",
   "contained-graph-status-v1.schema.json": "wringer.contained-graph-status.v1",
   "contained-graph-status-v2.schema.json": "wringer.contained-graph-status.v2",
   "contained-graph-status-v3.schema.json": "wringer.contained-graph-status.v3",
+  "contained-graph-status-v4.schema.json": "wringer.contained-graph-status.v4",
   "contained-graph-tournament-assessment-v1.schema.json": "wringer.contained-graph-tournament-assessment.v1",
   "contained-graph-tournament-v1.schema.json": "wringer.contained-graph-tournament.v1",
   "contained-human-decision-v1.schema.json": "wringer.contained-human-decision.v1",
@@ -7979,18 +8257,23 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.contained-delivery-view.v2": "contained-delivery-view-v2.schema.json",
   "wringer.contained-display.v2": "contained-display-v2.schema.json",
   "wringer.contained-graph-authority.v1": "contained-graph-authority-v1.schema.json",
+  "wringer.contained-graph-delegation.v1": "contained-graph-delegation-v1.schema.json",
   "wringer.contained-graph-event.v1": "contained-graph-event-v1.schema.json",
   "wringer.contained-graph-event.v2": "contained-graph-event-v2.schema.json",
   "wringer.contained-graph-event.v3": "contained-graph-event-v3.schema.json",
+  "wringer.contained-graph-event.v4": "contained-graph-event-v4.schema.json",
   "wringer.contained-graph-export.v1": "contained-graph-export-v1.schema.json",
   "wringer.contained-graph-export.v2": "contained-graph-export-v2.schema.json",
   "wringer.contained-graph-export.v3": "contained-graph-export-v3.schema.json",
+  "wringer.contained-graph-export.v4": "contained-graph-export-v4.schema.json",
   "wringer.contained-graph-plan.v1": "contained-graph-plan-v1.schema.json",
   "wringer.contained-graph-plan.v2": "contained-graph-plan-v2.schema.json",
   "wringer.contained-graph-plan.v3": "contained-graph-plan-v3.schema.json",
+  "wringer.contained-graph-plan.v4": "contained-graph-plan-v4.schema.json",
   "wringer.contained-graph-status.v1": "contained-graph-status-v1.schema.json",
   "wringer.contained-graph-status.v2": "contained-graph-status-v2.schema.json",
   "wringer.contained-graph-status.v3": "contained-graph-status-v3.schema.json",
+  "wringer.contained-graph-status.v4": "contained-graph-status-v4.schema.json",
   "wringer.contained-graph-tournament-assessment.v1": "contained-graph-tournament-assessment-v1.schema.json",
   "wringer.contained-graph-tournament.v1": "contained-graph-tournament-v1.schema.json",
   "wringer.contained-human-decision.v1": "contained-human-decision-v1.schema.json",

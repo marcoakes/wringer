@@ -1,0 +1,18 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-delegate.test.ts:
+136 |     await expect(advanceContainedGraph(f.graphDir, f.driver, { signal: abort.signal })).rejects.toThrow(); clearInterval(interrupted);
+137 |     const between = await readContainedGraph(f.graphDir);
+138 |     expect(between.nodes.ask!.dispatched).toBe(true); expect(between.nodes.ask!.result).toBeUndefined();
+139 |     expect(await Bun.file(join(f.graphDir, "children/ask/sent.json")).exists()).toBe(true);
+140 |     const resumed = await advanceContainedGraph(f.graphDir, f.driver);
+141 |     expect(resumed.nodes.ask!.result!.outcome).toBe("returned"); expect(f.peer.sends()).toBe(1);
+                                    ^
+TypeError: undefined is not an object (evaluating 'resumed.nodes.ask.result.outcome')
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-delegate.test.ts:141:31)
+(fail) an interrupted delegation reconciles by reading the task, never by sending again [2010.41ms]
+
+ 23 pass
+ 1 fail
+ 96 expect() calls
+Ran 24 tests across 3 files. [52.62s]

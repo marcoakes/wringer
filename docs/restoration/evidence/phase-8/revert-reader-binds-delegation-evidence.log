@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-delegate.test.ts:
+85 |     expect((await inspectGraph(output)).finished).toBe("done");
+86 |     // A record rewritten to name another candidate no longer matches the recorded result.
+87 |     const forged = `${output}-forged`; await Bun.spawn(["cp", "-R", output, forged]).exited;
+88 |     const file = join(forged, "nodes/ask/delegation.json"), value = JSON.parse(await readFile(file, "utf8")); value.states = ["TASK_STATE_COMPLETED"]; const { sha256, ...body } = value; value.sha256 = hashValue(body); await writeFile(file, JSON.stringify(value));
+89 |     const graphIndex = JSON.parse(await readFile(join(forged, "graph.json"), "utf8")); graphIndex.files["nodes/ask/delegation.json"] = new Bun.CryptoHasher("sha256").update(await readFile(file)).digest("hex"); await writeFile(join(forged, "graph.json"), JSON.stringify(graphIndex));
+90 |     await expect(inspectGraph(forged)).rejects.toThrow("Delegate ask");
+                                                    ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-delegate.test.ts:90:48)
+(fail) a peer's returned patch is a candidate only after a fresh local check, and is delivered with the graph's evidence [12228.48ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 19 expect() calls
+Ran 1 test across 1 file. [12.40s]

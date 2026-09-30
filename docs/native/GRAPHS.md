@@ -151,6 +151,44 @@ A delivery of the selected attempt publishes an evidence commit on its exact cod
 that carries this graph's export. The Node reader recomputes the selection from
 the recorded runs and refuses a record that does not match them.
 
+## External tasks
+
+A version 4 graph can delegate one bounded task to an external agent that speaks
+A2A 1.0 over JSON-RPC. This is external delegation, not a contained agent: the
+agent runs wherever its operator runs it, and Wringer never trusts what it says.
+
+```text
+ask (delegate) → verify (check) → route → review (hold) → ship (delivery)
+```
+
+```sh
+wringer-drive graph plan examples/graphs/external-task/graph.yaml
+```
+
+- **Pinned identity.** The approved graph pins the agent's endpoint, which is
+  HTTPS or a loopback address for local fixtures, and the sha256 of its Agent
+  Card. The card is checked in preflight, before anything is sent, and again when
+  the task completes. A changed card needs a new approved graph.
+- **One task, sent once.** The request is recorded before it is sent and the task
+  id as soon as it is known. Wringer polls with `GetTask`. At the declared
+  timeout it sends one `CancelTask`. An interrupted run is reconciled by reading
+  the retained task id and is never sent again.
+- **A patch, not a verdict.** A completed task must return exactly one artifact
+  with one `text/x-diff` part. It is applied to the exact base in controller
+  storage and may touch only the delegate's verification plan's writable scope,
+  never its protected checks. Anything else is `unavailable`, with the reason.
+- **A check comes first.** Only a check node may read a delegate's candidate,
+  and it verifies the candidate afresh with the delegate's pinned plan. The
+  compiler refuses a hold, loop or delivery that reads it before a check. The
+  agent's completion claim never counts as acceptance.
+
+| Delegate outcome | Meaning |
+| --- | --- |
+| `returned` | The patch applied within scope; the candidate belongs to the delegate |
+| `failed` | The agent ended the task failed, rejected, or needing input or authentication; or it answered with a message and no task |
+| `canceled` | The agent cancelled, or the declared timeout passed and one cancellation was sent |
+| `unavailable` | The artifact broke its contract, the card changed during the task, or the task did not end after cancellation |
+
 ## What the graph guarantees
 
 - **Refused before any effect.** Cycles, unreachable nodes, undeclared outcomes,
@@ -212,6 +250,9 @@ names that path, so share exports of graphs that publish over HTTPS or SSH.
 ## Limits
 
 - No nested forks, no delivery inside a branch, and one repository per graph.
+- A delegate cannot run inside a branch yet, uses JSON-RPC only (no streaming or
+  push notifications), and has no peer authentication beyond the pinned card and
+  an HTTPS endpoint. The fixture peer is local; no real A2A agent was measured.
 - A tournament needs trusted controls for its challenges to count; it has no
   way to judge a challenge without one. It runs one prosecutor session, and its
   selection is only as good as the challenges that session writes.
@@ -241,5 +282,7 @@ Contracts: [`contained-graph-plan-v1`](../../schema/contained-graph-plan-v1.sche
 [`event`](../../schema/contained-graph-event-v1.schema.json), [`v2`](../../schema/contained-graph-event-v2.schema.json) and [`v3`](../../schema/contained-graph-event-v3.schema.json),
 [`status`](../../schema/contained-graph-status-v1.schema.json), [`v2`](../../schema/contained-graph-status-v2.schema.json) and [`v3`](../../schema/contained-graph-status-v3.schema.json),
 [`export`](../../schema/contained-graph-export-v1.schema.json), [`v2`](../../schema/contained-graph-export-v2.schema.json) and [`v3`](../../schema/contained-graph-export-v3.schema.json),
-[`tournament`](../../schema/contained-graph-tournament-v1.schema.json) and its [`assessment`](../../schema/contained-graph-tournament-assessment-v1.schema.json).
+[`tournament`](../../schema/contained-graph-tournament-v1.schema.json) and its [`assessment`](../../schema/contained-graph-tournament-assessment-v1.schema.json),
+version 4 [`plan`](../../schema/contained-graph-plan-v4.schema.json), [`event`](../../schema/contained-graph-event-v4.schema.json), [`status`](../../schema/contained-graph-status-v4.schema.json) and [`export`](../../schema/contained-graph-export-v4.schema.json),
+and the [`delegation`](../../schema/contained-graph-delegation-v1.schema.json) record.
 The retired host graph format stays readable with `wring graph show|status|explain`.

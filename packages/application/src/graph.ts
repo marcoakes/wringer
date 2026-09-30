@@ -25,6 +25,8 @@ import exportSchema from "../../../schema/contained-graph-export-v1.schema.json"
 import exportSchemaV2 from "../../../schema/contained-graph-export-v2.schema.json";
 import exportSchemaV3 from "../../../schema/contained-graph-export-v3.schema.json";
 import { readTournament, runTournament } from "./tournament";
+import { observeExternalTask, preflightExternalTask, runExternalTask, type GraphDelegation } from "./external-task";
+import exportSchemaV4 from "../../../schema/contained-graph-export-v4.schema.json";
 import { safePath } from "@wringer/workflow";
 import { processDriver, type PreparedRepositorySource } from "@wringer/runtime";
 import { controllerStatus, immutableControllerFile, privateControllerDirectory, readController, readControllerFile, startController, type ApplicationOptions } from "./controller";
@@ -41,6 +43,7 @@ type Loop = Extract<ContainedGraphNode, { kind: "loop" }>;
 type Delivery = Extract<ContainedGraphNode, { kind: "delivery" }>;
 type Join = Extract<ContainedGraphNode, { kind: "join" }>;
 type Tournament = Extract<ContainedGraphNode, { kind: "tournament" }>;
+type Delegate = Extract<ContainedGraphNode, { kind: "delegate" }>;
 
 async function present(path: string) {
     try { const info = await lstat(path); if (info.isSymbolicLink()) fail("Graph child records cannot be symlinks"); return true; }
@@ -59,8 +62,8 @@ async function git(args: string[], label: string, options: { env?: Record<string
 }
 /** Paths every leaf's acceptance depends on. A candidate may not change them. */
 export function graphAcceptanceInputs(plan: ContainedGraphPlan): string[] {
-    const leaves = Object.values(plan.nodes).filter((node): node is Loop => node.kind === "loop");
-    return [...new Set(leaves.flatMap(node => [...node.plan.acceptance.protected_paths, ...node.plan.acceptance.checks.flatMap(check => check.files)]))].sort();
+    const plans = Object.values(plan.nodes).flatMap(node => node.kind === "loop" ? [node.plan] : node.kind === "delegate" ? [node.verify] : []);
+    return [...new Set(plans.flatMap(leaf => [...leaf.acceptance.protected_paths, ...leaf.acceptance.checks.flatMap(check => check.files)]))].sort();
 }
 /** Compare the exact Git entries of every acceptance input with the graph root. */
 export async function assertAcceptanceInputsUnchanged(objectStore: string, plan: ContainedGraphPlan, candidateCommit: string) {
@@ -87,8 +90,17 @@ async function tournamentOwner(directory: string, candidate: GraphCandidate) {
     if (!winner || winner.commit !== candidate.source.commit || winner.tree !== candidate.tree) fail(`The ${candidate.owner} tournament did not select the exact candidate this node received`);
     return { kind: "tournament" as const, state, record: null, history: null, source: { url: candidate.source.url, commit: winner.commit, bundlePath: join(state, "source.bundle"), objectStore: join(state, "tournament.git") } as PreparedRepositorySource };
 }
+/** A delegate's returned candidate lives in its own controller-owned store, verified by its pinned plan. */
+async function delegateOwner(directory: string, candidate: GraphCandidate, plan: ContainedGraphPlan) {
+    const state = await child(directory, candidate.owner), record: GraphDelegation = await readControllerFile(join(state, "delegation.json"));
+    const { sha256, ...body } = record;
+    if (hashValue(body) !== sha256 || record.outcome !== "returned" || record.candidate?.commit !== candidate.source.commit || record.candidate?.tree !== candidate.tree) fail(`The ${candidate.owner} delegation does not hold the exact candidate this node received`);
+    const verify = (plan.nodes[candidate.owner] as Delegate).verify;
+    return { kind: "delegate" as const, state, record: null, history: { plan: verify }, source: { url: candidate.source.url, commit: candidate.source.commit, bundlePath: join(state, "source.bundle"), objectStore: join(state, "delegate.git") } as PreparedRepositorySource };
+}
 /** The owner loop's validated journal must hold exactly this candidate. */
 async function owner(directory: string, candidate: GraphCandidate, plan?: ContainedGraphPlan) {
+    if (plan?.nodes[candidate.owner]?.kind === "delegate") return delegateOwner(directory, candidate, plan);
     if (plan?.nodes[candidate.owner]?.kind === "join") return integrationOwner(directory, candidate);
     if (plan?.nodes[candidate.owner]?.kind === "tournament") return tournamentOwner(directory, candidate);
     return loopOwner(directory, candidate);
@@ -248,7 +260,9 @@ export function containedGraphDriver(options: ApplicationOptions = {}): GraphDri
     const injectedRoles = !!options.executeRole && !!options.runCommands, injectedCommands = !!options.runCommands;
     async function checkRequest(request: GraphEffectRequest, create: boolean) {
         const candidate = request.reservation.input.candidate ?? fail(`${request.node} has no candidate to check`);
-        const from = await loopOwner(request.directory, candidate), original: PreparedRepositorySource = await readControllerFile(join(from.state, "prepared-source.json"));
+        // A delegate's candidate is checked with the delegate's pinned plan against the graph's pinned root.
+        const from = request.plan.nodes[candidate.owner]?.kind === "delegate" ? await delegateOwner(request.directory, candidate, request.plan) : await loopOwner(request.directory, candidate);
+        const original: PreparedRepositorySource = await readControllerFile(join(from.state, from.kind === "delegate" ? "acceptance-source.json" : "prepared-source.json"));
         const directory = await child(request.directory, request.node, create);
         const verification = { plan: from.history.plan, source: from.source, phase: "candidate" as const, effectId: `graph-check-${request.node}`, signal: request.signal };
         return { candidate, from, directory, verification, services: () => containedServices(directory, original, options) };
@@ -276,6 +290,13 @@ export function containedGraphDriver(options: ApplicationOptions = {}): GraphDri
         return [...rows.values()].sort((a, b) => a.id.localeCompare(b.id));
     }
     async function rootBundle(directory: string) { const path = await safePath(directory, ROOT_SOURCE); return await present(path) ? path : null; }
+    /** The exact source a delegated task starts from: the input candidate's owner, or the graph's root bundle. */
+    async function delegateBase(request: GraphEffectRequest): Promise<PreparedRepositorySource> {
+        const input = request.reservation.input;
+        if (input.candidate) return (await owner(request.directory, input.candidate, request.plan)).source;
+        const bundle = await rootBundle(request.directory) ?? fail(`Delegate ${request.node} starts from the root source, but the graph has no root source bundle. Nothing was sent.\nNext: attach one with --source-bundle, then resume`);
+        return { url: request.plan.repository.url, commit: request.plan.repository.commit, bundlePath: bundle } as PreparedRepositorySource;
+    }
     return {
         async preflight(request, operation) {
             const node = request.plan.nodes[request.node]!;
@@ -297,6 +318,7 @@ export function containedGraphDriver(options: ApplicationOptions = {}): GraphDri
                 if (!injectedCommands) requireRuntime(owners[0]!.history.plan, request.node, request.directory);
             }
             else if (node.kind === "check") { const { from } = await checkRequest(request, false); if (!injectedCommands) requireRuntime(from.history.plan, request.node, request.directory); }
+            else if (node.kind === "delegate") { await delegateBase(request); await preflightExternalTask(node); }
             else if (node.kind === "tournament") {
                 for (const row of request.reservation.input.branches ?? []) if (row.candidate) await loopOwner(request.directory, row.candidate);
                 if (!injectedRoles) requireRuntime(node.prosecutor.plan, request.node, request.directory);
@@ -329,6 +351,9 @@ export function containedGraphDriver(options: ApplicationOptions = {}): GraphDri
             } else if (node.kind === "join") {
                 const directory = await child(request.directory, request.node, true), record = await integrate(request, directory);
                 if (record.status === "merged") for (const row of await joinVerifications(request, directory, record)) await row.services.verifyCandidate(row.verification);
+            } else if (node.kind === "delegate") {
+                const directory = await child(request.directory, request.node, true);
+                await runExternalTask(request, directory, { base: await delegateBase(request), rootBundle: await rootBundle(request.directory) });
             } else if (node.kind === "tournament") {
                 const directory = await child(request.directory, request.node, true);
                 await runTournament(request, directory, { executeRole: options.executeRole, runCommands: options.runCommands, candidateSource: async candidate => (await loopOwner(request.directory, candidate)).source, rootBundle: await rootBundle(request.directory), criteria: tournamentCriteria(request.plan, node) });
@@ -370,6 +395,11 @@ export function containedGraphDriver(options: ApplicationOptions = {}): GraphDri
                 }
                 const outcome = verifications.some(row => row.status === "unavailable") ? "unavailable" : verifications.some(row => row.status === "failed") ? "failed" : "integrated";
                 return { kind: "complete", outcome, candidate: { source: { url: request.plan.repository.url, commit: record.commit! }, tree: record.tree!, owner: request.node }, evidenceSha256: hashValue({ integration: record, verifications }) };
+            }
+            if (node.kind === "delegate") {
+                const record = await observeExternalTask(request, directory, { base: await delegateBase(request), rootBundle: await rootBundle(request.directory) });
+                if (!record) return null;
+                return { kind: "complete", outcome: record.outcome, candidate: record.candidate ? { source: { url: request.plan.repository.url, commit: record.candidate.commit }, tree: record.candidate.tree, owner: request.node } : null, evidenceSha256: hashValue(record) };
             }
             if (node.kind === "tournament") {
                 const read = await readTournament(directory);
@@ -463,6 +493,7 @@ export async function exportContainedGraph(directory: string, destination: strin
             const verifications = record.status === "conflict" ? [] : await Promise.all(record.branches.map(async (_, index) => portableVerification((await readControllerFile(await safePath(directory, `children/${id}/verification/graph-join-${id}-${index}/result.json`))).value)));
             entry.evidence = await write(`nodes/${id}/integration.json`, JSON.stringify({ integration: record, verifications }, null, 2) + "\n");
         }
+        if (node.kind === "delegate" && row.result) entry.evidence = await copy(`children/${id}/delegation.json`, `nodes/${id}/delegation.json`);
         if (node.kind === "tournament" && row.result) {
             const read = await readTournament(await safePath(directory, `children/${id}`)) ?? fail(`Tournament ${id} has a result but no complete record`);
             entry.evidence = await write(`nodes/${id}/tournament.json`, JSON.stringify(read, null, 2) + "\n");
@@ -475,7 +506,7 @@ export async function exportContainedGraph(directory: string, destination: strin
                 entry.evidence = await write(`nodes/${id}/delivered.json`, JSON.stringify(sent, null, 2) + "\n");
             }
             // A join- or tournament-owned delivery carries this graph export itself, not a loop delivery envelope.
-            if (!closesFork(state.plan.nodes[row.prepared.candidate.owner])) {
+            if (state.plan.nodes[row.prepared.candidate.owner]?.kind === "loop") {
                 const bundle = await safePath(directory, `children/${row.prepared.candidate.owner}/state/deliveries/${prepared.deliveryId}/bundle`);
                 await fs.mkdir(path.join(output, "deliveries"), { recursive: true, mode: 0o700 });
                 await exportEvidenceBundle(bundle, path.join(output, "deliveries", id));
@@ -486,9 +517,9 @@ export async function exportContainedGraph(directory: string, destination: strin
     }
     const lines = nodes.map(row => { const recorded = state.nodes[row.id]!; return `- **${row.id}** (${row.kind}): ${recorded.result ? `${recorded.result.outcome}` : recorded.prepared ? "prepared" : "reserved"}${recorded.result?.candidate ? `, candidate \`${recorded.result.candidate.source.commit}\` from ${recorded.result.candidate.owner}` : ""}`; });
     const summary = `# Contained graph ${state.plan.id}\n\nPhase: ${state.phase}. Revision \`${state.revision}\`; ${state.events.length} events.\nSource ${state.plan.repository.url} @ \`${state.plan.repository.commit}\`.\n\n${lines.join("\n")}\n\nVerify with \`node read-bundle.mjs .\` (Node built-ins only). Integrity and lineage are not a rerun of behaviour, containment or human acceptance.\n`;
-    const version = state.plan.schema_version === "wringer.contained-graph-plan.v3" ? 3 : state.plan.schema_version === "wringer.contained-graph-plan.v2" ? 2 : 1;
-    await write("read-bundle.mjs", readerSource); await write("schema.json", JSON.stringify(version === 3 ? exportSchemaV3 : version === 2 ? exportSchemaV2 : exportSchema, null, 2) + "\n"); await write("summary.md", summary);
-    const index = { schema_version: `wringer.contained-graph-export.v${version}` as "wringer.contained-graph-export.v1" | "wringer.contained-graph-export.v2" | "wringer.contained-graph-export.v3", graph: { id: state.plan.id, sha256: state.plan.sha256, repository: state.plan.repository }, revision: state.revision, eventCount: state.events.length, files, nodes, omissions: GRAPH_OMISSIONS, limits: ["Engineering evidence of recorded decisions; not a live model, containment or independent human acceptance measurement.", "The graph actor is recorded, not authenticated.", ...(Object.values(state.plan.nodes).some(node => node.kind === "delivery" && path.isAbsolute(node.publication.remote)) ? ["graph/plan.json is carried verbatim because its digest binds the grant and every event. It names each delivery's declared publication remote; here that includes a local bare origin, a path on the exporting machine that is not resolvable elsewhere. Use an HTTPS or SSH remote for graphs whose evidence you share."] : [])] };
+    const version = Number(/v(\d+)$/.exec(state.plan.schema_version)![1]);
+    await write("read-bundle.mjs", readerSource); await write("schema.json", JSON.stringify([exportSchema, exportSchemaV2, exportSchemaV3, exportSchemaV4][version - 1], null, 2) + "\n"); await write("summary.md", summary);
+    const index = { schema_version: `wringer.contained-graph-export.v${version}` as "wringer.contained-graph-export.v1" | "wringer.contained-graph-export.v2" | "wringer.contained-graph-export.v3" | "wringer.contained-graph-export.v4", graph: { id: state.plan.id, sha256: state.plan.sha256, repository: state.plan.repository }, revision: state.revision, eventCount: state.events.length, files, nodes, omissions: GRAPH_OMISSIONS, limits: ["Engineering evidence of recorded decisions; not a live model, containment or independent human acceptance measurement.", "The graph actor is recorded, not authenticated.", ...(Object.values(state.plan.nodes).some(node => node.kind === "delivery" && path.isAbsolute(node.publication.remote)) ? ["graph/plan.json is carried verbatim because its digest binds the grant and every event. It names each delivery's declared publication remote; here that includes a local bare origin, a path on the exporting machine that is not resolvable elsewhere. Use an HTTPS or SSH remote for graphs whose evidence you share."] : [])] };
     await fs.writeFile(path.join(output, "graph.json"), JSON.stringify(index, null, 2) + "\n", { flag: "wx", mode: 0o600 });
     await inspectGraph(output);
     return index;
@@ -503,11 +534,12 @@ export async function loadContainedGraphFile(path: string): Promise<ContainedGra
     const raw = parseYaml(await read(path, "utf8"), "graph");
     const nodes = raw && typeof raw === "object" && raw.nodes && typeof raw.nodes === "object" ? Object.values(raw.nodes as Record<string, any>) : [];
     if (raw && typeof raw === "object" && (["budgets", "state", "inputs"].some(key => Object.hasOwn(raw, key)) || nodes.some(node => LEGACY_KINDS.includes(node?.kind))))
-        throw new EngineError(`${path} is a retired host-execution graph. It remains readable with wring graph show ${quote(path)}; it cannot run. A contained graph declares loop, check, router, human-hold, delivery, fork, join and tournament nodes.`, 2, "wringer-drive graph --help");
+        throw new EngineError(`${path} is a retired host-execution graph. It remains readable with wring graph show ${quote(path)}; it cannot run. A contained graph declares loop, check, router, human-hold, delivery, fork, join, tournament and delegate nodes.`, 2, "wringer-drive graph --help");
     const declaration = structuredClone(raw);
     for (const node of Object.values((declaration?.nodes ?? {}) as Record<string, any>)) {
         if (node?.kind === "loop" && typeof node.plan === "string") node.plan = await loadExecutionPlan(resolve(dirname(path), node.plan));
         if (node?.kind === "tournament" && typeof node.prosecutor?.plan === "string") node.prosecutor.plan = await loadExecutionPlan(resolve(dirname(path), node.prosecutor.plan));
+        if (node?.kind === "delegate" && typeof node.verify === "string") node.verify = await loadExecutionPlan(resolve(dirname(path), node.verify));
     }
     try { return compileContainedGraph(declaration); }
     catch (error) { throw new EngineError(`Contained graph refused before any effect: ${(error as Error).message}`, 2, "wringer-drive graph --help"); }
@@ -523,7 +555,7 @@ export interface GraphStatusView {
     next: { action: "resume" | "decide" | "send" | "inspect-child" | "none"; node: string | null; prompt: string | null; inputSha256: string | null; preparedSha256: string | null; command: string | null };
 }
 export interface ParallelGraphStatusView {
-    schema_version: "wringer.contained-graph-status.v2" | "wringer.contained-graph-status.v3";
+    schema_version: "wringer.contained-graph-status.v2" | "wringer.contained-graph-status.v3" | "wringer.contained-graph-status.v4";
     graph: { id: string; sha256: string; repository: { url: string; commit: string } };
     revision: string; phase: string; reason: string | null; active: string[]; holds: { node: string; kind: "human" | "child" | "send"; reason: string }[]; cancelled: string[];
     startedAt: string; deadline: string;
@@ -557,7 +589,7 @@ export function graphStatusView(directory: string, state: import("@wringer/sched
             const held = new Set(state.holds.map(hold => hold.node));
             if (state.active.some(id => !held.has(id))) actions.push(resume(state.active.find(id => !held.has(id)) ?? null));
         }
-        return { schema_version: plan.schema_version === "wringer.contained-graph-plan.v3" ? "wringer.contained-graph-status.v3" : "wringer.contained-graph-status.v2", graph: identity, revision: state.revision, phase: state.phase, reason: state.reason, active: state.active, holds: state.holds, cancelled: state.cancelled, startedAt: state.startedAt, deadline: state.deadline, allowance: { ...allowance, parallelism: plan.parallelism ?? 1 }, nodes: rows.map(row => ({ ...row, branch: branches.get(row.id) ?? null })), actions };
+        return { schema_version: plan.schema_version.replace("-plan.", "-status.") as ParallelGraphStatusView["schema_version"], graph: identity, revision: state.revision, phase: state.phase, reason: state.reason, active: state.active, holds: state.holds, cancelled: state.cancelled, startedAt: state.startedAt, deadline: state.deadline, allowance: { ...allowance, parallelism: plan.parallelism ?? 1 }, nodes: rows.map(row => ({ ...row, branch: branches.get(row.id) ?? null })), actions };
     }
     const cursor = state.nodes[state.cursor];
     let next: GraphStatusView["next"] = { action: "none", node: null, prompt: null, inputSha256: null, preparedSha256: null, command: null };

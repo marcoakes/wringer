@@ -15,7 +15,7 @@ export interface GraphReservation { roleSessions: number; verificationAttempts: 
 export interface GraphRoute { outcome: string; to: string; via: string[]; reason: string | null; /** A fork's route: every branch it opens. */ branches?: string[]; }
 export type GraphEventKind = 'start' | 'reserve' | 'dispatch' | 'prepared' | 'send' | 'result' | 'decision' | 'route';
 export interface GraphEvent {
-    schema_version: 'wringer.contained-graph-event.v1' | 'wringer.contained-graph-event.v2' | 'wringer.contained-graph-event.v3'; graphSha256: string; sequence: number; previousSha256: string | null;
+    schema_version: 'wringer.contained-graph-event.v1' | 'wringer.contained-graph-event.v2' | 'wringer.contained-graph-event.v3' | 'wringer.contained-graph-event.v4'; graphSha256: string; sequence: number; previousSha256: string | null;
     at: string; node: string | null; kind: GraphEventKind;
     data: any; sha256: string;
 }

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-delegate.test.ts:
+38 |     const f = await fixture((input, of) => ({ kind: 'complete', outcome: 'returned', candidate: of('verify'), evidenceSha256: hashValue('record') }));
+39 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('must own');
+40 | });
+41 | test('a failed, canceled or unavailable delegation carries no candidate and a required delegate fails the graph', async () => {
+42 |     const forged = await fixture((input, of) => ({ kind: 'complete', outcome: 'failed', candidate: of('ask'), evidenceSha256: hashValue('record') }));
+43 |     await expect(advanceContainedGraph(forged.dir, forged.driver, { now })).rejects.toThrow('with a candidate');
+                                                                                         ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-delegate.test.ts:43:85)
+(fail) a failed, canceled or unavailable delegation carries no candidate and a required delegate fails the graph [28.50ms]
+
+ 0 pass
+ 3 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [170.00ms]

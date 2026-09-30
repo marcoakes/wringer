@@ -1,0 +1,33 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-delegate.test.ts:
+26 | export function scrub(text: string): string {
+27 |     return new Redactor(undefined, process.env, secretScope.getStore() ?? []).scrub(text);
+28 | }
+29 | export function scrubValue<T>(value: T): T { return JSON.parse(scrub(JSON.stringify(value))) as T; }
+30 | export async function safePath(repo: string, target: string): Promise<string> {
+31 |     const root = await realpath(repo);
+                            ^
+ENOENT: no such file or directory, lstat '/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-delegate-adapter-vXZHCz/graph/children/ask/state'
+    path: "/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-delegate-adapter-vXZHCz/graph/children/ask/state",
+ syscall: "lstat",
+   errno: -2,
+    code: "ENOENT"
+
+      at async safePath ([isolated-checkout]/packages/workflow/src/storage.ts:31:24)
+      at async readJournal ([isolated-checkout]/packages/workflow/src/contained.ts:216:41)
+      at async readValidatedContainedState ([isolated-checkout]/packages/workflow/src/contained.ts:246:58)
+      at async readController ([isolated-checkout]/packages/application/src/controller.ts:38:27)
+      at async loopOwner ([isolated-checkout]/packages/application/src/graph.ts:109:27)
+      at async deliveryRequest ([isolated-checkout]/packages/application/src/graph.ts:271:47)
+      at async preflight ([isolated-checkout]/packages/application/src/graph.ts:336:56)
+      at async advanceLocked ([isolated-checkout]/packages/scheduler/src/contained.ts:470:54)
+      at async locked ([isolated-checkout]/packages/workflow/src/storage.ts:211:22)
+      at async <anonymous> ([isolated-checkout]/packages/application/test/graph-delegate.test.ts:75:25)
+(fail) a peer's returned patch is a candidate only after a fresh local check, and is delivered with the graph's evidence [4024.59ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 10 expect() calls
+Ran 1 test across 1 file. [4.22s]

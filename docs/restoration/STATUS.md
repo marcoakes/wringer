@@ -12,9 +12,9 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 3. Serial graphs | Published and verified | [alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26), commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`; [release evidence](evidence/phase-3/release.json); [measurements](PHASE_3_MEASUREMENTS.md) |
 | 4. Parallel branches/integration | Published and verified | [alpha.28](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.28), commit `b7e9827cc94ddcb3521556ea5b2192b5d750b80c`; [release evidence](evidence/phase-4/release.json); [measurements](PHASE_4_MEASUREMENTS.md). The `v1.0.0-alpha.27` tag's release build failed on macOS 14 and was never published |
 | 5. Gate/workflow improvement | Published and verified | [alpha.29](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.29), commit `f24a0ca83c09430ca5796142da4fa4283e310419`; [release evidence](evidence/phase-5/release.json); [measurements](PHASE_5_MEASUREMENTS.md). Two earlier remote runs stopped at CI hang guards; see the phase 5 section |
-| 6. Tournament/prosecutor | alpha.30 local qualification passed; remote release pending | Version 3 graphs with a tournament: prosecutor challenges validated on trusted controls, replayed on every attempt, selection among survivors, a final untouched evaluator, six sibling schemas; [measurements](PHASE_6_MEASUREMENTS.md) |
+| 6. Tournament/prosecutor | Published and verified | [alpha.30](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.30), commit `615a9308a1c21a03c10214c00f6bd64a2ab0cda9`; [release evidence](evidence/phase-6/release.json); [measurements](PHASE_6_MEASUREMENTS.md). One earlier remote run stopped at a flaky test timeout; see the phase 6 section |
 | 7. Temporal durability | Measured; no release. The Temporal prototype needs the Temporal CLI and SDK downloaded, which awaits the operator's approval | The graph kernel's decisions and effects mapped, replay determinism measured; [measurements](PHASE_7_MEASUREMENTS.md) |
-| 8. Platform interfaces | Pending | — |
+| 8. Platform interfaces | alpha.31 local qualification passed; remote release pending | Version 4 graphs with an external A2A `delegate` verified locally, a service interfaces page, five sibling schemas; fixture conformance against a local reference peer only; [measurements](PHASE_8_MEASUREMENTS.md) |
 | 9. Comparative qualification | Pending; live and independent observations need their actual prerequisites | — |
 
 ## Phase 1 measurements
@@ -321,6 +321,32 @@ GitHub access; anonymous-install qualification was not measured. The
   design commitment needs the Temporal CLI and SDK downloaded. Downloads need the
   operator's explicit approval, so nothing was downloaded, no Temporal behaviour
   is claimed, and phase 7 has no release. Phase 8 shipped before it.
+
+## Phase 8 measurements
+
+- Baseline (on the phase 7 source), read from the source: the ACP client offers
+  no file or terminal capability; none of the 18 MCP tools approves, records a
+  verdict, sends, merges or adopts; no A2A client existed and the compiler
+  refused an external task node. See the [baseline](PHASE_8_MEASUREMENTS.md).
+- The design follows it: a version 4 `delegate` node pinning an A2A 1.0 peer by
+  endpoint and Agent Card digest, one task sent once and reconciled by reading,
+  one cancellation at the deadline, a returned patch applied within the
+  verification plan's scope and verified by a following check, and a
+  [service interfaces](../native/INTERFACES.md) page listing every boundary.
+- The compiler, kernel and driver were written before their tests; the reversions
+  are their red evidence. The adapter's first run passed seven of eight tests; the
+  eighth failed because the Node reader did not yet read version 4 exports.
+- All **27 individual reversions** failed as intended and every restoration and
+  both controls passed: a refusal vanished in 14 and recorded state changed in
+  13. The first attempt stopped at its isolated control because a
+  reconciliation test assumed one resume would find the task finished; the test
+  now resumes until it ends. See the [reversion record](evidence/phase-8/reversions.json).
+- Full local validation passed all 41 stages in one run, including the packaged
+  delegation walkthrough in which the public binary is the A2A client: 1,417
+  pass, one Linux-only skip, zero fail and 13,248 assertions
+  ([record](evidence/phase-8/local-validation.json)).
+- A local reference peer establishes fixture conformance only. No real A2A agent
+  has completed a task.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.

@@ -1,0 +1,616 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compiled contained graph with tournaments",
+  "description": "Version 4 of the contained graph: version 3's nodes plus delegate, which sends one bounded task to an external A2A agent pinned by endpoint and Agent Card digest. sha256 is the canonical-JSON digest of every other field. The compiler also refuses a delegate inside a branch and any node other than a check or router that reads a delegate's candidate before a check verifies it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "repository",
+    "entry",
+    "required",
+    "budget",
+    "parallelism",
+    "nodes",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-plan.v4"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "entry": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "required": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "maxLength": 80
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxRoleSessions",
+        "maxVerificationAttempts",
+        "wallClockSeconds"
+      ],
+      "properties": {
+        "maxRoleSessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxVerificationAttempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "parallelism": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8,
+      "description": "The most branch effects that may run at once; separate from the aggregate allowance."
+    },
+    "nodes": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then",
+              "plan"
+            ],
+            "properties": {
+              "kind": {
+                "const": "loop"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "plan": {
+                "type": "object",
+                "description": "A complete compiled execution plan pinned into the graph. It must itself validate as wringer.execution-plan.v3 or v4 and pin the graph's root source.",
+                "required": [
+                  "schema_version",
+                  "plan_sha256",
+                  "repository",
+                  "budget",
+                  "acceptance"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "enum": [
+                      "wringer.execution-plan.v3",
+                      "wringer.execution-plan.v4"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "check"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "prompt",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "human-hold"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16384
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then",
+              "publication"
+            ],
+            "properties": {
+              "kind": {
+                "const": "delivery"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "publication": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "remote",
+                  "sourceBranch",
+                  "targetBranch"
+                ],
+                "properties": {
+                  "remote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "sourceBranch": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "targetBranch": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "routes",
+              "otherwise"
+            ],
+            "properties": {
+              "kind": {
+                "const": "router"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "routes": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "to"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    },
+                    "to": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    }
+                  }
+                }
+              },
+              "otherwise": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "description": "Opens every branch at once. Each branch is a private region that reads only the fork's input and its own nodes and reaches only its join or fail.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "branches",
+              "join"
+            ],
+            "properties": {
+              "kind": {
+                "const": "fork"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "branches": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "maxLength": 80
+                }
+              },
+              "join": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "description": "Waits for every branch, merges their exact candidates in declared order against the fork's source, and verifies the result afresh against every branch plan. Outcomes: integrated, failed, conflict, unavailable.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "fork",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "join"
+              },
+              "fork": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "description": "Version 3: closes a fork by trying to falsify every candidate and selecting only among survivors. Outcomes: selected, no-winner, unavailable.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "fork",
+              "prosecutor",
+              "controls",
+              "evaluator",
+              "tie",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "tournament"
+              },
+              "fork": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "prosecutor": {
+                "description": "One contained session whose plan may write only wringer/challenges.json. It never edits a candidate.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "plan",
+                  "maxChallenges"
+                ],
+                "properties": {
+                  "plan": {
+                    "type": "object",
+                    "description": "A complete compiled execution plan pinned into the graph. It must itself validate as wringer.execution-plan.v3 or v4 and pin the graph's root source.",
+                    "required": [
+                      "schema_version",
+                      "plan_sha256",
+                      "repository",
+                      "budget",
+                      "acceptance"
+                    ],
+                    "properties": {
+                      "schema_version": {
+                        "enum": [
+                          "wringer.execution-plan.v3",
+                          "wringer.execution-plan.v4"
+                        ]
+                      }
+                    }
+                  },
+                  "maxChallenges": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 16
+                  }
+                }
+              },
+              "controls": {
+                "type": "array",
+                "maxItems": 4,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "commit"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    },
+                    "commit": {
+                      "type": "string",
+                      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                    }
+                  }
+                },
+                "description": "Trusted correct trees in the graph's root source bundle. A challenge counts only after it passes on every one; with none, challenges are advisory."
+              },
+              "evaluator": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "argv",
+                    "cwd",
+                    "timeout_seconds",
+                    "files"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    },
+                    "argv": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 64,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4096
+                      }
+                    },
+                    "cwd": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "timeout_seconds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 3600
+                    },
+                    "files": {
+                      "type": "array",
+                      "maxItems": 32,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "path",
+                          "content"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 512,
+                            "pattern": "^(?!/)(?!.*(^|/)(\\.|\\.\\.|\\.git)(/|$))[^\\x00]+$"
+                          },
+                          "content": {
+                            "type": "string",
+                            "maxLength": 262144
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "description": "The final untouched evaluator, pinned by content. It assesses every eligible candidate after the selection is recorded and never changes it."
+              },
+              "tie": {
+                "enum": [
+                  "no-winner",
+                  "tree-order"
+                ]
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "description": "Version 4: one bounded task sent to an external A2A 1.0 agent. A returned patch is a candidate owned by the delegate, within the verification plan's writable scope, that only a following check can verify. Outcomes: returned, failed, canceled, unavailable.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "peer",
+              "instruction",
+              "verify",
+              "timeoutSeconds",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "delegate"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "peer": {
+                "description": "An external A2A agent: a credential-free HTTPS endpoint, or a loopback endpoint for local fixtures, and the canonical sha256 of its Agent Card.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "url",
+                  "cardSha256",
+                  "skill"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "pattern": "^(https://|http://(127\\.0\\.0\\.1|\\[::1\\]|localhost)(:[0-9]+)?(/|$))"
+                  },
+                  "cardSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "skill": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "maxLength": 80
+                  }
+                }
+              },
+              "instruction": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16384
+              },
+              "verify": {
+                "type": "object",
+                "description": "A complete compiled execution plan pinned into the graph. It must itself validate as wringer.execution-plan.v3 or v4 and pin the graph's root source.",
+                "required": [
+                  "schema_version",
+                  "plan_sha256",
+                  "repository",
+                  "budget",
+                  "acceptance"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "enum": [
+                      "wringer.execution-plan.v3",
+                      "wringer.execution-plan.v4"
+                    ]
+                  }
+                }
+              },
+              "timeoutSeconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 86400
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          }
+        ]
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

@@ -3,11 +3,13 @@
  * checks. Real Git, real source transport and a real local bare origin; no real
  * container, provider or human decision is measured. */
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { hashBytes } from "../../packages/plan/src";
 import { createLocalSourceBundle, processDriver, runtimeProvenanceVersion, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../../packages/runtime/src";
 import { containedGraphDriver, graphStatusView } from "../../packages/application/src";
 import { advanceContainedGraph } from "../../packages/scheduler/src";
+import { startReferencePeer } from "../../packages/application/fixtures/a2a-peer";
 
 const [action, directoryArgument, stateArgument] = process.argv.slice(2), directory = resolve(directoryArgument!), repo = join(directory, "source"), origin = join(directory, "origin.git");
 async function git(args: string[]) { const result = await processDriver.command(["git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { timeoutMs: 20000 }); if (result.code !== 0) throw new Error(result.stderr); return result.stdout.trim(); }
@@ -122,6 +124,45 @@ if (action === "prepare") {
             ship: { kind: "delivery", input: "review", publication: { remote: origin, sourceBranch: "wringer/tournament-fixture", targetBranch: "main" }, then: "done" } } };
     await writeFile(join(directory, "graph.yaml"), JSON.stringify(graph, null, 2));
     console.log(JSON.stringify({ fixture: true, origin, baseCommit: commit, control, graph: join(directory, "graph.yaml"), bundle: join(directory, "source.bundle") }));
+} else if (action === "serve-peer") {
+    // A local reference A2A peer; it reads its patch when a task completes and logs every call.
+    await mkdir(directory, { recursive: true });
+    const peer = await startReferencePeer({ patch: () => readFileSync(join(directory, "peer.patch"), "utf8"), onCall: calls => writeFileSync(join(directory, "peer-calls.json"), JSON.stringify(calls.map(call => ({ method: call.method, version: call.version })), null, 2)) });
+    console.log(JSON.stringify({ fixture: true, url: peer.url, cardSha256: peer.cardSha256 }));
+    await new Promise(() => undefined);
+} else if (action === "prepare-delegate") {
+    // One bounded repair delegated to the local peer; its returned patch is checked by a pinned plan.
+    const [peerUrl, cardSha256] = [stateArgument!, process.argv[5]!];
+    await mkdir(directory, { recursive: true });
+    await git(["init", "--initial-branch=main", repo]); await git(["init", "--bare", "--initial-branch=main", origin]);
+    await git(["-C", repo, "config", "user.name", "Graph distribution fixture"]); await git(["-C", repo, "config", "user.email", "fixture@example.invalid"]);
+    await mkdir(join(repo, "src"));
+    await writeFile(join(repo, "README.md"), "Deterministic delegation fixture. A local reference peer is not a real agent.\n");
+    await writeFile(join(repo, "src/total.sh"), "#!/bin/sh\necho $(( $1 + $2 + 1 ))\n"); await writeFile(join(repo, "check.sh"), "for a in 0 2 7; do for b in 0 3; do test \"$(sh src/total.sh $a $b)\" = $(( a + b )) || exit 1; done; done\n");
+    await git(["-C", repo, "add", "."]); await git(["-C", repo, "commit", "-m", "Committed buggy baseline"]); await git(["-C", repo, "push", origin, "main"]);
+    const commit = await git(["-C", repo, "rev-parse", "HEAD"]);
+    await writeFile(join(repo, "src/total.sh"), "#!/bin/sh\necho $(( $1 + $2 ))\n");
+    await writeFile(join(directory, "peer.patch"), await git(["-C", repo, "diff", "--binary", "--full-index"]) + "\n");
+    await git(["-C", repo, "checkout", "--", "src/total.sh"]);
+    await createLocalSourceBundle(repo, commit, join(directory, "source.bundle"));
+    const url = "https://fixture.invalid/delegation.git";
+    const verify = { version: 3, name: "Verify the returned total", intent: "Return the sum of two integers.", repository: { url, commit },
+        runtime: { kind: "apple-container", image: `fixture.invalid/verifier@sha256:${"a".repeat(64)}`, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] },
+        agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } },
+        environment: { context: ["README.md"], tools: [], setup: [], baseline: [], writable_directories: [] }, scope: { writable: ["src"] },
+        acceptance: { criteria: [{ id: "sum", title: "Sum", quote: "Return the sum of two integers", kind: "check", required: true }], checks: [{ id: "sum", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 5, criteria: ["sum"], files: ["check.sh"] }], protected_paths: ["check.sh"] },
+        budget: { max_sessions: 1, max_worker_turns: 1, max_judge_turns: 1, max_planner_turns: 0, wall_clock_seconds: 3600, session_timeout_seconds: 900 } };
+    await writeFile(join(directory, "verify.yaml"), JSON.stringify(verify, null, 2));
+    const graph = (card: string) => ({ version: 4, id: "delegation-fixture", repository: { url, commit }, entry: "ask", required: ["ask", "verify", "review", "ship"], parallelism: 1,
+        budget: { maxRoleSessions: 1, maxVerificationAttempts: 1, wallClockSeconds: 1800 },
+        nodes: { ask: { kind: "delegate", input: "root", peer: { url: peerUrl, cardSha256: card, skill: "repair" }, instruction: "Make src/total.sh print the sum of its two arguments.", verify: "verify.yaml", timeoutSeconds: 120, then: "verify" },
+            verify: { kind: "check", input: "ask", then: "route" },
+            route: { kind: "router", input: "verify", routes: [{ outcome: "passed", to: "review" }], otherwise: "fail" },
+            review: { kind: "human-hold", input: "verify", prompt: "Inspect the externally returned candidate and its local verification.", then: "ship" },
+            ship: { kind: "delivery", input: "review", publication: { remote: origin, sourceBranch: "wringer/delegation-fixture", targetBranch: "main" }, then: "done" } } });
+    await writeFile(join(directory, "graph.yaml"), JSON.stringify(graph(cardSha256), null, 2));
+    await writeFile(join(directory, "graph-changed-card.yaml"), JSON.stringify({ ...graph("0".repeat(64)), id: "delegation-changed-card" }, null, 2));
+    console.log(JSON.stringify({ fixture: true, origin, baseCommit: commit, graph: join(directory, "graph.yaml"), changedCard: join(directory, "graph-changed-card.yaml"), bundle: join(directory, "source.bundle") }));
 } else if (action === "advance") {
     const state = resolve(stateArgument!), crash = process.env.WRINGER_GRAPH_FIXTURE_CRASH;
     const patchFor = async (prompt: string) => {
@@ -149,4 +190,4 @@ if (action === "prepare") {
     let results = 0;
     const result = await advanceContainedGraph(state, driver, { checkpoint: async event => { if (crash === "after-marker" && event.kind === "dispatch") process.exit(9); if (crash === "after-first-result" && event.kind === "result" && ++results === 1) process.exit(9); } });
     console.log(JSON.stringify(graphStatusView(state, result)));
-} else throw new Error("Fixture actions are prepare, prepare-parallel, prepare-tournament and advance only");
+} else throw new Error("Fixture actions are prepare, prepare-parallel, prepare-tournament, serve-peer, prepare-delegate and advance only");

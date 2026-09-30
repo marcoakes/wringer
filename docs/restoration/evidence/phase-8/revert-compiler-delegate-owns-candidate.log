@@ -1,0 +1,20 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v4.test.ts:
+38 | }
+39 | const KINDS = ['loop', 'check', 'router', 'human-hold', 'delivery'], PARALLEL_KINDS = ['fork', 'join'], TOURNAMENT_KINDS = ['tournament'], DELEGATE_KINDS = ['delegate'];
+40 | /** A node that closes a fork: it waits for every branch and reads their results. */
+41 | export const closesFork = (node: ContainedGraphNode | undefined): node is Extract<ContainedGraphNode, { kind: 'join' | 'tournament' }> => node?.kind === 'join' || node?.kind === 'tournament';
+42 | const SINKS = ['done', 'fail'];
+43 | function fail(message: string): never { throw new Error(message); }
+                                                                    ^
+error: Node verify needs a contained candidate
+      at fail ([isolated-checkout]/packages/plan/src/graph.ts:43:64)
+      at compileContainedGraph ([isolated-checkout]/packages/plan/src/graph.ts:307:97)
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph-v4.test.ts:10:78)
+(fail) a version 4 graph pins an external peer and owns the returned candidate at the delegate [17.38ms]
+
+ 0 pass
+ 11 filtered out
+ 1 fail
+Ran 1 test across 1 file. [143.00ms]

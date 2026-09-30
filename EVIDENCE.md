@@ -1,20 +1,23 @@
 # Current product evidence — 30 September 2026
 
 The current verified public release is
-[1.0.0-alpha.29](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.29),
-commit `f24a0ca83c09430ca5796142da4fa4283e310419`: gate and workflow proposals
-judged by a frozen oracle. Its first two remote runs each stopped at a CI hang
-guard, the action job's 15 minutes and then the native suite's 1,200 seconds; no
-test failed and no tag was made. On the third run all six test jobs, the Linux
-DAC job and all six release jobs passed. All 14 public assets matched the clean
-source, both archives' signed provenance verified, and public macOS
-extraction/installation passed 17/13 checks. See the
-[release verification](docs/restoration/evidence/phase-5/release.json).
+[1.0.0-alpha.30](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.30),
+commit `615a9308a1c21a03c10214c00f6bd64a2ab0cda9`: tournaments that try to falsify
+every attempt. Its first remote run stopped when a pre-existing Git test timed out
+at Bun's 5-second default on a loaded macOS runner; that file's tests now allow 30
+seconds, and no tag was made for the failed run. On the next run all six test
+jobs, the Linux DAC job and all six release jobs passed. All 14 public assets
+matched the clean source, both archives' signed provenance verified, and public
+macOS extraction/installation passed 17/13 checks. See the
+[release verification](docs/restoration/evidence/phase-6/release.json).
 
-The previous releases are [alpha.28](docs/restoration/evidence/phase-4/release.json),
+The previous releases are [alpha.29](docs/restoration/evidence/phase-5/release.json),
+gate and workflow proposals; [alpha.28](docs/restoration/evidence/phase-4/release.json),
 parallel branches, after the `v1.0.0-alpha.27` tag's release build failed on
-macOS 14 and was never published, and [alpha.26](docs/restoration/evidence/phase-3/release.json),
-serial graphs. Phase 6 adds tournaments as alpha.30; it is under local
+macOS 14 and was never published; and [alpha.26](docs/restoration/evidence/phase-3/release.json),
+serial graphs. Phase 7 measured the graph kernel for a second durable runtime and
+has no release; its Temporal prototype awaits approval to download the Temporal
+CLI and SDK. Phase 8 adds external A2A tasks as alpha.31; it is under local
 qualification and not yet a published release.
 
 Graph execution is fixture-tested: 81 isolated reversions, a compiled public

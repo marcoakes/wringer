@@ -40,6 +40,8 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["compiled-parallel-graph-contract", [process.execPath, "scripts/graph-parallel-distribution.ts"], workspace],
         // No-model compiled tournament: refused dispatch, crash reconcile, prosecutor, trusted control, selection, Send, fresh-clone Node audit.
         ["compiled-tournament-graph-contract", [process.execPath, "scripts/graph-tournament-distribution.ts"], workspace],
+        // No-model compiled external task: the public binary as A2A client to a local reference peer, changed card refused, check, Send, Node audit.
+        ["compiled-delegate-graph-contract", [process.execPath, "scripts/graph-delegate-distribution.ts"], workspace],
         // No-model compiled gate proposal: oracle, register, evaluate, change, Send, future-only adoption.
         ["compiled-gate-experiment-contract", [process.execPath, "scripts/gate-experiment-distribution.ts"], workspace],
         ["compiled-loop-inspection", [process.execPath, "scripts/loop-inspection-rehearsal.ts"], workspace],

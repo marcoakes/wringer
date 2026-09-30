@@ -93,7 +93,7 @@ export async function inspectGraph(input) {
     insist(!(await lstat(input)).isSymbolicLink(), "Symlink export root");
     const root = await realpath(input), json = async name => JSON.parse(await file(root, name));
     const index = await json("graph.json");
-    const version = { "wringer.contained-graph-export.v1": 1, "wringer.contained-graph-export.v2": 2, "wringer.contained-graph-export.v3": 3 }[index.schema_version];
+    const version = { "wringer.contained-graph-export.v1": 1, "wringer.contained-graph-export.v2": 2, "wringer.contained-graph-export.v3": 3, "wringer.contained-graph-export.v4": 4 }[index.schema_version];
     insist(version, "Unsupported graph export index");
     insist(index.files && typeof index.files === "object" && !Array.isArray(index.files) && Array.isArray(index.nodes), "Invalid graph export inventory");
     const deliveries = index.nodes.filter(row => row.delivery).map(row => row.delivery);
@@ -133,6 +133,13 @@ export async function inspectGraph(input) {
             insist(JSON.stringify(carried.integration.branches.map(item => item.commit)) === JSON.stringify(arrived.map(item => item.candidate.source.commit)), `Join ${row.id} integrated candidates other than its branches`);
             insist(result.data.outcome === "conflict" ? !result.data.candidate : result.data.candidate?.source.commit === carried.integration.commit, `Join ${row.id} outcome names a candidate other than its integration`);
         }
+        if (node.kind === "delegate" && result) {
+            const carried = row.evidence && await json(row.evidence);
+            insist(carried && hashJson(carried) === result.data.evidenceSha256, `Delegate ${row.id} evidence does not match its recorded result`);
+            insist(carried.schema_version === "wringer.contained-graph-delegation.v1" && hashJson(withoutDigest(carried)) === carried.sha256 && carried.graphSha256 === plan.sha256 && carried.node === row.id && reserve && carried.inputSha256 === hashJson(reserve.data.reservation.input), `Delegate ${row.id} record is not bound to its reserved input`);
+            insist(carried.peer?.url === node.peer.url && carried.peer?.cardSha256 === node.peer.cardSha256 && carried.peer?.skill === node.peer.skill, `Delegate ${row.id} record names another peer than its plan`);
+            insist(result.data.outcome === carried.outcome && (carried.candidate ? result.data.candidate?.source.commit === carried.candidate.commit && result.data.candidate?.tree === carried.candidate.tree : !result.data.candidate), `Delegate ${row.id} outcome names a candidate other than its record`);
+        }
         if (node.kind === "tournament" && result) {
             const carried = row.evidence && await json(row.evidence), t = carried?.tournament, assessed = carried?.assessment;
             insist(carried && hashJson(carried) === result.data.evidenceSha256, `Tournament ${row.id} evidence does not match its recorded result`);
@@ -147,8 +154,8 @@ export async function inspectGraph(input) {
         if (node.kind === "delivery") {
             if (prepared) insist(row.prepared && hashJson(await json(row.prepared)) === prepared.data.evidenceSha256, `Delivery ${row.id} preparation does not match its record`);
             if (result) insist(row.evidence && hashJson(await json(row.evidence)) === result.data.evidenceSha256, `Delivery ${row.id} outcome does not match its record`);
-            // A join- or tournament-owned delivery publishes this graph export itself; only a loop's delivery has an envelope.
-            if (prepared && !["join", "tournament"].includes(plan.nodes[prepared.data.candidate.owner]?.kind)) {
+            // A join-, tournament- or delegate-owned delivery publishes this graph export itself; only a loop's delivery has an envelope.
+            if (prepared && plan.nodes[prepared.data.candidate.owner]?.kind === "loop") {
                 insist(row.delivery, `Delivery ${row.id} is missing its evidence envelope`);
                 const inspected = await inspectBundle(join(root, row.delivery)), candidate = prepared.data.candidate;
                 const manifest = JSON.parse(await file(join(root, row.delivery, "evidence"), "manifest.json")), owner = recorded(candidate.owner, "result");

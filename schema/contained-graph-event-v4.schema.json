@@ -1,0 +1,666 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One append-only event of a contained graph with external tasks",
+  "description": "events/NNNN.json of a version 4 graph. As version 3; a delegate result is returned, failed, canceled or unavailable, and only returned carries a candidate, owned by the delegate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "graphSha256",
+    "sequence",
+    "previousSha256",
+    "at",
+    "node",
+    "kind",
+    "data",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-event.v4"
+    },
+    "graphSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4095
+    },
+    "previousSha256": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "node": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "maxLength": 80
+        }
+      ]
+    },
+    "kind": {
+      "enum": [
+        "start",
+        "reserve",
+        "dispatch",
+        "prepared",
+        "send",
+        "result",
+        "decision",
+        "route"
+      ]
+    },
+    "data": {
+      "type": "object"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "start"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "startedAt",
+              "deadline"
+            ],
+            "properties": {
+              "startedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "deadline": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "reserve"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reservation"
+            ],
+            "properties": {
+              "reservation": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "roleSessions",
+                  "verificationAttempts",
+                  "deadline",
+                  "input"
+                ],
+                "properties": {
+                  "roleSessions": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "verificationAttempts": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "input": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "node",
+                      "source",
+                      "candidate",
+                      "evidenceSha256"
+                    ],
+                    "properties": {
+                      "node": {
+                        "type": "string",
+                        "pattern": "^(root|[a-z][a-z0-9-]*)$"
+                      },
+                      "source": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "url",
+                          "commit"
+                        ],
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096
+                          },
+                          "commit": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          }
+                        }
+                      },
+                      "candidate": {
+                        "oneOf": [
+                          {
+                            "type": "null"
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "source",
+                              "tree",
+                              "owner"
+                            ],
+                            "properties": {
+                              "source": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "url",
+                                  "commit"
+                                ],
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4096
+                                  },
+                                  "commit": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 64
+                                  }
+                                }
+                              },
+                              "tree": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                              },
+                              "owner": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9-]*$",
+                                "maxLength": 80
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "evidenceSha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "branches": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 8,
+                        "items": {
+                          "description": "One branch arrival. A join's arrivals always carry a candidate and no outcome; a tournament's carry the arriving outcome, and a disqualified branch may have no candidate.",
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "branch",
+                            "node",
+                            "candidate",
+                            "evidenceSha256"
+                          ],
+                          "properties": {
+                            "branch": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9-]*$",
+                              "maxLength": 80
+                            },
+                            "node": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9-]*$",
+                              "maxLength": 80
+                            },
+                            "outcome": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9-]*$",
+                              "maxLength": 80
+                            },
+                            "candidate": {
+                              "oneOf": [
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "source",
+                                    "tree",
+                                    "owner"
+                                  ],
+                                  "properties": {
+                                    "source": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": [
+                                        "url",
+                                        "commit"
+                                      ],
+                                      "properties": {
+                                        "url": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        },
+                                        "commit": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64
+                                        }
+                                      }
+                                    },
+                                    "tree": {
+                                      "type": "string",
+                                      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                                    },
+                                    "owner": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][a-z0-9-]*$",
+                                      "maxLength": 80
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "evidenceSha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "dispatch"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "maxProperties": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "prepared"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "candidate",
+              "evidenceSha256"
+            ],
+            "properties": {
+              "kind": {
+                "const": "prepared"
+              },
+              "candidate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source",
+                  "tree",
+                  "owner"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "url",
+                      "commit"
+                    ],
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4096
+                      },
+                      "commit": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      }
+                    }
+                  },
+                  "tree": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "maxLength": 80
+                  }
+                }
+              },
+              "evidenceSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "send"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "node",
+              "expectedRevision",
+              "preparedSha256",
+              "actor",
+              "note"
+            ],
+            "properties": {
+              "node": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "expectedRevision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "preparedSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "actor": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16384
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "result"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "outcome",
+              "candidate",
+              "evidenceSha256"
+            ],
+            "properties": {
+              "kind": {
+                "const": "complete"
+              },
+              "outcome": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "candidate": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "source",
+                      "tree",
+                      "owner"
+                    ],
+                    "properties": {
+                      "source": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "url",
+                          "commit"
+                        ],
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096
+                          },
+                          "commit": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          }
+                        }
+                      },
+                      "tree": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                      },
+                      "owner": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$",
+                        "maxLength": 80
+                      }
+                    }
+                  }
+                ]
+              },
+              "evidenceSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "decision"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "node",
+              "expectedRevision",
+              "inputSha256",
+              "choice",
+              "actor",
+              "note"
+            ],
+            "properties": {
+              "node": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "expectedRevision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "inputSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "choice": {
+                "enum": [
+                  "continue",
+                  "reject"
+                ]
+              },
+              "actor": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16384
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "route"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "outcome",
+              "to",
+              "via",
+              "reason"
+            ],
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "to": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "via": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "maxLength": 80
+                }
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "branches": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 8,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "maxLength": 80
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

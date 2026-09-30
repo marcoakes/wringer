@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-delegate.test.ts:
+ 97 | test("an unreachable peer or a changed Agent Card is refused before anything is sent", async () => {
+ 98 |     const down = await fixture(); down.peer.stop();
+ 99 |     await expect(advanceContainedGraph(down.graphDir, down.driver)).rejects.toThrow("is unavailable");
+100 |     expect((await readContainedGraph(down.graphDir)).nodes.ask!.dispatched).toBe(false);
+101 |     const changed = await fixture({}, { pinnedCard: "c".repeat(64) });
+102 |     await expect(advanceContainedGraph(changed.graphDir, changed.driver)).rejects.toThrow("Agent Card changed");
+                                                                                        ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-delegate.test.ts:102:83)
+(fail) an unreachable peer or a changed Agent Card is refused before anything is sent [4789.39ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [4.95s]

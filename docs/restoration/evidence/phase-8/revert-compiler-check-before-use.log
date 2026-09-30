@@ -1,0 +1,333 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v4.test.ts:
+29 |     ["an unbounded timeout", v => { v.nodes.ask.timeoutSeconds = 100000; }, "at most 86400"],
+30 |     ["a hold that reads the returned candidate before a check", v => { v.nodes.review.input = "ask"; v.nodes.ask.then = "review"; delete v.nodes.verify; delete v.nodes.route; v.required = ["ask", "review", "ship"]; v.budget.maxVerificationAttempts = 0; }, "before a check verifies it"],
+31 |     ["a delivery that reads the returned candidate before a check", v => { v.nodes.ship.input = "ask"; v.nodes.ask.then = "ship"; delete v.nodes.verify; delete v.nodes.route; delete v.nodes.review; v.required = ["ask", "ship"]; v.budget.maxVerificationAttempts = 0; }, "before a check verifies it"],
+32 |     ["too little allowance for the external task", v => { v.budget.maxRoleSessions = 0; }, "role allowance"],
+33 | ];
+34 | for (const [name, edit, message] of refusals) test(`refuses ${name}`, () => { expect(() => compile(changed(edit))).toThrow(message); });
+                                                                                                                        ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "before a check verifies it"
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.contained-graph-plan.v4",
+  id: "external-repair",
+  repository: {
+    url: "https://github.com/OWNER/REPOSITORY.git",
+    commit: "0000000000000000000000000000000000000000",
+  },
+  entry: "ask",
+  required: [ "ask", "review", "ship" ],
+  budget: {
+    maxRoleSessions: 1,
+    maxVerificationAttempts: 0,
+    wallClockSeconds: 600,
+  },
+  parallelism: 1,
+  nodes: [Object: null prototype] {
+    ask: {
+      kind: "delegate",
+      input: "root",
+      peer: {
+        url: "https://agents.example.test/a2a",
+        cardSha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        skill: "repair",
+      },
+      instruction: "Repair the total.",
+      verify: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "src" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+            }
+          ],
+          protected_paths: [ "bun.lock", "package.json", "tests", "tests/acceptance.test.ts" ],
+        },
+        acceptance_sha256: "e94ab14ee89046720a2c74e34d5f90bd370afc02a688416ffd4174c631f85922",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "621f4b1a698ad2a3f7cdda98075b9e2170fa2b9841fe20f3146d6747860bf59b",
+      },
+      timeoutSeconds: 600,
+      then: "review",
+    },
+    review: {
+      kind: "human-hold",
+      input: "ask",
+      prompt: "Inspect the externally returned candidate.",
+      then: "ship",
+    },
+    ship: {
+      kind: "delivery",
+      input: "review",
+      publication: {
+        remote: "https://example.test/repository.git",
+        sourceBranch: "wringer/external",
+        targetBranch: "main",
+      },
+      then: "done",
+    },
+  },
+  sha256: "bea54fd861b5f5e19889aa776b061dd04ded54e16fd64bdb77212f1eeaa1838a",
+}
+
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph-v4.test.ts:34:116)
+(fail) refuses a hold that reads the returned candidate before a check [12.57ms]
+29 |     ["an unbounded timeout", v => { v.nodes.ask.timeoutSeconds = 100000; }, "at most 86400"],
+30 |     ["a hold that reads the returned candidate before a check", v => { v.nodes.review.input = "ask"; v.nodes.ask.then = "review"; delete v.nodes.verify; delete v.nodes.route; v.required = ["ask", "review", "ship"]; v.budget.maxVerificationAttempts = 0; }, "before a check verifies it"],
+31 |     ["a delivery that reads the returned candidate before a check", v => { v.nodes.ship.input = "ask"; v.nodes.ask.then = "ship"; delete v.nodes.verify; delete v.nodes.route; delete v.nodes.review; v.required = ["ask", "ship"]; v.budget.maxVerificationAttempts = 0; }, "before a check verifies it"],
+32 |     ["too little allowance for the external task", v => { v.budget.maxRoleSessions = 0; }, "role allowance"],
+33 | ];
+34 | for (const [name, edit, message] of refusals) test(`refuses ${name}`, () => { expect(() => compile(changed(edit))).toThrow(message); });
+                                                                                                                        ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "before a check verifies it"
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.contained-graph-plan.v4",
+  id: "external-repair",
+  repository: {
+    url: "https://github.com/OWNER/REPOSITORY.git",
+    commit: "0000000000000000000000000000000000000000",
+  },
+  entry: "ask",
+  required: [ "ask", "ship" ],
+  budget: {
+    maxRoleSessions: 1,
+    maxVerificationAttempts: 0,
+    wallClockSeconds: 600,
+  },
+  parallelism: 1,
+  nodes: [Object: null prototype] {
+    ask: {
+      kind: "delegate",
+      input: "root",
+      peer: {
+        url: "https://agents.example.test/a2a",
+        cardSha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        skill: "repair",
+      },
+      instruction: "Repair the total.",
+      verify: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "src" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+            }
+          ],
+          protected_paths: [ "bun.lock", "package.json", "tests", "tests/acceptance.test.ts" ],
+        },
+        acceptance_sha256: "e94ab14ee89046720a2c74e34d5f90bd370afc02a688416ffd4174c631f85922",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "621f4b1a698ad2a3f7cdda98075b9e2170fa2b9841fe20f3146d6747860bf59b",
+      },
+      timeoutSeconds: 600,
+      then: "ship",
+    },
+    ship: {
+      kind: "delivery",
+      input: "ask",
+      publication: {
+        remote: "https://example.test/repository.git",
+        sourceBranch: "wringer/external",
+        targetBranch: "main",
+      },
+      then: "done",
+    },
+  },
+  sha256: "592e3ac4971e9ef4ff474aca6c3d5d2e3b69bc022bab353907fdcecb7b74199d",
+}
+
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph-v4.test.ts:34:116)
+(fail) refuses a delivery that reads the returned candidate before a check [2.68ms]
+
+ 0 pass
+ 10 filtered out
+ 2 fail
+ 2 expect() calls
+Ran 2 tests across 1 file. [149.00ms]

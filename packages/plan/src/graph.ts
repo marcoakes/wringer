@@ -11,6 +11,8 @@ export interface GraphGate { id: string; argv: string[]; cwd: string; timeout_se
 export interface GraphProsecutor { plan: ExecutionPlan; maxChallenges: number; }
 /** The one file a prosecutor may write: a JSON array of executable challenges. */
 export const PROSECUTOR_ARTIFACT = 'wringer/challenges.json';
+/** An external A2A agent, pinned by endpoint and by the digest of its Agent Card. */
+export interface GraphPeer { url: string; cardSha256: string; skill: string; }
 export type ContainedGraphNode =
     | { kind: 'loop'; input: string; plan: ExecutionPlan; then: string }
     | { kind: 'check'; input: string; then: string }
@@ -20,18 +22,21 @@ export type ContainedGraphNode =
     | { kind: 'fork'; input: string; branches: string[]; join: string }
     | { kind: 'join'; fork: string; then: string }
     /** Version 3: closes a fork by selecting one surviving candidate, or none. */
-    | { kind: 'tournament'; fork: string; prosecutor: GraphProsecutor; controls: { id: string; commit: string }[]; evaluator: GraphGate[]; tie: 'no-winner' | 'tree-order'; then: string };
+    | { kind: 'tournament'; fork: string; prosecutor: GraphProsecutor; controls: { id: string; commit: string }[]; evaluator: GraphGate[]; tie: 'no-winner' | 'tree-order'; then: string }
+    /** Version 4: one bounded task delegated to an external A2A agent. Its patch is a
+     * candidate only a following check can verify; the peer's claim grants nothing. */
+    | { kind: 'delegate'; input: string; peer: GraphPeer; instruction: string; verify: ExecutionPlan; timeoutSeconds: number; then: string };
 export interface ContainedGraphPlan {
-    schema_version: 'wringer.contained-graph-plan.v1' | 'wringer.contained-graph-plan.v2' | 'wringer.contained-graph-plan.v3'; id: string; repository: RepositoryRef; entry: string;
+    schema_version: 'wringer.contained-graph-plan.v1' | 'wringer.contained-graph-plan.v2' | 'wringer.contained-graph-plan.v3' | 'wringer.contained-graph-plan.v4'; id: string; repository: RepositoryRef; entry: string;
     required: string[]; budget: GraphBudget; nodes: Record<string, ContainedGraphNode>;
-    /** Versions 2 and 3: the most branches whose effects may run at once. */
+    /** Version 2 and later: the most branches whose effects may run at once. */
     parallelism?: number; sha256: string;
 }
 export interface GraphAuthority {
     schema_version: 'wringer.contained-graph-authority.v1'; graphSha256: string; repository: RepositoryRef;
     actor: string; grantedAt: string; expiresAt: string; budget: GraphBudget; maySend: false; sha256: string;
 }
-const KINDS = ['loop', 'check', 'router', 'human-hold', 'delivery'], PARALLEL_KINDS = ['fork', 'join'], TOURNAMENT_KINDS = ['tournament'];
+const KINDS = ['loop', 'check', 'router', 'human-hold', 'delivery'], PARALLEL_KINDS = ['fork', 'join'], TOURNAMENT_KINDS = ['tournament'], DELEGATE_KINDS = ['delegate'];
 /** A node that closes a fork: it waits for every branch and reads their results. */
 export const closesFork = (node: ContainedGraphNode | undefined): node is Extract<ContainedGraphNode, { kind: 'join' | 'tournament' }> => node?.kind === 'join' || node?.kind === 'tournament';
 const SINKS = ['done', 'fail'];
@@ -56,15 +61,15 @@ export function graphEdges(node: ContainedGraphNode): string[] { return node.kin
 export function graphInput(node: ContainedGraphNode): string | null { return closesFork(node) ? null : node.input; }
 export function graphOutcomes(kind: ContainedGraphNode['kind']): string[] {
     // A child's human hold is a hold the graph reports, never a branch outcome.
-    return ({ loop: ['ready', 'stopped'], check: ['passed', 'failed', 'unavailable'], 'human-hold': ['continued', 'rejected'], delivery: ['delivered'], router: ['routed'], fork: ['forked'], join: ['integrated', 'failed', 'conflict', 'unavailable'], tournament: ['selected', 'no-winner', 'unavailable'] })[kind];
+    return ({ loop: ['ready', 'stopped'], check: ['passed', 'failed', 'unavailable'], 'human-hold': ['continued', 'rejected'], delivery: ['delivered'], router: ['routed'], fork: ['forked'], join: ['integrated', 'failed', 'conflict', 'unavailable'], tournament: ['selected', 'no-winner', 'unavailable'], delegate: ['returned', 'failed', 'canceled', 'unavailable'] })[kind];
 }
-/** The nearest loop, join or tournament owns the exact candidate and its contained evidence. */
+/** The nearest loop, join, tournament or delegate owns the exact candidate and its evidence. */
 export function graphCandidateOwner(plan: Pick<ContainedGraphPlan, 'nodes'>, nodeId: string): string | null {
     const seen = new Set<string>(); let cursor = nodeId;
     while (cursor !== 'root') {
         if (seen.has(cursor)) fail('Candidate reference cycle'); seen.add(cursor);
         const node = plan.nodes[cursor]; if (!node) fail('Unknown candidate reference');
-        if (node.kind === 'loop' || closesFork(node)) return cursor;
+        if (node.kind === 'loop' || node.kind === 'delegate' || closesFork(node)) return cursor;
         if (node.kind === 'router') return null;
         cursor = node.input;
     }
@@ -85,6 +90,8 @@ export function graphReservation(plan: Pick<ContainedGraphPlan, 'nodes'>, nodeId
     // A tournament reserves its one prosecutor session, one validation run per
     // trusted control, and one challenge run and one final evaluation per candidate.
     if (node.kind === 'tournament') { const fork = plan.nodes[node.fork], candidates = fork?.kind === 'fork' ? fork.branches.length : 0; return { roleSessions: 1, verificationAttempts: node.controls.length + 2 * candidates }; }
+    // One external task counts as one role session; its check reserves its own verification.
+    if (node.kind === 'delegate') return { roleSessions: 1, verificationAttempts: 0 };
     return { roleSessions: node.kind === 'loop' ? node.plan.budget.max_sessions : 0,
         verificationAttempts: node.kind === 'loop' ? node.plan.budget.max_sessions + 1 : node.kind === 'check' ? 1 : 0 };
 }
@@ -158,10 +165,25 @@ function tournament(row: Record<string, any>, name: string, repository: Reposito
     if (!['no-winner', 'tree-order'].includes(row.tie)) fail('A tournament tie is no-winner or tree-order');
     return { kind: 'tournament', fork: id(row.fork, 'fork'), prosecutor: { plan, maxChallenges }, controls, evaluator, tie: row.tie, then: id(row.then, 'edge') };
 }
+function peer(input: unknown): GraphPeer {
+    const row = object(input, 'peer', ['url', 'cardSha256', 'skill']), url = text(row.url, 'peer URL', 2048);
+    let parsed: URL; try { parsed = new URL(url); } catch { fail('Invalid peer URL'); }
+    const loopback = parsed!.protocol === 'http:' && ['127.0.0.1', '[::1]', 'localhost'].includes(parsed!.hostname);
+    if (!(parsed!.protocol === 'https:' || loopback) || parsed!.username || parsed!.password || parsed!.search || parsed!.hash) fail('A peer is a credential-free HTTPS endpoint, or a loopback endpoint for local fixtures');
+    if (typeof row.cardSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(row.cardSha256)) fail('A peer is pinned by the sha256 of its Agent Card');
+    return { url, cardSha256: row.cardSha256, skill: id(row.skill, 'peer skill') };
+}
+function delegate(row: Record<string, any>, repository: RepositoryRef): Extract<ContainedGraphNode, { kind: 'delegate' }> {
+    const plan = validateExecutionPlan(row.verify);
+    if (!['wringer.execution-plan.v3', 'wringer.execution-plan.v4'].includes(plan.schema_version)) fail('A delegate needs a measured v3/v4 verification plan');
+    if (hashValue(plan.repository) !== hashValue(repository)) fail('All graph templates must pin the same root source');
+    const seconds = integer(row.timeoutSeconds, 'delegate timeout', 1); if (seconds > 86400) fail('A delegated task may run for at most 86400 seconds');
+    return { kind: 'delegate', input: id(row.input, 'input'), peer: peer(row.peer), instruction: text(row.instruction, 'delegate instruction'), verify: plan, timeoutSeconds: seconds, then: id(row.then, 'edge') };
+}
 /** Compile data only. Repository TypeScript and command strings are not evaluated. */
 export function compileContainedGraph(input: unknown): ContainedGraphPlan {
     const version = input && typeof input === 'object' && !Array.isArray(input) ? (input as Record<string, unknown>).version : undefined;
-    if (version !== 1 && version !== 2 && version !== 3) fail('Contained graph declaration version must be 1, 2 or 3');
+    if (version !== 1 && version !== 2 && version !== 3 && version !== 4) fail('Contained graph declaration version must be 1, 2, 3 or 4');
     const value = object(input, 'graph', ['version', 'id', 'repository', 'entry', 'required', 'budget', 'nodes', ...(version !== 1 ? ['parallelism'] : [])]);
     const graphId = id(value.id, 'graph id'), entry = id(value.entry, 'entry');
     const parallelism = version !== 1 ? integer(value.parallelism, 'parallelism', 1) : undefined;
@@ -172,16 +194,18 @@ export function compileContainedGraph(input: unknown): ContainedGraphPlan {
     const budget = { maxRoleSessions: integer(limits.maxRoleSessions, 'role allowance'), maxVerificationAttempts: integer(limits.maxVerificationAttempts, 'verification allowance'), wallClockSeconds: integer(limits.wallClockSeconds, 'wall allowance', 1) };
     if (!value.nodes || typeof value.nodes !== 'object' || Array.isArray(value.nodes) || !Object.keys(value.nodes).length || Object.keys(value.nodes).length > 64) fail('A contained graph needs 1–64 nodes');
     const nodes: Record<string, ContainedGraphNode> = Object.create(null);
-    const fields: Record<string, string[]> = { loop: ['kind', 'input', 'plan', 'then'], check: ['kind', 'input', 'then'], 'human-hold': ['kind', 'input', 'prompt', 'then'], delivery: ['kind', 'input', 'publication', 'then'], router: ['kind', 'input', 'routes', 'otherwise'], fork: ['kind', 'input', 'branches', 'join'], join: ['kind', 'fork', 'then'], tournament: ['kind', 'fork', 'prosecutor', 'controls', 'evaluator', 'tie', 'then'] };
+    const fields: Record<string, string[]> = { loop: ['kind', 'input', 'plan', 'then'], check: ['kind', 'input', 'then'], 'human-hold': ['kind', 'input', 'prompt', 'then'], delivery: ['kind', 'input', 'publication', 'then'], router: ['kind', 'input', 'routes', 'otherwise'], fork: ['kind', 'input', 'branches', 'join'], join: ['kind', 'fork', 'then'], tournament: ['kind', 'fork', 'prosecutor', 'controls', 'evaluator', 'tie', 'then'], delegate: ['kind', 'input', 'peer', 'instruction', 'verify', 'timeoutSeconds', 'then'] };
     for (const [name, raw] of Object.entries(value.nodes)) {
         id(name, 'node id'); if ([...SINKS, 'root'].includes(name)) fail('Reserved node id');
         const kind = (raw as any)?.kind;
         if (PARALLEL_KINDS.includes(kind) && version === 1) fail('Fork and join nodes need a version 2 graph');
-        if (TOURNAMENT_KINDS.includes(kind) && version !== 3) fail('Tournament nodes need a version 3 graph');
-        if (!KINDS.includes(kind) && !PARALLEL_KINDS.includes(kind) && !TOURNAMENT_KINDS.includes(kind)) fail('Unsupported graph node kind');
+        if (TOURNAMENT_KINDS.includes(kind) && (version as number) < 3) fail('Tournament nodes need a version 3 graph');
+        if (DELEGATE_KINDS.includes(kind) && version !== 4) fail('Delegate nodes need a version 4 graph');
+        if (![...KINDS, ...PARALLEL_KINDS, ...TOURNAMENT_KINDS, ...DELEGATE_KINDS].includes(kind)) fail('Unsupported graph node kind');
         const row = object(raw, `node ${name}`, fields[kind]!);
         if (kind === 'join') { nodes[name] = { kind, fork: id(row.fork, 'fork'), then: id(row.then, 'edge') }; continue; }
         if (kind === 'tournament') { nodes[name] = tournament(row, name, repository); continue; }
+        if (kind === 'delegate') { nodes[name] = delegate(row, repository); continue; }
         const input = id(row.input, 'input');
         if (kind === 'loop') {
             const plan = validateExecutionPlan(row.plan);
@@ -200,7 +224,7 @@ export function compileContainedGraph(input: unknown): ContainedGraphPlan {
             unique(routes.map((r: any) => r.outcome), 'Router outcomes'); nodes[name] = { kind: 'router', input, routes, otherwise: id(row.otherwise, 'edge') };
         }
     }
-    if (!Object.values(nodes).some(node => node.kind === 'loop')) fail('A serial contained graph needs a source-pinned loop');
+    if (!Object.values(nodes).some(node => node.kind === 'loop' || node.kind === 'delegate')) fail('A serial contained graph needs a source-pinned loop');
     // A fork and the join or tournament that closes it name each other; every branch entry reads its fork.
     for (const [name, node] of Object.entries(nodes)) {
         if (node.kind === 'fork') {
@@ -232,6 +256,7 @@ export function compileContainedGraph(input: unknown): ContainedGraphPlan {
                 const inner = nodes[next]!;
                 if (inner.kind === 'fork') fail(`Fork ${next} is nested inside branch ${branch}; nested forks are not supported`);
                 if (inner.kind === 'delivery') fail(`A delivery cannot run inside branch ${branch}; deliver after the join`);
+                if (inner.kind === 'delegate') fail(`A delegate cannot run inside branch ${branch} in this version`);
                 if (closesFork(inner)) fail(`Branch ${branch} reaches another fork's join`);
                 if (branchOf.has(next)) fail(`Branches must not share node ${next}`);
                 region.add(next); branchOf.set(next, { fork: forkName, entry: branch }); stack.push(...graphEdges(inner));
@@ -284,6 +309,12 @@ export function compileContainedGraph(input: unknown): ContainedGraphPlan {
         if (node.kind === 'check' && nodes[graphCandidateOwner({ nodes }, read)!]?.kind === 'tournament') fail(`Check ${name} cannot follow a tournament: the winner already passed its own checks and every validated challenge, and the final evaluator assesses it`);
         if (node.kind === 'human-hold' && !rootLike(nodes, read) && !graphCandidateOwner({ nodes }, read)) fail(`Node ${name} needs a contained candidate to hold`);
         if (node.kind === 'loop' && !rootLike(nodes, read) && !graphCandidateOwner({ nodes }, read)) fail(`Node ${name} needs a candidate source`);
+        if (node.kind === 'delegate' && !rootLike(nodes, read) && !graphCandidateOwner({ nodes }, read)) fail(`Node ${name} needs a candidate source`);
+        // An external claim is never reviewed, built on or delivered before a fresh local check.
+        if (!['check', 'router'].includes(node.kind) && read !== 'root' && nodes[graphCandidateOwner({ nodes }, read) ?? '']?.kind === 'delegate') {
+            let verified = false; for (let cursor = read; nodes[cursor] && nodes[cursor]!.kind !== 'delegate'; cursor = graphInput(nodes[cursor]!) ?? 'root') if (nodes[cursor]!.kind === 'check') { verified = true; break; }
+            if (!verified) fail(`Node ${name} reads delegate ${graphCandidateOwner({ nodes }, read)}'s candidate before a check verifies it`);
+        }
         if (node.kind === 'fork' && !rootLike(nodes, read) && !graphCandidateOwner({ nodes }, read)) fail(`Fork ${name} needs the root or a candidate to branch from`);
         if (node.kind === 'router' && nodes[read]?.kind === 'fork') fail('A router cannot branch on a fork; route on a branch or join outcome');
         if (node.kind === 'router') for (const route of node.routes) if (!graphOutcomes(nodes[read]!.kind).includes(route.outcome)) fail('Router outcome is not defined by its input type');
@@ -300,7 +331,8 @@ export function compileContainedGraph(input: unknown): ContainedGraphPlan {
     if (!finishes.length || finishes.some(([name]) => required.some(needed => needed !== name && !dominators.get(name)!.has(needed)))) fail('A done path bypasses a required node');
     const within = (path: string, prefix: string) => prefix === '.' || path === prefix || path.startsWith(prefix + '/');
     const leaves = Object.values(nodes).filter((node): node is Extract<ContainedGraphNode, { kind: 'loop' }> => node.kind === 'loop');
-    const acceptanceInputs = [...new Set(leaves.flatMap(node => [...node.plan.acceptance.protected_paths, ...node.plan.acceptance.checks.flatMap(check => check.files)]))];
+    const verifiers = Object.values(nodes).filter((node): node is Extract<ContainedGraphNode, { kind: 'delegate' }> => node.kind === 'delegate').map(node => node.verify);
+    const acceptanceInputs = [...new Set([...leaves.map(node => node.plan), ...verifiers].flatMap(plan => [...plan.acceptance.protected_paths, ...plan.acceptance.checks.flatMap(check => check.files)]))];
     for (const { plan } of leaves) for (const path of acceptanceInputs) {
         const protectedPaths = [...plan.acceptance.protected_paths, ...plan.acceptance.checks.flatMap(check => check.files)];
         if (plan.scope.writable.some(writable => within(path, writable) || within(writable, path)) && !protectedPaths.some(protectedPath => within(path, protectedPath))) fail('A loop can write another leaf acceptance input; protect the complete graph acceptance set');
@@ -308,7 +340,9 @@ export function compileContainedGraph(input: unknown): ContainedGraphPlan {
     const reservations = Object.keys(nodes).map(name => graphReservation({ nodes }, name));
     if (reservations.reduce((sum, row) => sum + row.roleSessions, 0) > budget.maxRoleSessions) fail('Graph role allowance cannot reserve every declared loop');
     if (reservations.reduce((sum, row) => sum + row.verificationAttempts, 0) > budget.maxVerificationAttempts) fail('Graph verification allowance cannot reserve every declared leaf');
-    const body = version === 3
+    const body = version === 4
+        ? { schema_version: 'wringer.contained-graph-plan.v4' as const, id: graphId, repository, entry, required, budget, parallelism: parallelism!, nodes }
+        : version === 3
         ? { schema_version: 'wringer.contained-graph-plan.v3' as const, id: graphId, repository, entry, required, budget, parallelism: parallelism!, nodes }
         : version === 2
         ? { schema_version: 'wringer.contained-graph-plan.v2' as const, id: graphId, repository, entry, required, budget, parallelism: parallelism!, nodes }
@@ -319,7 +353,7 @@ export function compileContainedGraph(input: unknown): ContainedGraphPlan {
 }
 export function validateContainedGraph(input: unknown): ContainedGraphPlan {
     const schema = input && typeof input === 'object' && !Array.isArray(input) ? (input as Record<string, unknown>).schema_version : undefined;
-    const version = ({ 'wringer.contained-graph-plan.v1': 1, 'wringer.contained-graph-plan.v2': 2, 'wringer.contained-graph-plan.v3': 3 } as Record<string, number>)[String(schema)] ?? fail('Unsupported contained graph schema version');
+    const version = ({ 'wringer.contained-graph-plan.v1': 1, 'wringer.contained-graph-plan.v2': 2, 'wringer.contained-graph-plan.v3': 3, 'wringer.contained-graph-plan.v4': 4 } as Record<string, number>)[String(schema)] ?? fail('Unsupported contained graph schema version');
     const value = object(input, 'compiled graph', ['schema_version', 'id', 'repository', 'entry', 'required', 'budget', 'nodes', ...(version !== 1 ? ['parallelism'] : []), 'sha256']);
     const { sha256, schema_version, ...declaration } = value;
     if (sha256 !== hashValue({ schema_version, ...declaration })) fail('Compiled graph digest changed');

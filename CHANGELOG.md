@@ -4,6 +4,30 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.31 — external A2A tasks, verified locally
+
+- Version 4 graphs add `delegate`, which sends one bounded task to an external
+  agent over A2A 1.0 JSON-RPC (`SendMessage`, `GetTask`, `CancelTask`, the
+  `A2A-Version` header). The approved graph pins the endpoint, HTTPS or loopback,
+  and the sha256 of the agent's card, checked before sending and at completion.
+- The request is recorded before it is sent and the task id as soon as it is
+  known; an interrupted run is reconciled by reading the task, never by sending
+  again. At the declared timeout one `CancelTask` is sent.
+- A completed task must return exactly one `text/x-diff` patch. It is applied to
+  the exact base in controller storage, within the delegate's verification plan's
+  writable scope and outside its protected checks. Only a check node may read the
+  candidate; it verifies it afresh with that plan. A completion claim grants
+  nothing.
+- Outcomes are `returned`, `failed`, `canceled` and `unavailable`, each with the
+  observed task states and a reason. The Node reader checks the delegation record
+  against the graph's recorded result.
+- [Service interfaces](docs/native/INTERFACES.md) list each boundary Wringer
+  exercises, its contract and what is pending.
+- New sibling contracts: `wringer.contained-graph-plan.v4`, `-event.v4`,
+  `-status.v4`, `-export.v4` and `wringer.contained-graph-delegation.v1`.
+  Fixture conformance against a local reference peer only; no real A2A agent was
+  measured.
+
 ## 1.0.0-alpha.30 — tournaments that try to falsify every attempt
 
 - Version 3 graphs add `tournament`, which closes a fork of independent attempts

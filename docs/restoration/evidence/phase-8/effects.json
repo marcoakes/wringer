@@ -1,0 +1,130 @@
+{
+  "layered": [
+    {
+      "guard": "the request is durable before it is sent",
+      "maskedBy": "structural order; the reconciliation test shows a retained task id is read, never re-sent"
+    },
+    {
+      "guard": "every non-completed terminal state maps to failed",
+      "maskedBy": "removing one mapping leaves the task non-terminal until its deadline; the cancellation test covers that path, too slowly to probe each state"
+    },
+    {
+      "guard": "the reader checks the delegation names its plan's peer",
+      "maskedBy": "the record's digest binding refuses the same edits first"
+    },
+    {
+      "guard": "a redirect or an over-large response is refused",
+      "maskedBy": "unmeasured: the reference peer never redirects or over-answers"
+    }
+  ],
+  "effects": [
+    {
+      "name": "compiler-delegate-needs-version-4",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-peer-https-or-loopback",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-peer-no-credentials",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-peer-card-pinned",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-verify-plan-same-source",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-delegate-timeout-bound",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-check-before-use",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-no-delegate-in-branch",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-delegate-reservation",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-delegate-owns-candidate",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-delegate-owns-candidate",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-no-candidate-unless-returned",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-version-4-events",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "task-preflight-card-pinned",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "task-preflight-peer-reachable",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "task-card-rechecked-at-completion",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "task-exactly-one-artifact",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "task-patch-media-type",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "task-artifact-is-a-patch",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "task-patch-within-scope",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "task-cancel-at-deadline",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "task-message-is-not-a-task",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "task-reconciles-by-reading",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-check-uses-delegate-plan",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-delegate-owner",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "reader-binds-delegation-evidence",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-envelope-only-for-loops",
+      "effect": "recorded-state-changed"
+    }
+  ]
+}

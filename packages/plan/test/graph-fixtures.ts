@@ -48,3 +48,13 @@ export function tournamentFixture() {
             review: { kind: "human-hold", input: "pick", prompt: "Inspect the selected candidate and the tournament record.", then: "ship" },
             ship: { kind: "delivery", input: "review", publication: { remote: "https://example.test/repository.git", sourceBranch: "wringer/tournament", targetBranch: "main" }, then: "done" } } };
 }
+export function delegateFixture() {
+    const plan = leaf();
+    return { version: 4, id: "external-repair", repository: plan.repository, entry: "ask", required: ["ask", "verify", "review", "ship"], parallelism: 1,
+        budget: { maxRoleSessions: 1, maxVerificationAttempts: 1, wallClockSeconds: 600 },
+        nodes: { ask: { kind: "delegate", input: "root", peer: { url: "https://agents.example.test/a2a", cardSha256: "c".repeat(64), skill: "repair" }, instruction: "Repair the total.", verify: plan, timeoutSeconds: 600, then: "verify" },
+            verify: { kind: "check", input: "ask", then: "route" },
+            route: { kind: "router", input: "verify", routes: [{ outcome: "passed", to: "review" }], otherwise: "fail" },
+            review: { kind: "human-hold", input: "verify", prompt: "Inspect the externally returned candidate.", then: "ship" },
+            ship: { kind: "delivery", input: "review", publication: { remote: "https://example.test/repository.git", sourceBranch: "wringer/external", targetBranch: "main" }, then: "done" } } };
+}

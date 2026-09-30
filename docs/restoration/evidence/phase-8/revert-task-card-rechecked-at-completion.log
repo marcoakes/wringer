@@ -1,0 +1,59 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-delegate.test.ts:
+126 |         expect(state.phase).toBe("failed");
+127 |     }
+128 | }, 240000);
+129 | test("a card that changes during the task makes the outcome unavailable", async () => {
+130 |     const f = await fixture({ changeCardAfterSend: true }); await advanceContainedGraph(f.graphDir, f.driver);
+131 |     expect(await delegation(f.graphDir)).toMatchObject({ outcome: "unavailable", candidate: null }); expect((await delegation(f.graphDir)).reason).toContain("changed during the task");
+                                               ^
+error: expect(received).toMatchObject(expected)
+
+  {
+-   "candidate": null,
+-   "outcome": "unavailable",
++   "artifact": {
++     "changedPaths": [
++       "src/total.sh",
++     ],
++     "mediaType": "text/x-diff",
++     "sha256": "e0db4fdb78eaf4689ac2c986dd695082605d2e5edb396f639cef575f59c43e0c",
++   },
++   "cancelRequested": false,
++   "candidate": {
++     "commit": "d0eb0b1e1b6075648f32475ad21aefe865dc8887",
++     "tree": "3b5533234ce5dd235c1c28766a7e6e6d28ad3c34",
++   },
++   "evidenceKind": "local-peer",
++   "graphSha256": "76f4f4907708687613c85ee7af4f5ed2936a9baae541d4e38b1c9247720c19ca",
++   "inputSha256": "6cb217ed44c0c971ac57449d8705f30437733d300b824903c78b993c38178812",
++   "messageId": "0ed32e74d55ef174b5a186577871e8f4",
++   "node": "ask",
++   "outcome": "returned",
++   "peer": {
++     "cardSha256": "a7af4175ff90ef9f672206ac7e412c9736c4ddc3c6f2775734b721e18b53cabc",
++     "skill": "repair",
++     "url": "http://127.0.0.1:56055/a2a",
++   },
++   "reason": null,
++   "schema_version": "wringer.contained-graph-delegation.v1",
++   "sha256": "c7a5b38c7b437cf4039b46e0ea16145a0d124d8956752016e6473adc21b44c1d",
++   "states": [
++     "TASK_STATE_WORKING",
++     "TASK_STATE_COMPLETED",
++   ],
++   "taskId": "task-1",
+  }
+
+- Expected  - 2
++ Received  + 31
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-delegate.test.ts:131:42)
+(fail) a card that changes during the task makes the outcome unavailable [4053.29ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [4.23s]

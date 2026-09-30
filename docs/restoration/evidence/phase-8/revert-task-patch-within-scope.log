@@ -1,0 +1,19 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-delegate.test.ts:
+120 | }, 240000);
+121 | test("malformed artifacts are unavailable with a named reason and no candidate", async () => {
+122 |     const cases: [PeerOptions & { body?: string; patchFile?: string }, string][] = [[{ mode: "no-artifact" }, "exactly one patch"], [{ mode: "two-artifacts" }, "exactly one patch"], [{ mode: "wrong-type" }, "text/x-diff"], [{ mode: "not-a-patch" }, "not a bounded Git patch"], [{ patchFile: "check.sh", body: "exit 0" }, "outside the delegate's writable scope"]];
+123 |     for (const [options, reason] of cases) {
+124 |         const f = await fixture(options), state = await advanceContainedGraph(f.graphDir, f.driver), record = await delegation(f.graphDir);
+125 |         expect({ reason: record.reason.includes(reason), outcome: record.outcome, candidate: record.candidate }).toEqual({ reason: true, outcome: "unavailable", candidate: null });
+                                      ^
+TypeError: null is not an object (evaluating 'record.reason.includes')
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-delegate.test.ts:125:33)
+(fail) malformed artifacts are unavailable with a named reason and no candidate [14117.14ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 8 expect() calls
+Ran 1 test across 1 file. [14.29s]

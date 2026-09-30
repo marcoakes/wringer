@@ -1,0 +1,48 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-delegate.test.ts:
+111 |     const message = await fixture({ mode: "message-only" }); await advanceContainedGraph(message.graphDir, message.driver);
+112 |     expect(await delegation(message.graphDir)).toMatchObject({ outcome: "failed", taskId: null });
+113 | }, 240000);
+114 | test("a task past its deadline is cancelled once; a peer's own cancellation is recorded", async () => {
+115 |     const f = await fixture({ mode: "hang" }, { timeoutSeconds: 1 }); await advanceContainedGraph(f.graphDir, f.driver);
+116 |     expect(await delegation(f.graphDir)).toMatchObject({ outcome: "canceled", cancelRequested: true });
+                                               ^
+error: expect(received).toMatchObject(expected)
+
+  {
++   "artifact": null,
+    "cancelRequested": true,
+-   "outcome": "canceled",
++   "candidate": null,
++   "evidenceKind": "local-peer",
++   "graphSha256": "25c6048a0f6c0efb489b282ce014bb7dbff0542f586d48004322c0a723d432a9",
++   "inputSha256": "3dd03f9a1814fcdb83988932d077ccf01c6289d43f6fb899e2dafd5c58f404a0",
++   "messageId": "d3f8dbb389962eb6dc2c223f95b1857a",
++   "node": "ask",
++   "outcome": "unavailable",
++   "peer": {
++     "cardSha256": "87dfbb3813a0461d3f7bd137576e9dab3bdbe9de65009949bb486739d87a8c94",
++     "skill": "repair",
++     "url": "http://127.0.0.1:56127/a2a",
++   },
++   "reason": "The task did not end after its deadline and one cancellation",
++   "schema_version": "wringer.contained-graph-delegation.v1",
++   "sha256": "c2b34f1e627ca67138ab243f7374a10229157726f678ce2df6216de93e7163d4",
++   "states": [
++     "TASK_STATE_WORKING",
++   ],
++   "taskId": "task-1",
+  }
+
+- Expected  - 1
++ Received  + 20
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-delegate.test.ts:116:42)
+(fail) a task past its deadline is cancelled once; a peer's own cancellation is recorded [33236.19ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [33.41s]

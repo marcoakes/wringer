@@ -1,0 +1,58 @@
+# One bounded repair delegated to an external A2A 1.0 agent. The approved graph pins
+# the agent's endpoint and the sha256 of its Agent Card, which both are checked before
+# sending and again at completion. The returned patch is a candidate only inside
+# controller storage, only within the verification plan's writable scope, and only
+# the following check can verify it. The agent's completion claim grants nothing.
+#
+#   wringer-drive graph plan examples/graphs/external-task/graph.yaml
+#
+# Compile-only: the plan pins a placeholder commit and image, and the card digest
+# is a placeholder for the digest of the agent's served card.
+version: 4
+id: external-task
+repository:
+  url: https://github.com/OWNER/REPOSITORY.git
+  commit: '0000000000000000000000000000000000000000'
+entry: ask
+required: [ask, verify, review, ship]
+parallelism: 1
+budget:
+  maxRoleSessions: 1          # the one external task
+  maxVerificationAttempts: 1  # the fresh local check of its patch
+  wallClockSeconds: 7200
+nodes:
+  ask:
+    kind: delegate
+    input: root
+    peer:
+      url: https://agents.example.com/a2a
+      cardSha256: '1111111111111111111111111111111111111111111111111111111111111111'
+      skill: repair
+    instruction: Make src/total.sh print the sum of its two integer arguments.
+    verify: verify.yaml
+    timeoutSeconds: 3600
+    then: verify
+  verify:
+    kind: check
+    input: ask
+    then: route
+  route:
+    kind: router
+    input: verify
+    routes:
+      - outcome: passed
+        to: review
+    otherwise: fail
+  review:
+    kind: human-hold
+    input: verify
+    prompt: Inspect the externally returned patch and its local verification.
+    then: ship
+  ship:
+    kind: delivery
+    input: review
+    publication:
+      remote: https://github.com/OWNER/REPOSITORY.git
+      sourceBranch: wringer/external-task
+      targetBranch: main
+    then: done

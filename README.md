@@ -35,10 +35,12 @@ development failures → predicted improvement → fixed comparison → future a
 | **Composable workflows** | A graph of contained loops, fresh checks, typed routers, human holds and deliveries. Each step hands the next an exact candidate; a failed requirement cannot be routed to success; a hold binds the exact revision and input; Send stays separate. Export verifies with Node alone. |
 | **Parallel branches with verified integration** | A fork runs private branches at once under one ceiling; a join merges their exact candidates deterministically and re-checks the result against every branch plan. Two changes that each pass can still fail together, and Wringer says so: `integrated`, `failed`, `conflict` or `unavailable`, never a silent merge. |
 | **Tournaments that try to falsify the winner** | Several independent attempts run in private branches. A prosecutor writes executable challenges; each must pass on a trusted control before it counts, then it runs on every attempt's exact tree. Only survivors can be selected, a shared defect leaves no winner, and a hidden evaluator assesses the result after the selection is recorded. |
+| **External agents without trusting them** | A graph can hand one bounded task to an external A2A agent pinned by endpoint and Agent Card digest. Its patch is applied only within the declared scope and verified afresh by a local check; its completion claim grants nothing. Cancellation, a changed identity and malformed artifacts have documented outcomes. |
 | **Proposals that change how work is checked** | A proposed gate or workflow is compared with the current one on a labelled corpus and judged on held-out items against a frozen oracle, never by its own pass rate. A weakened gate looks greener and fails; a noisy gate shows its false positives. A qualified proposal becomes a reviewable source change; Send and future-only adoption stay separate. |
 
 Explore [graphs, parallel branches and tournaments](docs/native/GRAPHS.md),
 [gate and workflow proposals](docs/native/GATE_EXPERIMENTS.md),
+[service interfaces](docs/native/INTERFACES.md),
 [loops and inspection](docs/native/LOOP_INSPECTION.md),
 [portable evidence](examples/evidence/README.md),
 [improvements from ordinary jobs](docs/native/JOB_IMPROVEMENTS.md) and
@@ -47,9 +49,10 @@ Explore [graphs, parallel branches and tournaments](docs/native/GRAPHS.md),
 **The platform direction is composable workflows that improve through evidence.**
 Serial graphs of contained loops shipped in 1.0.0-alpha.26; parallel branches with
 verified integration in 1.0.0-alpha.28; gate and workflow proposals judged by a
-frozen oracle in 1.0.0-alpha.29; tournaments that try to falsify every attempt
-ship in 1.0.0-alpha.30. All are proven with deterministic fixtures and not yet
-with live agents. Temporal durability and A2A are the ordered next steps in
+frozen oracle in 1.0.0-alpha.29; tournaments that try to falsify every attempt in
+1.0.0-alpha.30; external A2A tasks ship in 1.0.0-alpha.31. All are proven with
+deterministic fixtures and not yet with live agents or a real A2A peer. A Temporal
+runtime awaits its prototype, and comparative qualification is next in
 the [restoration plan](docs/SOTA_RESTORATION_PLAN.md). Their exact current status
 is listed in [capabilities](docs/CAPABILITIES.md); planned features are not
 release claims.

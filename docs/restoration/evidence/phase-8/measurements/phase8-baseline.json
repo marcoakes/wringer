@@ -1,0 +1,132 @@
+{
+  "schema_version": "wringer.restoration-phase8-measurement.v1",
+  "kind": "static reading of the source and one compiler probe; no model, container, network or external peer",
+  "acp": {
+    "methods": [
+      "authenticate",
+      "initialize",
+      "session/cancel",
+      "session/close",
+      "session/new",
+      "session/prompt",
+      "session/request_permission",
+      "session/set_config_option",
+      "session/set_mode",
+      "session/update"
+    ],
+    "clientCapabilities": "{}",
+    "fileOrTerminalCallbacksOffered": "none",
+    "reading": "The client advertises no file or terminal capability, so an agent works only with its own tools inside the contained runtime. ACP carries work to a local contained agent; it is not containment and not external delegation."
+  },
+  "mcp": {
+    "tools": [
+      "wringer.cancel",
+      "wringer.continue",
+      "wringer.get_approval_request",
+      "wringer.get_design_import",
+      "wringer.get_evidence",
+      "wringer.get_status",
+      "wringer.inspect_design",
+      "wringer.inspect_improvements",
+      "wringer.inspect_setup",
+      "wringer.list_jobs",
+      "wringer.prepare_design_import",
+      "wringer.prepare_handover",
+      "wringer.propose",
+      "wringer.propose_verification",
+      "wringer.request_revision",
+      "wringer.run_checks",
+      "wringer.start",
+      "wringer.wait_for_update"
+    ],
+    "count": 18,
+    "approvalOrPublicationTools": [],
+    "reading": "The assistant surface inspects, proposes, starts approved work and prepares handovers. No tool approves a plan, records a verdict, sends, merges or adopts."
+  },
+  "dependencies": {
+    "runtimes": [
+      "apple-container",
+      "gvisor-kubernetes"
+    ],
+    "agentProtocol": "acp",
+    "modelSelection": "by the agent command and its declared credential names in the plan; the harness names no model",
+    "identity": "an actor string recorded on grants, decisions and Sends; not authenticated",
+    "gateway": "none",
+    "memory": "none: no agent state persists between sessions beyond the repository and retained evidence"
+  },
+  "a2a": {
+    "graphRefusal": "Unsupported graph node kind",
+    "implementationMentions": 0,
+    "pinnedSpecification": {
+      "version": "1.0",
+      "read": "2026-09-30",
+      "methods": [
+        "SendMessage",
+        "GetTask",
+        "CancelTask"
+      ],
+      "versionHeader": "A2A-Version",
+      "agentCard": "/.well-known/agent-card.json",
+      "taskStates": [
+        "TASK_STATE_SUBMITTED",
+        "TASK_STATE_WORKING",
+        "TASK_STATE_INPUT_REQUIRED",
+        "TASK_STATE_AUTH_REQUIRED",
+        "TASK_STATE_COMPLETED",
+        "TASK_STATE_FAILED",
+        "TASK_STATE_CANCELED",
+        "TASK_STATE_REJECTED"
+      ],
+      "errors": {
+        "taskNotFound": -32001,
+        "taskNotCancelable": -32002,
+        "unsupportedOperation": -32004,
+        "contentTypeNotSupported": -32005,
+        "versionNotSupported": -32009
+      }
+    },
+    "reading": "No A2A client exists and the compiler refuses any external task node. An external result has no route into a graph, and nothing could distinguish it from a locally contained agent."
+  },
+  "integration": {
+    "choice": "Delegate one bounded source change to an external A2A agent that returns a patch artifact; apply it to the exact input source in controller storage; verify it afresh in a contained verifier before anything can hold, route or deliver it.",
+    "matrix": [
+      {
+        "case": "peer completes with a patch artifact",
+        "expected": "a candidate owned by the delegation, verified afresh by a following check"
+      },
+      {
+        "case": "peer unreachable before sending",
+        "expected": "refused in preflight; nothing sent; the node stays reserved"
+      },
+      {
+        "case": "agent card differs from the pinned digest",
+        "expected": "refused before sending; a changed identity after completion makes the outcome unavailable"
+      },
+      {
+        "case": "peer reports failed, rejected or input/auth required",
+        "expected": "a failed outcome with the peer's state, no candidate"
+      },
+      {
+        "case": "peer or operator cancels, or the declared timeout passes",
+        "expected": "CancelTask is sent once; outcome canceled; no candidate"
+      },
+      {
+        "case": "duplicate or repeated terminal response",
+        "expected": "the first terminal state is recorded once; repeats change nothing"
+      },
+      {
+        "case": "malformed artifact: missing, several, wrong media type, not a patch, touches protected paths or does not apply",
+        "expected": "unavailable with a named reason; no candidate"
+      },
+      {
+        "case": "crash after sending, before the task id is retained",
+        "expected": "uncertain; never re-sent"
+      }
+    ],
+    "limits": [
+      "Only JSON-RPC over HTTP(S), no streaming or push notifications.",
+      "No peer authentication scheme beyond the pinned card digest and an HTTPS endpoint; a loopback endpoint is accepted only for local fixtures.",
+      "An Agent Card and a completion claim grant nothing; only the local verification counts."
+    ]
+  }
+}

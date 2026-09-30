@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.30
+Wringer · Bun/TypeScript · 1.0.0-alpha.31
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -295,7 +295,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.30
+Wringer assistant entry point — 1.0.0-alpha.31
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.

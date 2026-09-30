@@ -1,0 +1,340 @@
+{
+  "baseline": "dc56177afed1464797924a670130c764a447d255",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "compiler-delegate-needs-version-4",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-peer-https-or-loopback",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-peer-no-credentials",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-peer-card-pinned",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-verify-plan-same-source",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-delegate-timeout-bound",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-check-before-use",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-no-delegate-in-branch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-delegate-reservation",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-delegate-owns-candidate",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-delegate-owns-candidate",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-no-candidate-unless-returned",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-version-4-events",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-preflight-card-pinned",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-preflight-peer-reachable",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-card-rechecked-at-completion",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-exactly-one-artifact",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-patch-media-type",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-artifact-is-a-patch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-patch-within-scope",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-cancel-at-deadline",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-message-is-not-a-task",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "task-reconciles-by-reading",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-check-uses-delegate-plan",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-delegate-owner",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-binds-delegation-evidence",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-envelope-only-for-loops",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

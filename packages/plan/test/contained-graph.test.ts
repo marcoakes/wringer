@@ -19,7 +19,7 @@ test("serial graph compiles pinned leaves and typed source dependencies without 
 });
 
 const refusals: [string, (value: any) => void, string][] = [
-    ["unknown version", v => v.version = 4, "version"],
+    ["unknown version", v => v.version = 5, "version"],
     ["unknown host command", v => v.nodes.build.command = "touch outside", "unknown"],
     ["unsafe node identity", v => { v.nodes["../worker"] = v.nodes.build; delete v.nodes.build; }, "node id"],
     ["uppercase node identity", v => { v.nodes.Build = v.nodes.build; delete v.nodes.build; v.nodes.scope.then = "Build"; v.nodes.verify.input = "Build"; v.required = v.required.map((id: string) => id === "build" ? "Build" : id); }, "invalid"],

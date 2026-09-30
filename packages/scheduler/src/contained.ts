@@ -17,12 +17,12 @@ import type { GraphCandidate, GraphDecision, GraphDriver, GraphEffectRequest, Gr
 export * from './contained-types';
 
 // Each graph version writes its own event version; older graphs keep theirs.
-const eventSchema = (plan: ContainedGraphPlan) => plan.schema_version === 'wringer.contained-graph-plan.v3' ? 'wringer.contained-graph-event.v3' : plan.schema_version === 'wringer.contained-graph-plan.v2' ? 'wringer.contained-graph-event.v2' : 'wringer.contained-graph-event.v1';
-const EFFECT_KINDS = ['loop', 'check', 'delivery', 'join', 'tournament'];
+const eventSchema = (plan: ContainedGraphPlan) => plan.schema_version === 'wringer.contained-graph-plan.v4' ? 'wringer.contained-graph-event.v4' : plan.schema_version === 'wringer.contained-graph-plan.v3' ? 'wringer.contained-graph-event.v3' : plan.schema_version === 'wringer.contained-graph-plan.v2' ? 'wringer.contained-graph-event.v2' : 'wringer.contained-graph-event.v1';
+const EFFECT_KINDS = ['loop', 'check', 'delivery', 'join', 'tournament', 'delegate'];
 const LOCK = 'contained-graph';
 const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
 const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
-const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed', fork: 'forked', join: 'integrated', tournament: 'selected' };
+const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed', fork: 'forked', join: 'integrated', tournament: 'selected', delegate: 'returned' };
 const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 
 function fail(message: string): never { throw new Error(message); }
@@ -90,6 +90,11 @@ function validateResult(plan: ContainedGraphPlan, id: string, state: GraphNodeSt
         if (result.outcome === 'conflict' && result.candidate) fail(`Join ${id} reported a conflict with a candidate`);
         if (result.outcome !== 'conflict' && !result.candidate) fail(`Join ${id} reported ${result.outcome} without its integrated candidate`);
         if (result.candidate && result.candidate.owner !== id) fail(`Candidate owner must be the integrating join ${id}`);
+        if (result.candidate && result.candidate.source.url !== plan.repository.url) fail(`Candidate source is not the graph repository`);
+    } else if (node.kind === 'delegate') {
+        // Only a returned patch is a candidate, owned by the delegation, of this graph's source.
+        if (result.outcome !== 'returned' && result.candidate) fail(`Delegate ${id} reported ${result.outcome} with a candidate`);
+        if (result.outcome === 'returned' && (!result.candidate || result.candidate.owner !== id)) fail(`Delegate ${id} must own the candidate it returns`);
         if (result.candidate && result.candidate.source.url !== plan.repository.url) fail(`Candidate source is not the graph repository`);
     } else if (node.kind === 'tournament') {
         // Only a surviving branch candidate can be selected, and only as the tournament's own.

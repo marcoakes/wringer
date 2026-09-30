@@ -1,0 +1,24 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-delegate.test.ts:
+19 | export const A2A_VERSION = "1.0";
+20 | export const PATCH_MEDIA_TYPE = "text/x-diff";
+21 | const TERMINAL: Record<string, "returned" | "failed" | "canceled"> = { TASK_STATE_COMPLETED: "returned", TASK_STATE_FAILED: "failed", TASK_STATE_REJECTED: "failed", TASK_STATE_INPUT_REQUIRED: "failed", TASK_STATE_AUTH_REQUIRED: "failed", TASK_STATE_CANCELED: "canceled" };
+22 | const GIT_ENV = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0" };
+23 | const FIXED_ENV = { ...GIT_ENV, GIT_AUTHOR_NAME: "Wringer delegation", GIT_AUTHOR_EMAIL: "wringer@localhost", GIT_COMMITTER_NAME: "Wringer delegation", GIT_COMMITTER_EMAIL: "wringer@localhost", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
+24 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: The peer's answer is not an A2A task
+      at fail ([isolated-checkout]/packages/application/src/external-task.ts:24:51)
+      at task ([isolated-checkout]/packages/application/src/external-task.ts:57:97)
+      at runExternalTask ([isolated-checkout]/packages/application/src/external-task.ts:170:19)
+      at async dispatch ([isolated-checkout]/packages/application/src/graph.ts:356:23)
+      at async advanceLocked ([isolated-checkout]/packages/scheduler/src/contained.ts:472:47)
+      at async locked ([isolated-checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) failed, rejected and interrupted tasks end the delegation without a candidate [9591.66ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 9 expect() calls
+Ran 1 test across 1 file. [9.77s]

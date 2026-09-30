@@ -26,7 +26,7 @@ test("a serial version 1 graph keeps its exact bytes and has no parallelism fiel
 });
 const withCheck = (v: any) => { v.nodes["build-a"].then = "check-a"; v.nodes["check-a"] = { kind: "check", input: "build-a", then: "merge" }; v.budget.maxVerificationAttempts++; };
 const refusals: [string, (value: any) => void, string][] = [
-    ["an unknown declaration version", v => v.version = 4, "version"],
+    ["an unknown declaration version", v => v.version = 5, "version"],
     ["missing parallelism", v => delete v.parallelism, "missing parallelism"],
     ["unbounded parallelism", v => v.parallelism = 9, "parallelism"],
     ["a fork with one branch", v => { v.nodes.split.branches = ["build-a"]; delete v.nodes["build-b"]; v.required = v.required.filter((id: string) => id !== "build-b"); v.budget.maxRoleSessions /= 2; }, "branches"],

@@ -78,3 +78,8 @@ test("the tournament example compiles as a version 3 graph and states its select
     expect(result.text).toContain("1 prosecutor, 1 trusted control, 1 final evaluator gate, ties → tree-order");
     expect(result.text).toContain("reserve 25/25 role sessions");
 });
+test("the external-task example compiles as a version 4 graph and states the delegation", async () => {
+    const result: any = await drive("plan", join(root, "examples/graphs/external-task/graph.yaml")), validate = await schema("contained-graph-plan-v4.schema.json");
+    expect(validate(result.value)).toBe(true); expect(result.value.schema_version).toBe("wringer.contained-graph-plan.v4");
+    expect(result.text).toContain("external A2A task to agents.example.com (skill repair"); expect(result.text).toContain("a check must verify it");
+});
