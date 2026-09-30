@@ -11,7 +11,7 @@ decision or external publication was used. Local paths are replaced with
 | [reversions.json](reversions.json) | Each guard removed alone in an isolated copy: red, then restored and green |
 | [effects.json](effects.json) | What removing each guard changed, and the guards kept as defence in depth |
 | `revert-*.log`, `restored-*.log` | The targeted transcripts behind every reversion |
-| `local-validation.json` | Full local check, build and validation for the release candidate |
-| `release.json` | Public release verification, added after publication |
+| [local-validation.json](local-validation.json) | Full local check, build and validation for the release candidate |
+| [release.json](release.json) | Public alpha.26 verification: jobs, asset hashes, attestations, extraction and installer checks |
 
 The narrative is in [PHASE_3_MEASUREMENTS.md](../../PHASE_3_MEASUREMENTS.md).

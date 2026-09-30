@@ -9,7 +9,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | --- | --- | --- |
 | 1. Loops and portable evidence | Published and verified | [alpha.24](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.24), commit `40421292da044b91a7d8b072e64066f4d56d6aa4`; [release verification](evidence/phase-1/release.json) |
 | 2. Improvement workflow | Published and verified | [alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25), commit `599ea5f3694035822d214229f6e3bd212dabe455`; [release evidence](evidence/phase-2/release.json) |
-| 3. Serial graphs | alpha.26 local qualification passed; remote release pending | Contained graph compiler, kernel, production adapter, `wringer-drive graph` routes, five sibling schemas, portable export and Node-only reader; [measurements](PHASE_3_MEASUREMENTS.md) |
+| 3. Serial graphs | Published and verified | [alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26), commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`; [release evidence](evidence/phase-3/release.json); [measurements](PHASE_3_MEASUREMENTS.md) |
 | 4. Parallel branches/integration | Pending | — |
 | 5. Gate/workflow improvement | Pending | — |
 | 6. Tournament/prosecutor | Pending | — |
@@ -165,8 +165,15 @@ GitHub access; anonymous-install qualification was not measured. The
 - The first full validation stopped at its build stage on a directory link; the
   second passed all 27 core and 10 browser stages. The native suite recorded
   1,276 pass, one Linux-only DAC skip, zero fail and 12,651 assertions. Existing
-  published schema bytes are unchanged; five siblings were added. Clean-commit CI
-  must still qualify the committed source.
+  published schema bytes are unchanged; five siblings were added.
+- Commit `d263c7e` passed all five test jobs and the Linux DAC job on the first
+  attempt, then all six release jobs. Alpha.26 was published at
+  `2026-09-30T01:12:00Z`. All 14 public assets match the exact clean tagged
+  source; both archives' signed provenance verified. The public macOS download
+  passed 17 extracted-route and 13 installer checks. Linux execution ran in native
+  CI. Downloads were authenticated; anonymous installation remains unmeasured.
+  Successful native CI artifacts were not downloaded. See the
+  [release record](evidence/phase-3/release.json).
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.

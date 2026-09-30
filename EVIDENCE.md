@@ -1,19 +1,20 @@
-# Current product evidence — 29 September 2026
+# Current product evidence — 30 September 2026
 
 The current verified public release is
-[1.0.0-alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25),
-commit `599ea5f3694035822d214229f6e3bd212dabe455`. All final test/DAC
-jobs and all six release jobs passed. A first Linux browser attempt failed when
-Chromium could not capture a fixture image; its single targeted rerun passed
-without code changes. That failure remains visible in the release record.
-All 14 public assets matched the clean source, both archives' signed provenance
-verified, and public macOS extraction/installation passed 17/13 checks. Linux
-ran in native CI. See the [release verification](docs/restoration/evidence/phase-2/release.json)
-for hashes, jobs, prior attempts and the authenticated-download limitation.
+[1.0.0-alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26),
+commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`: serial graphs of contained
+loops. All five test jobs, the Linux DAC job and all six release jobs passed on
+their first attempt. All 14 public assets matched the clean source, both archives'
+signed provenance verified, and public macOS extraction/installation passed 17/13
+checks. Linux ran in native CI. See the [release verification](docs/restoration/evidence/phase-3/release.json)
+for hashes, jobs and the authenticated-download limitation. The previous release,
+[alpha.25](docs/restoration/evidence/phase-2/release.json), retains its Linux
+browser retry.
 
-Phase 3 adds serial graphs of contained loops as alpha.26; it is under local
-qualification and not yet a published release. Follow the
-[execution record](docs/restoration/STATUS.md) and
+Graph execution is fixture-tested: 81 isolated reversions, a compiled public
+walkthrough with two crash probes and a Node-only export check. Live agent
+convergence, real containment and any benefit over a single job are unmeasured.
+Follow the [execution record](docs/restoration/STATUS.md) and
 [capability ledger](docs/CAPABILITIES.md).
 
 Fixture loop control, portable audits and prediction-gated playbook experiments
