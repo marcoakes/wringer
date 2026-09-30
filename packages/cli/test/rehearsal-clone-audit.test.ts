@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, setDefaultTimeout, test } from "bun:test";
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,6 +6,9 @@ import { auditRehearsalClone } from "../../../scripts/rehearsal-clone-audit";
 import { Redactor } from "../../engine/src/io";
 import { runProcess } from "../../engine/src/process";
 
+// Each test builds a Git repository with about fifteen commands: about 0.4 s locally, but over the
+// 5 s default on loaded macOS runners (5,019 ms at alpha.27's baseline, over 5,000 ms at alpha.30).
+setDefaultTimeout(30000);
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 const deliveryId = `contained-${"a".repeat(24)}`;

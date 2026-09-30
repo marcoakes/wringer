@@ -1,0 +1,440 @@
+﻿2026-09-30T12:30:14.7149510Z Current runner version: '2.337.0'
+2026-09-30T12:30:14.7195250Z ##[group]Runner Image Provisioner
+2026-09-30T12:30:14.7196870Z Hosted Compute Agent
+2026-09-30T12:30:14.7197850Z Version: 20260828.587
+2026-09-30T12:30:14.7198940Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-30T12:30:14.7200220Z Build Date: 2026-08-28T16:44:25Z
+2026-09-30T12:30:14.7201370Z Worker ID: {5b262518-4977-4f68-9f79-e75133dcbb86}
+2026-09-30T12:30:14.7202610Z Azure Region: westus
+2026-09-30T12:30:14.7203580Z ##[endgroup]
+2026-09-30T12:30:14.7206860Z ##[group]Operating System
+2026-09-30T12:30:14.7208000Z macOS
+2026-09-30T12:30:14.7208860Z 26.6.2
+2026-09-30T12:30:14.7210650Z 25G83
+2026-09-30T12:30:14.7211600Z ##[endgroup]
+2026-09-30T12:30:14.7212510Z ##[group]Runner Image
+2026-09-30T12:30:14.7213800Z Image: macos-26-arm64
+2026-09-30T12:30:14.7214780Z Version: 20260907.0351.1
+2026-09-30T12:30:14.7217310Z Included Software: https://github.com/actions/runner-images/blob/macos-26-arm64/20260907.0351/images/macos/macos-26-arm64-Readme.md
+2026-09-30T12:30:14.7220190Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-26-arm64%2F20260907.0351
+2026-09-30T12:30:14.7221980Z ##[endgroup]
+2026-09-30T12:30:14.7224020Z ##[group]GITHUB_TOKEN Permissions
+2026-09-30T12:30:14.7228840Z Contents: read
+2026-09-30T12:30:14.7229840Z Metadata: read
+2026-09-30T12:30:14.7230760Z ##[endgroup]
+2026-09-30T12:30:14.7235340Z Secret source: Actions
+2026-09-30T12:30:14.7236930Z Cache mode: write
+2026-09-30T12:30:14.7238220Z Prepare workflow directory
+2026-09-30T12:30:14.7660620Z Prepare all required actions
+2026-09-30T12:30:14.7718800Z Getting action download info
+2026-09-30T12:30:15.2231830Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-30T12:30:15.6142250Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+2026-09-30T12:30:16.0930050Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-09-30T12:30:16.3384510Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-09-30T12:30:16.5930330Z Complete job name: Bun / macos-latest
+2026-09-30T12:30:16.6558710Z ##[group]Run actions/checkout@v4
+2026-09-30T12:30:16.6559720Z with:
+2026-09-30T12:30:16.6560500Z   fetch-depth: 0
+2026-09-30T12:30:16.6561200Z   repository: marcoakes/wringer
+2026-09-30T12:30:16.6571530Z   token: ***
+2026-09-30T12:30:16.6572300Z   ssh-strict: true
+2026-09-30T12:30:16.6572910Z   ssh-user: git
+2026-09-30T12:30:16.6573520Z   persist-credentials: true
+2026-09-30T12:30:16.6574560Z   clean: true
+2026-09-30T12:30:16.6575250Z   sparse-checkout-cone-mode: true
+2026-09-30T12:30:16.6575980Z   fetch-tags: false
+2026-09-30T12:30:16.6576740Z   show-progress: true
+2026-09-30T12:30:16.6577470Z   lfs: false
+2026-09-30T12:30:16.6578170Z   submodules: false
+2026-09-30T12:30:16.6578790Z   set-safe-directory: true
+2026-09-30T12:30:16.6579500Z   allow-unsafe-pr-checkout: false
+2026-09-30T12:30:16.6581520Z ##[endgroup]
+2026-09-30T12:30:17.1230090Z Syncing repository: marcoakes/wringer
+2026-09-30T12:30:17.1232910Z ##[group]Getting Git version info
+2026-09-30T12:30:17.1234010Z Working directory is '/Users/runner/work/wringer/wringer'
+2026-09-30T12:30:17.1235890Z [command]/opt/homebrew/bin/git version
+2026-09-30T12:30:17.1844020Z git version 2.55.0
+2026-09-30T12:30:17.1864410Z ##[endgroup]
+2026-09-30T12:30:17.1880240Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/5d75b7a9-b596-4b89-9e6e-c0624c8de3e8/.gitconfig'
+2026-09-30T12:30:17.1897060Z Temporarily overriding HOME='/Users/runner/work/_temp/5d75b7a9-b596-4b89-9e6e-c0624c8de3e8' before making global git config changes
+2026-09-30T12:30:17.1900340Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-30T12:30:17.1906820Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/wringer/wringer
+2026-09-30T12:30:17.2095480Z Deleting the contents of '/Users/runner/work/wringer/wringer'
+2026-09-30T12:30:17.2100990Z ##[group]Initializing the repository
+2026-09-30T12:30:17.2106450Z [command]/opt/homebrew/bin/git init /Users/runner/work/wringer/wringer
+2026-09-30T12:30:17.2479170Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-30T12:30:17.2481530Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-30T12:30:17.2482870Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-30T12:30:17.2483920Z hint: call:
+2026-09-30T12:30:17.2484500Z hint:
+2026-09-30T12:30:17.2485400Z hint: 	git config --global init.defaultBranch <name>
+2026-09-30T12:30:17.2486250Z hint:
+2026-09-30T12:30:17.2487060Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-30T12:30:17.2488590Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-30T12:30:17.2489610Z hint:
+2026-09-30T12:30:17.2490200Z hint: 	git branch -m <name>
+2026-09-30T12:30:17.2490900Z hint:
+2026-09-30T12:30:17.2491760Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-30T12:30:17.2493210Z Initialized empty Git repository in /Users/runner/work/wringer/wringer/.git/
+2026-09-30T12:30:17.2496120Z [command]/opt/homebrew/bin/git remote add origin https://github.com/marcoakes/wringer
+2026-09-30T12:30:17.2596170Z ##[endgroup]
+2026-09-30T12:30:17.2599190Z ##[group]Disabling automatic garbage collection
+2026-09-30T12:30:17.2601840Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+2026-09-30T12:30:17.2683300Z ##[endgroup]
+2026-09-30T12:30:17.2685600Z ##[group]Setting up auth
+2026-09-30T12:30:17.2690680Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-30T12:30:17.2773730Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-30T12:30:17.4194970Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-30T12:30:17.4318240Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-30T12:30:17.5469070Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-30T12:30:17.5543650Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-30T12:30:17.6529810Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-30T12:30:17.6592570Z ##[endgroup]
+2026-09-30T12:30:17.6593730Z ##[group]Fetching the repository
+2026-09-30T12:30:17.6598860Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-09-30T12:30:19.3068100Z From https://github.com/marcoakes/wringer
+2026-09-30T12:30:19.3069490Z  * [new branch]      board/the-short-version -> origin/board/the-short-version
+2026-09-30T12:30:19.3070170Z  * [new branch]      main                    -> origin/main
+2026-09-30T12:30:19.3070720Z  * [new branch]      run-v0.2                -> origin/run-v0.2
+2026-09-30T12:30:19.3071320Z  * [new branch]      wringer/20260809-133147-2c91 -> origin/wringer/20260809-133147-2c91
+2026-09-30T12:30:19.3071930Z  * [new tag]         v0.1.0                  -> v0.1.0
+2026-09-30T12:30:19.3072330Z  * [new tag]         v0.2.0                  -> v0.2.0
+2026-09-30T12:30:19.3072670Z  * [new tag]         v0.3.0                  -> v0.3.0
+2026-09-30T12:30:19.3073020Z  * [new tag]         v0.4.0                  -> v0.4.0
+2026-09-30T12:30:19.3073480Z  * [new tag]         v0.4.1                  -> v0.4.1
+2026-09-30T12:30:19.3073880Z  * [new tag]         v0.4.10                 -> v0.4.10
+2026-09-30T12:30:19.3074750Z  * [new tag]         v0.4.11                 -> v0.4.11
+2026-09-30T12:30:19.3075120Z  * [new tag]         v0.4.12                 -> v0.4.12
+2026-09-30T12:30:19.3075570Z  * [new tag]         v0.4.2                  -> v0.4.2
+2026-09-30T12:30:19.3076050Z  * [new tag]         v0.4.3                  -> v0.4.3
+2026-09-30T12:30:19.3076420Z  * [new tag]         v0.4.4                  -> v0.4.4
+2026-09-30T12:30:19.3076840Z  * [new tag]         v0.4.5                  -> v0.4.5
+2026-09-30T12:30:19.3077240Z  * [new tag]         v0.4.6                  -> v0.4.6
+2026-09-30T12:30:19.3077730Z  * [new tag]         v0.4.7                  -> v0.4.7
+2026-09-30T12:30:19.3078190Z  * [new tag]         v0.4.8                  -> v0.4.8
+2026-09-30T12:30:19.3078670Z  * [new tag]         v0.4.9                  -> v0.4.9
+2026-09-30T12:30:19.3079080Z  * [new tag]         v0.5.0                  -> v0.5.0
+2026-09-30T12:30:19.3079420Z  * [new tag]         v0.5.2                  -> v0.5.2
+2026-09-30T12:30:19.3079770Z  * [new tag]         v0.5.3                  -> v0.5.3
+2026-09-30T12:30:19.3080240Z  * [new tag]         v0.5.4                  -> v0.5.4
+2026-09-30T12:30:19.3080590Z  * [new tag]         v0.5.5                  -> v0.5.5
+2026-09-30T12:30:19.3081000Z  * [new tag]         v0.5.6                  -> v0.5.6
+2026-09-30T12:30:19.3081370Z  * [new tag]         v0.5.7                  -> v0.5.7
+2026-09-30T12:30:19.3081830Z  * [new tag]         v0.5.8                  -> v0.5.8
+2026-09-30T12:30:19.3082400Z  * [new tag]         v0.6.0                  -> v0.6.0
+2026-09-30T12:30:19.3082770Z  * [new tag]         v0.6.1                  -> v0.6.1
+2026-09-30T12:30:19.3083130Z  * [new tag]         v0.6.2                  -> v0.6.2
+2026-09-30T12:30:19.3099050Z  * [new tag]         v0.6.3                  -> v0.6.3
+2026-09-30T12:30:19.3099640Z  * [new tag]         v0.6.4                  -> v0.6.4
+2026-09-30T12:30:19.3100060Z  * [new tag]         v0.6.5                  -> v0.6.5
+2026-09-30T12:30:19.3100450Z  * [new tag]         v0.6.6                  -> v0.6.6
+2026-09-30T12:30:19.3100750Z  * [new tag]         v0.6.7                  -> v0.6.7
+2026-09-30T12:30:19.3101590Z  * [new tag]         v0.7.0                  -> v0.7.0
+2026-09-30T12:30:19.3102040Z  * [new tag]         v0.7.1                  -> v0.7.1
+2026-09-30T12:30:19.3102330Z  * [new tag]         v0.7.2                  -> v0.7.2
+2026-09-30T12:30:19.3102610Z  * [new tag]         v0.7.3                  -> v0.7.3
+2026-09-30T12:30:19.3102890Z  * [new tag]         v0.7.4                  -> v0.7.4
+2026-09-30T12:30:19.3103170Z  * [new tag]         v0.7.5                  -> v0.7.5
+2026-09-30T12:30:19.3103470Z  * [new tag]         v0.8.0                  -> v0.8.0
+2026-09-30T12:30:19.3103750Z  * [new tag]         v0.8.1                  -> v0.8.1
+2026-09-30T12:30:19.3104050Z  * [new tag]         v0.8.10                 -> v0.8.10
+2026-09-30T12:30:19.3104340Z  * [new tag]         v0.8.2                  -> v0.8.2
+2026-09-30T12:30:19.3104630Z  * [new tag]         v0.8.3                  -> v0.8.3
+2026-09-30T12:30:19.3104930Z  * [new tag]         v0.8.4                  -> v0.8.4
+2026-09-30T12:30:19.3105220Z  * [new tag]         v0.8.5                  -> v0.8.5
+2026-09-30T12:30:19.3105520Z  * [new tag]         v0.8.6                  -> v0.8.6
+2026-09-30T12:30:19.3105950Z  * [new tag]         v0.8.8                  -> v0.8.8
+2026-09-30T12:30:19.3106280Z  * [new tag]         v0.8.9                  -> v0.8.9
+2026-09-30T12:30:19.3106620Z  * [new tag]         v0.9.0                  -> v0.9.0
+2026-09-30T12:30:19.3106900Z  * [new tag]         v0.9.1                  -> v0.9.1
+2026-09-30T12:30:19.3107200Z  * [new tag]         v0.9.10                 -> v0.9.10
+2026-09-30T12:30:19.3107550Z  * [new tag]         v0.9.11                 -> v0.9.11
+2026-09-30T12:30:19.3107860Z  * [new tag]         v0.9.2                  -> v0.9.2
+2026-09-30T12:30:19.3108130Z  * [new tag]         v0.9.3                  -> v0.9.3
+2026-09-30T12:30:19.3108490Z  * [new tag]         v0.9.4                  -> v0.9.4
+2026-09-30T12:30:19.3109040Z  * [new tag]         v0.9.5                  -> v0.9.5
+2026-09-30T12:30:19.3109520Z  * [new tag]         v0.9.6                  -> v0.9.6
+2026-09-30T12:30:19.3109840Z  * [new tag]         v0.9.7                  -> v0.9.7
+2026-09-30T12:30:19.3110280Z  * [new tag]         v0.9.8                  -> v0.9.8
+2026-09-30T12:30:19.3110600Z  * [new tag]         v0.9.9                  -> v0.9.9
+2026-09-30T12:30:19.3111000Z  * [new tag]         v1.0.0-alpha.20         -> v1.0.0-alpha.20
+2026-09-30T12:30:19.3111460Z  * [new tag]         v1.0.0-alpha.21         -> v1.0.0-alpha.21
+2026-09-30T12:30:19.3111810Z  * [new tag]         v1.0.0-alpha.22         -> v1.0.0-alpha.22
+2026-09-30T12:30:19.3112130Z  * [new tag]         v1.0.0-alpha.23         -> v1.0.0-alpha.23
+2026-09-30T12:30:19.3112460Z  * [new tag]         v1.0.0-alpha.24         -> v1.0.0-alpha.24
+2026-09-30T12:30:19.3112880Z  * [new tag]         v1.0.0-alpha.25         -> v1.0.0-alpha.25
+2026-09-30T12:30:19.3113260Z  * [new tag]         v1.0.0-alpha.26         -> v1.0.0-alpha.26
+2026-09-30T12:30:19.3113610Z  * [new tag]         v1.0.0-alpha.27         -> v1.0.0-alpha.27
+2026-09-30T12:30:19.3114050Z  * [new tag]         v1.0.0-alpha.28         -> v1.0.0-alpha.28
+2026-09-30T12:30:19.3114390Z  * [new tag]         v1.0.0-alpha.29         -> v1.0.0-alpha.29
+2026-09-30T12:30:19.3115650Z [command]/opt/homebrew/bin/git branch --list --remote origin/main
+2026-09-30T12:30:19.3165170Z   origin/main
+2026-09-30T12:30:19.3172240Z [command]/opt/homebrew/bin/git rev-parse refs/remotes/origin/main
+2026-09-30T12:30:19.3248270Z df6300343f3a8f7a7992f6914021ecacc8ace44b
+2026-09-30T12:30:19.3251280Z ##[endgroup]
+2026-09-30T12:30:19.3252360Z ##[group]Determining the checkout info
+2026-09-30T12:30:19.3253430Z ##[endgroup]
+2026-09-30T12:30:19.3257730Z [command]/opt/homebrew/bin/git sparse-checkout disable
+2026-09-30T12:30:19.3383510Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-30T12:30:19.3465390Z ##[group]Checking out the ref
+2026-09-30T12:30:19.3468290Z [command]/opt/homebrew/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-09-30T12:30:19.8416400Z Switched to a new branch 'main'
+2026-09-30T12:30:19.8419740Z branch 'main' set up to track 'origin/main'.
+2026-09-30T12:30:19.8431370Z ##[endgroup]
+2026-09-30T12:30:19.8545390Z [command]/opt/homebrew/bin/git log -1 --format=%H
+2026-09-30T12:30:19.8632000Z df6300343f3a8f7a7992f6914021ecacc8ace44b
+2026-09-30T12:30:19.8984200Z ##[group]Run oven-sh/setup-bun@v2
+2026-09-30T12:30:19.8984460Z with:
+2026-09-30T12:30:19.8984640Z   bun-version: 1.4.2
+2026-09-30T12:30:19.8984830Z   no-cache: false
+2026-09-30T12:30:19.8987020Z   token: ***
+2026-09-30T12:30:19.8987160Z ##[endgroup]
+2026-09-30T12:30:20.4247550Z Cache hit for: bun-q9QmESoiI7cwLvhPM7UOBEdVaSY=
+2026-09-30T12:30:21.7402290Z Received 0 of 23912749 (0.0%), 0.0 MBs/sec
+2026-09-30T12:30:22.3530300Z Received 23912749 of 23912749 (100.0%), 14.1 MBs/sec
+2026-09-30T12:30:22.3534980Z Cache Size: ~23 MB (23912749 B)
+2026-09-30T12:30:22.3651730Z [command]/opt/homebrew/bin/gtar -xf /Users/runner/work/_temp/3337f478-92e6-4cfa-97a7-cf72e354725a/cache.tzst -P -C /Users/runner/work/wringer/wringer --delay-directory-restore --use-compress-program unzstd
+2026-09-30T12:30:22.5468410Z Cache restored successfully
+2026-09-30T12:30:22.5491000Z [command]/Users/runner/.bun/bin/bun --revision
+2026-09-30T12:30:22.5699660Z 1.4.2+744846f84
+2026-09-30T12:30:22.5709210Z Using a cached version of Bun: 1.4.2+744846f84
+2026-09-30T12:30:22.5962990Z ##[group]Run actions/setup-node@v4
+2026-09-30T12:30:22.5963210Z with:
+2026-09-30T12:30:22.5963350Z   node-version: 24
+2026-09-30T12:30:22.5963510Z   always-auth: false
+2026-09-30T12:30:22.5963690Z   check-latest: false
+2026-09-30T12:30:22.5966080Z   token: ***
+2026-09-30T12:30:22.5966380Z ##[endgroup]
+2026-09-30T12:30:22.8410820Z Found in cache @ /Users/runner/hostedtoolcache/node/24.20.0/arm64
+2026-09-30T12:30:22.8415250Z (node:1347) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-30T12:30:22.8418600Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-30T12:30:22.8420010Z ##[group]Environment details
+2026-09-30T12:30:23.5994680Z node: v24.20.0
+2026-09-30T12:30:23.6020500Z npm: 11.19.0
+2026-09-30T12:30:23.6022210Z yarn: 1.22.22
+2026-09-30T12:30:23.6022880Z ##[endgroup]
+2026-09-30T12:30:23.6179390Z ##[group]Run bun install --frozen-lockfile
+2026-09-30T12:30:23.6179960Z ^[[36;1mbun install --frozen-lockfile^[[0m
+2026-09-30T12:30:23.6248520Z shell: /bin/bash -e {0}
+2026-09-30T12:30:23.6249210Z ##[endgroup]
+2026-09-30T12:30:23.6900330Z bun install v1.4.2 (744846f84)
+2026-09-30T12:30:23.9411580Z 
+2026-09-30T12:30:23.9412830Z + @types/bun@1.4.1
+2026-09-30T12:30:23.9413760Z + playwright@1.63.0
+2026-09-30T12:30:23.9414440Z + typescript@5.9.3
+2026-09-30T12:30:23.9414970Z + ajv@8.20.0
+2026-09-30T12:30:23.9415510Z + ajv-formats@3.0.1
+2026-09-30T12:30:23.9415840Z 
+2026-09-30T12:30:23.9416450Z 14 packages installed [254.00ms]
+2026-09-30T12:30:23.9524760Z ##[group]Run bun node_modules/playwright/cli.js install --with-deps chromium
+2026-09-30T12:30:23.9525240Z ^[[36;1mbun node_modules/playwright/cli.js install --with-deps chromium^[[0m
+2026-09-30T12:30:23.9561520Z shell: /bin/bash -e {0}
+2026-09-30T12:30:23.9561720Z ##[endgroup]
+2026-09-30T12:30:24.6255540Z Downloading Chrome for Testing 153.0.8010.12 (playwright chromium v1243) from https://cdn.playwright.dev/builds/cft/153.0.8010.12/mac-arm64/chrome-mac-arm64.zip
+2026-09-30T12:30:25.2329620Z |                                                                                |   0% of 182.1 MiB
+2026-09-30T12:30:25.8830340Z |■■■■■■■■                                                                        |  10% of 182.1 MiB
+2026-09-30T12:30:26.1320580Z |■■■■■■■■■■■■■■■■                                                                |  20% of 182.1 MiB
+2026-09-30T12:30:26.3696250Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 182.1 MiB
+2026-09-30T12:30:26.6270150Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 182.1 MiB
+2026-09-30T12:30:26.9218220Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 182.1 MiB
+2026-09-30T12:30:27.1763750Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 182.1 MiB
+2026-09-30T12:30:27.4328220Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 182.1 MiB
+2026-09-30T12:30:27.6655180Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 182.1 MiB
+2026-09-30T12:30:27.9049330Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 182.1 MiB
+2026-09-30T12:30:28.1324180Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 182.1 MiB
+2026-09-30T12:30:31.1694790Z Chrome for Testing 153.0.8010.12 (playwright chromium v1243) downloaded to /Users/runner/Library/Caches/ms-playwright/chromium-1243
+2026-09-30T12:30:31.1702540Z Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-mac-arm64.zip
+2026-09-30T12:30:31.6385330Z |                                                                                |   1% of 1 MiB
+2026-09-30T12:30:31.6978170Z |■■■■■■■■                                                                        |  10% of 1 MiB
+2026-09-30T12:30:31.7364870Z |■■■■■■■■■■■■■■■■                                                                |  20% of 1 MiB
+2026-09-30T12:30:31.7619690Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 1 MiB
+2026-09-30T12:30:31.7827140Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 1 MiB
+2026-09-30T12:30:31.7965420Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  51% of 1 MiB
+2026-09-30T12:30:31.8164010Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  67% of 1 MiB
+2026-09-30T12:30:31.8181980Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 1 MiB
+2026-09-30T12:30:31.8276500Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 1 MiB
+2026-09-30T12:30:31.8367930Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  91% of 1 MiB
+2026-09-30T12:30:31.8426550Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 1 MiB
+2026-09-30T12:30:31.8741790Z FFmpeg (playwright ffmpeg v1011) downloaded to /Users/runner/Library/Caches/ms-playwright/ffmpeg-1011
+2026-09-30T12:30:31.8746010Z Downloading Chrome Headless Shell 153.0.8010.12 (playwright chromium-headless-shell v1243) from https://cdn.playwright.dev/builds/cft/153.0.8010.12/mac-arm64/chrome-headless-shell-mac-arm64.zip
+2026-09-30T12:30:32.2966820Z |                                                                                |   0% of 94.3 MiB
+2026-09-30T12:30:32.7846300Z |■■■■■■■■                                                                        |  10% of 94.3 MiB
+2026-09-30T12:30:32.8943790Z |■■■■■■■■■■■■■■■■                                                                |  20% of 94.3 MiB
+2026-09-30T12:30:33.0081670Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 94.3 MiB
+2026-09-30T12:30:33.1476390Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 94.3 MiB
+2026-09-30T12:30:33.2713420Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 94.3 MiB
+2026-09-30T12:30:33.3841980Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 94.3 MiB
+2026-09-30T12:30:33.4982910Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 94.3 MiB
+2026-09-30T12:30:33.6157130Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 94.3 MiB
+2026-09-30T12:30:33.7266700Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 94.3 MiB
+2026-09-30T12:30:33.8407360Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 94.3 MiB
+2026-09-30T12:30:35.6077600Z Chrome Headless Shell 153.0.8010.12 (playwright chromium-headless-shell v1243) downloaded to /Users/runner/Library/Caches/ms-playwright/chromium_headless_shell-1243
+2026-09-30T12:30:35.6288170Z ##[group]Run bun run validate --group core
+2026-09-30T12:30:35.6289140Z ^[[36;1mbun run validate --group core^[[0m
+2026-09-30T12:30:35.6350270Z shell: /bin/bash -e {0}
+2026-09-30T12:30:35.6350560Z ##[endgroup]
+2026-09-30T12:30:35.7016910Z $ bun scripts/validate.ts --group core
+2026-09-30T12:30:35.7246040Z Checking workspace-links…
+2026-09-30T12:30:35.7459380Z workspace-links: PASS (17 ms)
+2026-09-30T12:30:35.7461340Z Checking standalone-build…
+2026-09-30T12:30:37.8460310Z standalone-build: PASS (2099 ms)
+2026-09-30T12:30:37.8461660Z Checking native-confirmation-build…
+2026-09-30T12:30:50.6899970Z native-confirmation-build: PASS (12836 ms)
+2026-09-30T12:30:50.6933770Z Checking native-confirmation-probe…
+2026-09-30T12:30:50.9817170Z native-confirmation-probe: PASS (291 ms)
+2026-09-30T12:30:50.9824470Z Checking assistant-check…
+2026-09-30T12:31:47.6638580Z assistant-check: PASS (56652 ms)
+2026-09-30T12:31:47.6640930Z Checking native-check…
+2026-09-30T12:56:13.8958270Z native-check: FAIL (1465861 ms)
+2026-09-30T12:56:13.8966900Z leteness is measured against the .wringer.yaml this bundle carries. A check the repository never declared cannot be missing from it, and a gate declared later does not make this bundle incomplete.","A deliberately narrow run stays exit 0. This record is the only place that says what the pass covered."]},"orchestration":{"schema_version":"wringer.orchestration.v1","outcome":"not-declared","setup":[],"services":[],"phases":[],"teardown":[],"reason":"This repository declares no setup, services, phases or teardown.","limits":["A setup or service failure before readiness is an environment outcome, not a product result: no gate was asked a question, and exit 2 says so.","Nothing under setup: or services: is retried. A retry could repeat a paid call or an external write, and that is the project's decision to make explicitly.","Cancellation and teardown signal only the process groups this run started, by the leader pid it holds. No other pgid is signalled.","A readiness answer establishes that the declared URL answered as declared. It does not establish that the service is correct, or that it will still answer later.","Teardown always runs, including after a failed gate and after a cancelled run. A teardown command that itself fails is recorded and does not rewrite the run's outcome."]},"results":[{"gate_id":"unit","command":"test 2 -eq 2","exit_code":0,"duration_ms":5,"timed_out":false,"stdout_truncated":false,"stderr_truncated":false,"optional":false,"status":"passed"}]}
+2026-09-30T12:56:13.8972830Z 
+2026-09-30T12:56:13.8974840Z ::wringer-26acbee7-7427-44ab-bb00-2c021dd6eab2::
+2026-09-30T12:56:13.9053470Z ::stop-commands::***
+2026-09-30T12:56:13.9054830Z error: script "validate" exited with code 1
+2026-09-30T12:56:13.9072490Z {"status":"failed","failed_gate":"other","rerun":"wring verify --gate other","evidence_dir":".wringer/runs/all","template_only":false,"exit_code":1,"manifest":{"schema_version":"wringer.evidence.v1","run_id":"20260930-123406-7b049f27","started_at":"2026-09-30T12:34:06.510Z","repo":{"root":".","head_sha":"de30d60ffce60bac5ff6de8601637f3e15a85192","branch":"main","dirty":false},"result":{"status":"failed","failed_gate":"other"}},"selection":{"schema_version":"wringer.selection.v3","run_id":"20260930-123406-7b049f27","head_sha":"de30d60ffce60bac5ff6de8601637f3e15a85192","config_sha256":"22f6b7b2afc80e72542ccbf21c2030af8f463cf5d70ec741ea1ec133a6528458","declared":["unit","other"],"required":["unit","other"],"selected":null,"executed":["unit","other"],"passed":["unit"],"failed":["other"],"missing_required":[],"complete":true,"phases":[],"strict":{"before":"cd428e092031bfbf85a559af94d10b4d0758910f33b0a6d9bb78cfe559a12a6b","after":"cd428e092031bfbf85a559af94d10b4d0758910f33b0a6d9bb78cfe559a12a6b","changed_tracked":[],"permitted_ignored":1,"exact_source":true,"reason":"Strict: no tracked file changed while the checks ran; 1 ignored path(s) are present, which is permitted build output. This result describes the commit under review."},"reason":"Complete: all 2 required checks ran.","limits":["`complete` is about execution and never about outcome: a run in which every required check ran and one of them failed is complete and failed. Read it beside result.status, never instead of it.","Completeness is measured against the .wringer.yaml this bundle carries. A check the repository never declared cannot be missing from it, and a gate declared later does not make this bundle incomplete.","A deliberately narrow run stays exit 0. This record is the only place that says what the pass covered."]},"orchestration":{"schema_version":"wringer.orchestration.v1","outcome":"not-declared","setup":[],"services":[],"phases":[],"teardown":[],"reason":"This repository declares no setup, services, phases or teardown.","limits":["A setup or service failure before readiness is an environment outcome, not a product result: no gate was asked a question, and exit 2 says so.","Nothing under setup: or services: is retried. A retry could repeat a paid call or an external write, and that is the project's decision to make explicitly.","Cancellation and teardown signal only the process groups this run started, by the leader pid it holds. No other pgid is signalled.","A readiness answer establishes that the declared URL answered as declared. It does not establish that the service is correct, or that it will still answer later.","Teardown always runs, including after a failed gate and after a cancelled run. A teardown command that itself fails is recorded and does not rewrite the run's outcome."]},"results":[{"gate_id":"unit","command":"test 2 -eq 2","exit_code":0,"duration_ms":4,"timed_out":false,"stdout_truncated":false,"stderr_truncated":false,"optional":false,"status":"passed"},{"gate_id":"other","command":"exit 1","exit_code":1,"duration_ms":4,"timed_out":false,"stdout_truncated":false,"stderr_truncated":false,"optional":false,"status":"failed"}],"vacuity":{"schema_version":"wringer.vacuity.v1","verdict":"not_applicable","reason":"No changed tree was available to compare.","worktree_ms":0,"prove_ms":0,"setup":null,"gates":[]}}
+2026-09-30T12:56:13.9086240Z 
+2026-09-30T12:56:13.9086730Z ::***::
+2026-09-30T12:56:13.9087140Z ence and the set verb [0.91ms]
+2026-09-30T12:56:13.9087630Z (pass) the receipt is written, sealed and exits by completeness [119.06ms]
+2026-09-30T12:56:13.9088350Z (pass) combiner-reads-every-version: every selection and checks schema is one the set reads [2.65ms]
+2026-09-30T12:56:13.9088720Z 
+2026-09-30T12:56:13.9090660Z ##[endgroup]
+2026-09-30T12:56:13.9090830Z 
+2026-09-30T12:56:13.9091110Z ##[group]packages/engine/test/strict.test.ts:
+2026-09-30T12:56:13.9092190Z (pass) declared globs are hashed into identity, and the coverage label says which parts exist [71.83ms]
+2026-09-30T12:56:13.9092910Z (pass) changing an indirectly loaded test invalidates comparability [82.93ms]
+2026-09-30T12:56:13.9093470Z (pass) inputs globs are bounded and repository-relative [0.51ms]
+2026-09-30T12:56:13.9093970Z (pass) a run writes checks v2 only where a gate declares inputs [265.86ms]
+2026-09-30T12:56:13.9094660Z (pass) strict refuses an exact-source claim a gate took away, and permits ignored build output [817.74ms]
+2026-09-30T12:56:13.9095320Z (pass) strict is automatic under CI, through the public entry [219.11ms]
+2026-09-30T12:56:13.9095940Z (pass) T06 strict detects further edits to already dirty binary source and a moved HEAD [267.19ms]
+2026-09-30T12:56:13.9096640Z (pass) T06 strict detects a moved HEAD even when the source tree stays the same [243.23ms]
+2026-09-30T12:56:13.9097570Z (pass) the operator pages carry the inputs and strict sentences [0.76ms]
+2026-09-30T12:56:13.9097880Z 
+2026-09-30T12:56:13.9098110Z ##[endgroup]
+2026-09-30T12:56:13.9098240Z 
+2026-09-30T12:56:13.9098540Z ##[group]packages/engine/test/redactor.test.ts:
+2026-09-30T12:56:13.9099160Z (pass) OIDC credential metadata does not turn a public URL scheme into a secret [3.60ms]
+2026-09-30T12:56:13.9099920Z (pass) URL-valued secrets retain their meaningful prefixes without masking common transport syntax [3.68ms]
+2026-09-30T12:56:13.9100500Z 
+2026-09-30T12:56:13.9100770Z ##[endgroup]
+2026-09-30T12:56:13.9100890Z 
+2026-09-30T12:56:13.9101360Z ##[group]packages/engine/test/orchestrate.test.ts:
+2026-09-30T12:56:13.9101910Z (pass) setup, services, phases and teardown parse with their defaults [0.47ms]
+2026-09-30T12:56:13.9102520Z (pass) the ordering rules refuse a configuration that would run a gate twice or never [0.18ms]
+2026-09-30T12:56:13.9103210Z (pass) a declared value that would be a credential in the repository is refused [0.31ms]
+2026-09-30T12:56:13.9104100Z (pass) declared phases are the running order, and the selection record says which phase ran what [131.74ms]
+2026-09-30T12:56:13.9105020Z (pass) a service that never becomes ready is an environment outcome, not a product result [2290.28ms]
+2026-09-30T12:56:13.9105830Z (pass) a service that exits before readiness is its own outcome, not a timeout [449.70ms]
+2026-09-30T12:56:13.9106500Z (pass) setup runs in order, exactly once each, and its first failure stops the run [254.16ms]
+2026-09-30T12:56:13.9107280Z (pass) a real service becomes ready on a JSON body path, holds across phases, and is stopped [540.63ms]
+2026-09-30T12:56:13.9108080Z (pass) teardown runs after a failed gate, and the gate failure stays exit 1 [179.85ms]
+2026-09-30T12:56:13.9108820Z (pass) a teardown command that fails is recorded and does not rewrite the outcome [156.45ms]
+2026-09-30T12:56:13.9109570Z (pass) cancellation stops only the groups this run started [2971.28ms]
+2026-09-30T12:56:13.9110240Z (pass) ZenJev's whole CI coordinator compiles as declared configuration [7.92ms]
+2026-09-30T12:56:13.9110980Z (pass) the operator pages carry the service, phase and exit-code sentences [1.51ms]
+2026-09-30T12:56:13.9111330Z 
+2026-09-30T12:56:13.9111720Z ##[endgroup]
+2026-09-30T12:56:13.9111890Z 
+2026-09-30T12:56:13.9112230Z ##[group]packages/acp/test/acp.test.ts:
+2026-09-30T12:56:13.9112880Z (pass) T20 explicit model selection is confirmed through ACP before a prompt, and fallback is refused [1.50ms]
+2026-09-30T12:56:13.9113690Z (pass) ACP negotiates v1, streams final text, never exposes host fs/terminal [0.32ms]
+2026-09-30T12:56:13.9114400Z (pass) a truthful credential observation reaches the controller before any model prompt [9.18ms]
+2026-09-30T12:56:13.9115070Z (pass) ACP headless permissions select declared allow_once only, judge edits denied [0.67ms]
+2026-09-30T12:56:13.9115710Z (pass) agent filesystem callback is refused rather than executed [0.27ms]
+2026-09-30T12:56:13.9116360Z (pass) malformed response error fails without leaving request hung [0.41ms]
+2026-09-30T12:56:13.9117020Z (pass) cross-session update fails, timeout sends cancel and kills transport [334.94ms]
+2026-09-30T12:56:13.9117790Z (pass) authenticate return never becomes a green when session/new still refuses [3.17ms]
+2026-09-30T12:56:13.9118530Z (pass) interactive auth metadata never runs and auth metadata redacts before return [1.12ms]
+2026-09-30T12:56:13.9119270Z (pass) oversized unterminated messages stop before spending a prompt [0.64ms]
+2026-09-30T12:56:13.9119980Z (pass) preflight negotiates auth/session/mode and denies all tool effects without a prompt [2.00ms]
+2026-09-30T12:56:13.9120870Z (pass) preflight reports invalid key, interactive auth and unsupported protocol without task prompts [1.88ms]
+2026-09-30T12:56:13.9121760Z (pass) preflight cancellation has a deadline and decoded metadata redaction precedes persistence [337.49ms]
+2026-09-30T12:56:13.9122190Z 
+2026-09-30T12:56:13.9122470Z ##[endgroup]
+2026-09-30T12:56:13.9123400Z 
+2026-09-30T12:56:13.9123810Z ##[group]packages/acp/test/mcp-permissions.test.ts:
+2026-09-30T12:56:13.9124670Z (pass) Claude MCP kind=other reads require the controller's exact configured service/tool grant [8.75ms]
+2026-09-30T12:56:13.9125490Z (pass) MCP read permission requires an unambiguous prior call identity and cannot be replayed [5.80ms]
+2026-09-30T12:56:13.9126370Z (pass) design-name lookalikes and untrusted hints cannot grant arbitrary MCP or judge effects [5.14ms]
+2026-09-30T12:56:13.9127380Z (pass) controller design reads never bypass cancellation or protocol-only preflight [1.19ms]
+2026-09-30T12:56:13.9144900Z (pass) controller read grants reject ambiguous service identities and wildcard names [0.45ms]
+2026-09-30T12:56:13.9145720Z (pass) controller service grants match the full session namespace, never the design prefix [1.22ms]
+2026-09-30T12:56:13.9146130Z 
+2026-09-30T12:56:13.9146640Z ##[endgroup]
+2026-09-30T12:56:13.9146780Z 
+2026-09-30T12:56:13.9146860Z 2 tests skipped:
+2026-09-30T12:56:13.9147400Z (skip) the unchanged Run 5B record reads as one proved, eight unproved, and one awaiting a person
+2026-09-30T12:56:13.9148110Z (skip) real Linux DAC denies out-of-scope, protected rename and verifier tracked writes
+2026-09-30T12:56:13.9148380Z 
+2026-09-30T12:56:13.9148380Z 
+2026-09-30T12:56:13.9148510Z 1 tests failed:
+2026-09-30T12:56:13.9149190Z (fail) fresh no-local clone binds exact evidence commit, source parent/tree and NUL-delimited evidence additions [5091.58ms]
+2026-09-30T12:56:13.9149790Z   ^ this test timed out after 5000ms.
+2026-09-30T12:56:13.9149980Z 
+2026-09-30T12:56:13.9150030Z  1390 pass
+2026-09-30T12:56:13.9150260Z  2 skip
+2026-09-30T12:56:13.9150480Z  1 fail
+2026-09-30T12:56:13.9150720Z  1 error
+2026-09-30T12:56:13.9150960Z  13124 expect() calls
+2026-09-30T12:56:13.9151280Z Ran 1393 tests across 170 files. [1452.64s]
+2026-09-30T12:56:13.9151610Z error: script "check" exited with code 1
+2026-09-30T12:56:13.9151840Z 
+2026-09-30T12:56:13.9152270Z Validation record: /Users/runner/work/wringer/wringer/.wringer/native-validation-2026-09-30T12-30-35-721Z
+2026-09-30T12:56:13.9203360Z ##[error]Process completed with exit code 1.
+2026-09-30T12:56:13.9415220Z ##[group]Run actions/upload-artifact@v4
+2026-09-30T12:56:13.9415710Z with:
+2026-09-30T12:56:13.9416050Z   name: evidence-macos-latest
+2026-09-30T12:56:13.9418040Z   path: .wringer/native-validation-*/
+.wringer/native-distribution-*/result.json
+.wringer/contained-distribution-*/result.json
+.wringer/contained-distribution-*/transcript.json
+.wringer/assistant-smoke-*/result.json
+.wringer/assistant-smoke-*/transcript.json
+.wringer/local-source-route-*/result.json
+.wringer/local-source-route-*/transcript.json
+.wringer/native-demo-*/result.json
+.wringer/native-demo-*/transcript.md
+build/validated-examples/result.json
+build/loop-inspection-*/transcript.json
+build/evidence-export-*/transcript.json
+build/job-improvements-*/transcript.json
+
+2026-09-30T12:56:13.9419960Z   if-no-files-found: error
+2026-09-30T12:56:13.9420250Z   include-hidden-files: true
+2026-09-30T12:56:13.9420570Z   compression-level: 6
+2026-09-30T12:56:13.9420790Z   overwrite: false
+2026-09-30T12:56:13.9421090Z ##[endgroup]
+2026-09-30T12:56:14.3891140Z (node:87449) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-30T12:56:14.3892060Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-30T12:56:14.4003460Z Multiple search paths detected. Calculating the least common ancestor of all paths
+2026-09-30T12:56:14.4004760Z The least common ancestor is /Users/runner/work/wringer/wringer. This will be the root directory of the artifact
+2026-09-30T12:56:14.4005440Z With the provided path, there will be 13 files uploaded
+2026-09-30T12:56:14.4006190Z Artifact name is valid!
+2026-09-30T12:56:14.4006680Z Root directory input is valid!
+2026-09-30T12:56:14.8955800Z Beginning upload of artifact content to blob storage
+2026-09-30T12:56:14.9794290Z (node:87449) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-09-30T12:56:15.3683800Z Uploaded bytes 61605
+2026-09-30T12:56:15.4402340Z Finished uploading artifact content to blob storage!
+2026-09-30T12:56:15.4403170Z SHA256 digest of uploaded artifact zip is 20d0a87187d860010185aa2ebb4309b37fb631b0c10d01ef78f54d5326c2e4fa
+2026-09-30T12:56:15.4403750Z Finalizing artifact upload
+2026-09-30T12:56:15.7393310Z Artifact evidence-macos-latest.zip successfully finalized. Artifact ID 11096304438
+2026-09-30T12:56:15.7394350Z Artifact evidence-macos-latest has been successfully uploaded! Final size is 61605 bytes. Artifact ID is 11096304438
+2026-09-30T12:56:15.7400370Z Artifact download URL: https://github.com/marcoakes/wringer/actions/runs/36715124592/artifacts/11096304438
+2026-09-30T12:56:15.7573080Z Post job cleanup.
+2026-09-30T12:56:15.8524720Z [command]/opt/homebrew/bin/git version
+2026-09-30T12:56:15.8592960Z git version 2.55.0
+2026-09-30T12:56:15.8611110Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/7de275e4-f096-4448-ba06-d4c3c3d95c61/.gitconfig'
+2026-09-30T12:56:15.8619540Z Temporarily overriding HOME='/Users/runner/work/_temp/7de275e4-f096-4448-ba06-d4c3c3d95c61' before making global git config changes
+2026-09-30T12:56:15.8620370Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-30T12:56:15.8622610Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/wringer/wringer
+2026-09-30T12:56:15.8695820Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-30T12:56:15.8759090Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-30T12:56:15.9623260Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-30T12:56:15.9675350Z http.https://github.com/.extraheader
+2026-09-30T12:56:15.9681830Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-09-30T12:56:15.9744900Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-30T12:56:16.0471940Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-30T12:56:16.0531920Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-30T12:56:16.1314170Z Cleaning up orphan processes
+2026-09-30T12:56:17.3911790Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

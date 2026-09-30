@@ -298,6 +298,13 @@ GitHub access; anonymous-install qualification was not measured. The
   pass, one Linux-only skip, zero fail and 13,131 assertions
   ([record](evidence/phase-6/local-validation.json)). Both packaged tournament
   and earlier graph walkthroughs passed.
+- The first remote run of `df63003` passed five of six test jobs. On the
+  macOS-latest runner a pre-existing Git test,
+  `rehearsal-clone-audit.test.ts`, timed out at Bun's 5-second default; the same
+  file had timed out at 5,019 ms in phase 4. No tag was created. Its tests now
+  allow 30 seconds each, and alpha.30 is released from that commit. The
+  [run](evidence/phase-6/ci-attempt1-clone-audit-timeout/ci-tests.json) and its
+  [job log](evidence/phase-6/ci-attempt1-clone-audit-timeout/macos-latest-job.log) are kept.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.
