@@ -16,6 +16,7 @@ ledger and a registration for the pilot that could show a benefit.
 | 6. Tournaments | alpha.30 | 40 | Tournament, crash, prosecutor, selection, Send, audit |
 | 7. Temporal durability | None | Measurement only | None |
 | 8. External A2A tasks | alpha.31 | 27 | Public binary as A2A client, check, Send, audit |
+| 9. Qualification | alpha.32 | 7 | Showcase: four compiled journeys, 81 stages |
 
 Every reversion removes one guard in an isolated copy, is watched red, restored
 and watched green; misses are kept in the records. Every walkthrough uses the

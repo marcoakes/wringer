@@ -15,7 +15,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 6. Tournament/prosecutor | Published and verified | [alpha.30](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.30), commit `615a9308a1c21a03c10214c00f6bd64a2ab0cda9`; [release evidence](evidence/phase-6/release.json); [measurements](PHASE_6_MEASUREMENTS.md). One earlier remote run stopped at a flaky test timeout; see the phase 6 section |
 | 7. Temporal durability | Measured; no release. The Temporal prototype needs the Temporal CLI and SDK downloaded, which awaits the operator's approval | The graph kernel's decisions and effects mapped, replay determinism measured; [measurements](PHASE_7_MEASUREMENTS.md) |
 | 8. Platform interfaces | Published and verified | [alpha.31](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.31), commit `2d2884d7ff568b340cb584ba22ec0329e7ef7439`; [release evidence](evidence/phase-8/release.json); [measurements](PHASE_8_MEASUREMENTS.md). Fixture conformance against a local reference peer only |
-| 9. Comparative qualification | alpha.32 local qualification passed; remote release pending | A checked capability ledger, a reproducible showcase and the pilot registered before any run; the pilot itself needs live model access, real tasks and independent reviewers; [record](PHASE_9_MEASUREMENTS.md) |
+| 9. Comparative qualification | Published and verified | [alpha.32](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.32), commit `b183fdbf0e56f398fd5fd337be702e540daa9b6d`; [release evidence](evidence/phase-9/release.json); [record](PHASE_9_MEASUREMENTS.md). A checked capability ledger, a reproducible showcase and the pilot registered before any run; the pilot itself needs live model access, real tasks and independent reviewers |
 
 ## Phase 1 measurements
 
@@ -372,6 +372,13 @@ GitHub access; anonymous-install qualification was not measured. The
 - Full local validation passed all 42 stages in one run, including the new
   capability-ledger stage: 1,422 pass, one Linux-only skip, zero fail and
   13,284 assertions ([record](evidence/phase-9/local-validation.json)).
+- alpha.32's six test jobs, the Linux DAC job and all six release jobs passed on
+  the first attempt. The publication process stopped with its operator session
+  while the release build ran; it was resumed from the recorded dispatch, found
+  the one release run already green and did not dispatch again. All 14 public
+  assets matched the clean source, both archives' signed provenance verified, and
+  public macOS extraction/installation passed 17/13 checks
+  ([release evidence](evidence/phase-9/release.json)).
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.

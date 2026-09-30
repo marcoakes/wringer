@@ -1,23 +1,26 @@
 # Current product evidence — 30 September 2026
 
 The current verified public release is
-[1.0.0-alpha.31](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.31),
-commit `2d2884d7ff568b340cb584ba22ec0329e7ef7439`: external A2A tasks, verified
-locally. All six test jobs, the Linux DAC job and all six release jobs passed on
-the first attempt. All 14 public assets matched the clean source, both archives'
-signed provenance verified, and public macOS extraction/installation passed 17/13
-checks. See the [release verification](docs/restoration/evidence/phase-8/release.json).
-Its A2A peer was a local reference fixture; no real A2A agent was measured.
+[1.0.0-alpha.32](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.32),
+commit `b183fdbf0e56f398fd5fd337be702e540daa9b6d`: what the restoration has
+proven, at which level. It adds a checked capability ledger, a reproducible
+showcase and a pilot registered before any run; it adds no new mechanism. All six
+test jobs, the Linux DAC job and all six release jobs passed on the first attempt.
+All 14 public assets matched the clean source, both archives' signed provenance
+verified, and public macOS extraction/installation passed 17/13 checks. See the
+[release verification](docs/restoration/evidence/phase-9/release.json). The pilot
+itself has not run.
 
-Earlier restoration releases: [alpha.30](docs/restoration/evidence/phase-6/release.json),
-tournaments; [alpha.29](docs/restoration/evidence/phase-5/release.json), gate and
-workflow proposals; [alpha.28](docs/restoration/evidence/phase-4/release.json),
-parallel branches, after the `v1.0.0-alpha.27` tag's release build failed on
-macOS 14 and was never published; [alpha.26](docs/restoration/evidence/phase-3/release.json),
+Earlier restoration releases: [alpha.31](docs/restoration/evidence/phase-8/release.json),
+external A2A tasks against a local reference peer only;
+[alpha.30](docs/restoration/evidence/phase-6/release.json), tournaments;
+[alpha.29](docs/restoration/evidence/phase-5/release.json), gate and workflow
+proposals; [alpha.28](docs/restoration/evidence/phase-4/release.json), parallel
+branches, after the `v1.0.0-alpha.27` tag's release build failed on macOS 14 and
+was never published; [alpha.26](docs/restoration/evidence/phase-3/release.json),
 serial graphs. Phase 7 measured the graph kernel for a second durable runtime and
 has no release; its Temporal prototype awaits approval to download the Temporal
-CLI and SDK. Phase 9 adds the capability ledger, showcase and registered pilot
-as alpha.32; it is under local qualification and not yet a published release.
+CLI and SDK.
 What each capability has actually shown is in the
 [capability ledger](docs/CAPABILITY_LEDGER.md).
 
