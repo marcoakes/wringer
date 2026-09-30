@@ -1,0 +1,677 @@
+{
+  "attempt": 1,
+  "conclusion": "failure",
+  "databaseId": 36706064320,
+  "headSha": "ea15142786d4ae328d1576108589c5ddffd06204",
+  "jobs": [
+    {
+      "completedAt": "2026-09-30T11:17:07Z",
+      "conclusion": "success",
+      "databaseId": 109856482202,
+      "name": "action",
+      "startedAt": "2026-09-30T11:02:26Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-09-30T11:02:28Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-09-30T11:02:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:29Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-09-30T11:02:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:31Z",
+          "conclusion": "success",
+          "name": "Run oven-sh/setup-bun@v2",
+          "number": 3,
+          "startedAt": "2026-09-30T11:02:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:32Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 4,
+          "startedAt": "2026-09-30T11:02:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:32Z",
+          "conclusion": "success",
+          "name": "Run bun install --frozen-lockfile",
+          "number": 5,
+          "startedAt": "2026-09-30T11:02:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:55Z",
+          "conclusion": "success",
+          "name": "Install the browser required by this repository's declared checks",
+          "number": 6,
+          "startedAt": "2026-09-30T11:02:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:03Z",
+          "conclusion": "success",
+          "name": "Run ./",
+          "number": 7,
+          "startedAt": "2026-09-30T11:02:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:04Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@v4",
+          "number": 8,
+          "startedAt": "2026-09-30T11:17:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:05Z",
+          "conclusion": "success",
+          "name": "Post Run ./",
+          "number": 13,
+          "startedAt": "2026-09-30T11:17:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:05Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 14,
+          "startedAt": "2026-09-30T11:17:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:05Z",
+          "conclusion": "success",
+          "name": "Post Run oven-sh/setup-bun@v2",
+          "number": 15,
+          "startedAt": "2026-09-30T11:17:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:05Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 16,
+          "startedAt": "2026-09-30T11:17:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:05Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-09-30T11:17:05Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36706064320/job/109856482202"
+    },
+    {
+      "completedAt": "2026-09-30T11:27:28Z",
+      "conclusion": "success",
+      "databaseId": 109856482417,
+      "name": "Bun / macos-14",
+      "startedAt": "2026-09-30T11:02:30Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-09-30T11:02:32Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-09-30T11:02:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:35Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-09-30T11:02:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:37Z",
+          "conclusion": "success",
+          "name": "Run oven-sh/setup-bun@v2",
+          "number": 3,
+          "startedAt": "2026-09-30T11:02:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:37Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 4,
+          "startedAt": "2026-09-30T11:02:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:38Z",
+          "conclusion": "success",
+          "name": "Run bun install --frozen-lockfile",
+          "number": 5,
+          "startedAt": "2026-09-30T11:02:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:49Z",
+          "conclusion": "success",
+          "name": "Install the pinned engineering-test browser (not a product runtime)",
+          "number": 6,
+          "startedAt": "2026-09-30T11:02:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:27:22Z",
+          "conclusion": "success",
+          "name": "Run bun run validate --group core",
+          "number": 7,
+          "startedAt": "2026-09-30T11:02:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:27:23Z",
+          "conclusion": "success",
+          "name": "Preserve successful and failed measurements",
+          "number": 8,
+          "startedAt": "2026-09-30T11:27:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:27:24Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 14,
+          "startedAt": "2026-09-30T11:27:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:27:24Z",
+          "conclusion": "success",
+          "name": "Post Run oven-sh/setup-bun@v2",
+          "number": 15,
+          "startedAt": "2026-09-30T11:27:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:27:24Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 16,
+          "startedAt": "2026-09-30T11:27:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:27:25Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-09-30T11:27:24Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36706064320/job/109856482417"
+    },
+    {
+      "completedAt": "2026-09-30T11:13:58Z",
+      "conclusion": "success",
+      "databaseId": 109856482439,
+      "name": "Rehearsals / ubuntu-latest",
+      "startedAt": "2026-09-30T11:02:26Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-09-30T11:02:29Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-09-30T11:02:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:32Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-09-30T11:02:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:33Z",
+          "conclusion": "success",
+          "name": "Run oven-sh/setup-bun@v2",
+          "number": 3,
+          "startedAt": "2026-09-30T11:02:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:34Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 4,
+          "startedAt": "2026-09-30T11:02:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:34Z",
+          "conclusion": "success",
+          "name": "Run bun install --frozen-lockfile",
+          "number": 5,
+          "startedAt": "2026-09-30T11:02:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:59Z",
+          "conclusion": "success",
+          "name": "Install the pinned engineering-test browser (not a product runtime)",
+          "number": 6,
+          "startedAt": "2026-09-30T11:02:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:03:00Z",
+          "conclusion": "success",
+          "name": "Build the distribution the rehearsals drive",
+          "number": 7,
+          "startedAt": "2026-09-30T11:02:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:13:53Z",
+          "conclusion": "success",
+          "name": "Run bun run validate --group rehearsals",
+          "number": 8,
+          "startedAt": "2026-09-30T11:03:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:13:55Z",
+          "conclusion": "success",
+          "name": "Preserve successful and failed measurements",
+          "number": 9,
+          "startedAt": "2026-09-30T11:13:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:13:55Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 16,
+          "startedAt": "2026-09-30T11:13:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:13:55Z",
+          "conclusion": "success",
+          "name": "Post Run oven-sh/setup-bun@v2",
+          "number": 17,
+          "startedAt": "2026-09-30T11:13:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:13:55Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 18,
+          "startedAt": "2026-09-30T11:13:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:13:55Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 19,
+          "startedAt": "2026-09-30T11:13:55Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36706064320/job/109856482439"
+    },
+    {
+      "completedAt": "2026-09-30T11:24:21Z",
+      "conclusion": "failure",
+      "databaseId": 109856482440,
+      "name": "Bun / macos-latest",
+      "startedAt": "2026-09-30T11:02:31Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-09-30T11:02:33Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-09-30T11:02:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:36Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-09-30T11:02:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:36Z",
+          "conclusion": "success",
+          "name": "Run oven-sh/setup-bun@v2",
+          "number": 3,
+          "startedAt": "2026-09-30T11:02:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:37Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 4,
+          "startedAt": "2026-09-30T11:02:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:38Z",
+          "conclusion": "success",
+          "name": "Run bun install --frozen-lockfile",
+          "number": 5,
+          "startedAt": "2026-09-30T11:02:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:51Z",
+          "conclusion": "success",
+          "name": "Install the pinned engineering-test browser (not a product runtime)",
+          "number": 6,
+          "startedAt": "2026-09-30T11:02:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:24:15Z",
+          "conclusion": "failure",
+          "name": "Run bun run validate --group core",
+          "number": 7,
+          "startedAt": "2026-09-30T11:02:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:24:16Z",
+          "conclusion": "success",
+          "name": "Preserve successful and failed measurements",
+          "number": 8,
+          "startedAt": "2026-09-30T11:24:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:24:16Z",
+          "conclusion": "skipped",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 14,
+          "startedAt": "2026-09-30T11:24:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:24:16Z",
+          "conclusion": "skipped",
+          "name": "Post Run oven-sh/setup-bun@v2",
+          "number": 15,
+          "startedAt": "2026-09-30T11:24:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:24:17Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 16,
+          "startedAt": "2026-09-30T11:24:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:24:20Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-09-30T11:24:17Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36706064320/job/109856482440"
+    },
+    {
+      "completedAt": "2026-09-30T11:23:58Z",
+      "conclusion": "success",
+      "databaseId": 109856482452,
+      "name": "Bun / ubuntu-latest",
+      "startedAt": "2026-09-30T11:02:26Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-09-30T11:02:28Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-09-30T11:02:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:30Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-09-30T11:02:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:31Z",
+          "conclusion": "success",
+          "name": "Run oven-sh/setup-bun@v2",
+          "number": 3,
+          "startedAt": "2026-09-30T11:02:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:35Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 4,
+          "startedAt": "2026-09-30T11:02:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:36Z",
+          "conclusion": "success",
+          "name": "Run bun install --frozen-lockfile",
+          "number": 5,
+          "startedAt": "2026-09-30T11:02:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:03:09Z",
+          "conclusion": "success",
+          "name": "Install the pinned engineering-test browser (not a product runtime)",
+          "number": 6,
+          "startedAt": "2026-09-30T11:02:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:23:55Z",
+          "conclusion": "success",
+          "name": "Run bun run validate --group core",
+          "number": 7,
+          "startedAt": "2026-09-30T11:03:09Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:23:56Z",
+          "conclusion": "success",
+          "name": "Preserve successful and failed measurements",
+          "number": 8,
+          "startedAt": "2026-09-30T11:23:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:23:56Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 14,
+          "startedAt": "2026-09-30T11:23:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:23:56Z",
+          "conclusion": "success",
+          "name": "Post Run oven-sh/setup-bun@v2",
+          "number": 15,
+          "startedAt": "2026-09-30T11:23:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:23:56Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 16,
+          "startedAt": "2026-09-30T11:23:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:23:56Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-09-30T11:23:56Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36706064320/job/109856482452"
+    },
+    {
+      "completedAt": "2026-09-30T11:17:03Z",
+      "conclusion": "success",
+      "databaseId": 109856482477,
+      "name": "Rehearsals / macos-latest",
+      "startedAt": "2026-09-30T11:02:30Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-09-30T11:02:31Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-09-30T11:02:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:35Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-09-30T11:02:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:36Z",
+          "conclusion": "success",
+          "name": "Run oven-sh/setup-bun@v2",
+          "number": 3,
+          "startedAt": "2026-09-30T11:02:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:37Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 4,
+          "startedAt": "2026-09-30T11:02:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:37Z",
+          "conclusion": "success",
+          "name": "Run bun install --frozen-lockfile",
+          "number": 5,
+          "startedAt": "2026-09-30T11:02:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:45Z",
+          "conclusion": "success",
+          "name": "Install the pinned engineering-test browser (not a product runtime)",
+          "number": 6,
+          "startedAt": "2026-09-30T11:02:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:02:47Z",
+          "conclusion": "success",
+          "name": "Build the distribution the rehearsals drive",
+          "number": 7,
+          "startedAt": "2026-09-30T11:02:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:16:58Z",
+          "conclusion": "success",
+          "name": "Run bun run validate --group rehearsals",
+          "number": 8,
+          "startedAt": "2026-09-30T11:02:47Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:00Z",
+          "conclusion": "success",
+          "name": "Preserve successful and failed measurements",
+          "number": 9,
+          "startedAt": "2026-09-30T11:16:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:00Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 16,
+          "startedAt": "2026-09-30T11:17:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:00Z",
+          "conclusion": "success",
+          "name": "Post Run oven-sh/setup-bun@v2",
+          "number": 17,
+          "startedAt": "2026-09-30T11:17:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:01Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 18,
+          "startedAt": "2026-09-30T11:17:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-09-30T11:17:01Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 19,
+          "startedAt": "2026-09-30T11:17:01Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36706064320/job/109856482477"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/marcoakes/wringer/actions/runs/36706064320",
+  "workflowName": "tests"
+}

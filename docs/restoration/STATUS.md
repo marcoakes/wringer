@@ -259,6 +259,11 @@ GitHub access; anonymous-install qualification was not measured. The
   The guard is now 30 minutes, and alpha.29 is released from that commit. The
   [cancelled run](evidence/phase-5/ci-attempt1-action-timeout/ci-tests.json) and
   its [job log](evidence/phase-5/ci-attempt1-action-timeout/action-job.log) are kept.
+- The second remote run, of `ea15142`, passed five of six jobs. On the
+  macOS-latest runner the native suite passed validation's own 1,200-second hang
+  guard (it took 1,135 s locally) and was stopped; macOS 14 passed. That guard is
+  now 2,400 seconds. The [run](evidence/phase-5/ci-attempt2-native-timeout/ci-tests.json)
+  and its [job log](evidence/phase-5/ci-attempt2-native-timeout/macos-latest-job.log) are kept.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.
