@@ -1,0 +1,140 @@
+{
+  "schema_version": "wringer.restoration-phase7-measurement.v1",
+  "kind": "deterministic: the real graph kernel with a recording fake driver; no model, container, network or Temporal service",
+  "serial": {
+    "phase": "complete",
+    "events": 23,
+    "eventKinds": {
+      "start": {
+        "count": 1,
+        "role": "deterministic decision"
+      },
+      "reserve": {
+        "count": 5,
+        "role": "deterministic decision"
+      },
+      "decision": {
+        "count": 2,
+        "role": "external human input"
+      },
+      "result": {
+        "count": 5,
+        "role": "deterministic decision"
+      },
+      "route": {
+        "count": 5,
+        "role": "deterministic decision"
+      },
+      "dispatch": {
+        "count": 3,
+        "role": "durable marker before an effect"
+      },
+      "prepared": {
+        "count": 1,
+        "role": "record of an effect's observable outcome"
+      },
+      "send": {
+        "count": 1,
+        "role": "record of an effect's observable outcome"
+      }
+    },
+    "driverCalls": {
+      "preflight-dispatch": 3,
+      "dispatch": 3,
+      "observe": 4,
+      "preflight-send": 1,
+      "send": 1
+    },
+    "effectsWithoutMarker": 0,
+    "driverRoles": {
+      "preflight": "effect-free check before a marker",
+      "dispatch": "external effect (agent session, verifier, integration, tournament or delivery preparation)",
+      "observe": "read-only reconciliation of retained outcomes",
+      "send": "external publication"
+    }
+  },
+  "tournament": {
+    "phase": "complete",
+    "events": 30,
+    "eventKinds": {
+      "start": {
+        "count": 1,
+        "role": "deterministic decision"
+      },
+      "reserve": {
+        "count": 7,
+        "role": "deterministic decision"
+      },
+      "result": {
+        "count": 7,
+        "role": "deterministic decision"
+      },
+      "route": {
+        "count": 7,
+        "role": "deterministic decision"
+      },
+      "dispatch": {
+        "count": 5,
+        "role": "durable marker before an effect"
+      },
+      "decision": {
+        "count": 1,
+        "role": "external human input"
+      },
+      "prepared": {
+        "count": 1,
+        "role": "record of an effect's observable outcome"
+      },
+      "send": {
+        "count": 1,
+        "role": "record of an effect's observable outcome"
+      }
+    },
+    "driverCalls": {
+      "preflight-dispatch": 5,
+      "dispatch": 5,
+      "observe": 6,
+      "preflight-send": 1,
+      "send": 1
+    },
+    "effectsWithoutMarker": 0,
+    "driverRoles": {
+      "preflight": "effect-free check before a marker",
+      "dispatch": "external effect (agent session, verifier, integration, tournament or delivery preparation)",
+      "observe": "read-only reconciliation of retained outcomes",
+      "send": "external publication"
+    }
+  },
+  "replay": {
+    "fixedClockIdenticalChains": true,
+    "liveClockIdenticalChains": false,
+    "liveClockDiffersOnlyInTime": false,
+    "readTwiceIdenticalProjection": true,
+    "reading": "The kernel is a pure function of its recorded events: the same observations and clock yield the same chain. Real time is recorded, not erased; only the time fields and the digests that bind them differ between runs."
+  },
+  "kernelInventory": {
+    "clockReads": 9,
+    "randomIds": 1,
+    "fileWrites": 4,
+    "fileReads": 6,
+    "locks": 4,
+    "driverCalls": 6,
+    "reading": "Time comes from one injected clock. Random ids name only staging files, never records. Every file read and write goes through the event store (load, durableCreate) and one lock. A second durable runtime therefore needs the event store, the lock and the clock behind an interface; decisions (apply, resolveRoute, expectedInput) move unchanged."
+  },
+  "loopController": {
+    "serviceCalls": [
+      "captureCandidate",
+      "prepareSource",
+      "verifyCandidate"
+    ],
+    "roleExecutions": 5,
+    "reading": "A contained loop interleaves decisions with agent sessions, verifiers, capture and delivery in one stage machine with its own journal and reconciliation. Replaying it inside a deterministic workflow would re-run effects; it fits a second runtime only as one bounded activity per loop node, resumed from its own journal."
+  },
+  "temporalPrerequisites": {
+    "temporalCli": "absent",
+    "sdkPackages": "absent",
+    "node": "v24.19.0",
+    "bunWorkers": "not supported by the official TypeScript SDK (per its documentation); an adapter worker would run on Node",
+    "reading": "No Temporal CLI, server or SDK is installed here. Prototyping compatibility and recovery against a local service needs them downloaded, which needs the operator's explicit approval. Nothing was downloaded."
+  }
+}

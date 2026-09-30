@@ -13,7 +13,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 4. Parallel branches/integration | Published and verified | [alpha.28](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.28), commit `b7e9827cc94ddcb3521556ea5b2192b5d750b80c`; [release evidence](evidence/phase-4/release.json); [measurements](PHASE_4_MEASUREMENTS.md). The `v1.0.0-alpha.27` tag's release build failed on macOS 14 and was never published |
 | 5. Gate/workflow improvement | Published and verified | [alpha.29](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.29), commit `f24a0ca83c09430ca5796142da4fa4283e310419`; [release evidence](evidence/phase-5/release.json); [measurements](PHASE_5_MEASUREMENTS.md). Two earlier remote runs stopped at CI hang guards; see the phase 5 section |
 | 6. Tournament/prosecutor | alpha.30 local qualification passed; remote release pending | Version 3 graphs with a tournament: prosecutor challenges validated on trusted controls, replayed on every attempt, selection among survivors, a final untouched evaluator, six sibling schemas; [measurements](PHASE_6_MEASUREMENTS.md) |
-| 7. Temporal durability | Pending | — |
+| 7. Temporal durability | Measured; no release. The Temporal prototype needs the Temporal CLI and SDK downloaded, which awaits the operator's approval | The graph kernel's decisions and effects mapped, replay determinism measured; [measurements](PHASE_7_MEASUREMENTS.md) |
 | 8. Platform interfaces | Pending | — |
 | 9. Comparative qualification | Pending; live and independent observations need their actual prerequisites | — |
 
@@ -305,6 +305,22 @@ GitHub access; anonymous-install qualification was not measured. The
   allow 30 seconds each, and alpha.30 is released from that commit. The
   [run](evidence/phase-6/ci-attempt1-clone-audit-timeout/ci-tests.json) and its
   [job log](evidence/phase-6/ci-attempt1-clone-audit-timeout/macos-latest-job.log) are kept.
+
+## Phase 7 measurements
+
+- Measured on the phase 6 source with a recording driver: the graph kernel's
+  decisions are a pure function of its recorded events. Every dispatch and Send
+  reached the driver only after its durable marker. Identical recorded inputs
+  and clock replayed to byte-identical event chains; with a live clock only the
+  times, deadlines and the digests that bind them differed. See the
+  [baseline](PHASE_7_MEASUREMENTS.md).
+- The durability boundary is the event store, the lock and the clock; a
+  contained loop fits a second runtime only as one bounded activity per node.
+- No Temporal CLI, server or SDK is installed here, and the official TypeScript
+  SDK does not support Bun workers. The prototype the plan requires before any
+  design commitment needs the Temporal CLI and SDK downloaded. Downloads need the
+  operator's explicit approval, so nothing was downloaded, no Temporal behaviour
+  is claimed, and phase 7 has no release. Phase 8 shipped before it.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.
