@@ -1,0 +1,358 @@
+{
+  "layered": [
+    {
+      "guard": "kernel event names the current cursor",
+      "maskedBy": "per-kind state checks (decision-graph-hold-only, dispatch/prepared/send require the node's own reservation)"
+    },
+    {
+      "guard": "decision/send node equals event node",
+      "maskedBy": "entry points pass the decision's node as the event node; the cursor check refuses any other"
+    },
+    {
+      "guard": "completion requires every required node to have succeeded",
+      "maskedBy": "kernel-required-failure-stops fails a required failure at once; the compiler makes every done path visit every required node"
+    },
+    {
+      "guard": "exclusive link when creating a graph record",
+      "maskedBy": "kernel-init-refuses-nonempty and kernel-lock"
+    },
+    {
+      "guard": "reservation cannot exceed the graph allowance",
+      "maskedBy": "compiler-role-allowance and compiler-verification-allowance reserve every declared leaf at compile time"
+    },
+    {
+      "guard": "derived child plan differs from its template only in source and clipped time",
+      "maskedBy": "the derivation constructs only those fields; this is a self-check on the adapter's own construction"
+    },
+    {
+      "guard": "Send confirms the exact prepared evidence commit",
+      "maskedBy": "deliverContained's own push confirmation; no fixture can make it report a different commit"
+    }
+  ],
+  "effects": [
+    {
+      "name": "compiler-declaration-version",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-unknown-fields",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-node-identity",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-known-edges",
+      "effect": "named-refusal-became-crash"
+    },
+    {
+      "name": "compiler-acyclic",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "compiler-reachable",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-entry",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "compiler-dominating-input",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-check-candidate",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-human-hold-candidate",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-router-typed-input",
+      "effect": "named-refusal-became-crash"
+    },
+    {
+      "name": "compiler-router-outcomes",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-router-unique-outcomes",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-required-on-done-paths",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-required-consequential",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-required-unique",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-role-allowance",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-verification-allowance",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-one-root-source",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-graph-acceptance-set",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-nondefault-branch",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-credential-free-publication",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "authority-no-send",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "authority-bound-contract",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "authority-digest",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "authority-expiry",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-reserve-charges-allowance",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-dispatch-marker",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-observe-before-redispatch",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-preflight-before-dispatch-marker",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "send-preflight-before-marker",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-root-deadline",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-authority-expiry",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-lock",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-init-refuses-nonempty",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-outcome-set",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-loop-owner",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-loop-source-url",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-check-candidate-identity",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-delivered-needs-send",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-prepared-candidate-identity",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-required-failure-stops",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-success-edge-only",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "decision-graph-hold-only",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "decision-revision",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "decision-input-digest",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "decision-closed-choice",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "decision-expiry",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "send-once",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "send-revision",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "send-prepared-digest",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "send-expiry",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-event-names",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-sequence-field",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-chain",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-digest",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-graph-binding",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-regular-files",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-reservation-transition",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-single-dispatch",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "adapter-clip-wall-clock",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-clip-authority-expiry",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-owner-tree-binding",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "adapter-acceptance-inputs",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "adapter-observe-unstarted-is-uncertain",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-runtime-preflight",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-bare-origin",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "adapter-send-target-branch",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-send-existing-branch",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-send-reconcile-remote",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "export-portable-verification",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "export-discloses-local-origin",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "reader-graph-file-digests",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-graph-event-digest",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-graph-event-chain",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-graph-binding",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-graph-check-evidence",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-graph-loop-derivation",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-graph-delivery-journal",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "cli-legacy-format-named",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "cli-one-explicit-choice",
+      "effect": "recorded-state-changed"
+    }
+  ]
+}

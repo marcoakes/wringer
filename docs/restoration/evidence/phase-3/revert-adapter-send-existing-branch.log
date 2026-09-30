@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+180 | test("a Send over an existing different review branch is refused before the Send is recorded", async () => {
+181 |     const f = await fixture(), held = await toReview(f); await decideContainedGraph(f.graphDir, decide(held));
+182 |     const ready = await advanceContainedGraph(f.graphDir, f.driver);
+183 |     await git(["--git-dir", f.origin, "branch", "wringer/graph-fixture", "main"]);
+184 |     await expect(sendContainedGraph(f.graphDir, send(ready), f.driver)).rejects.toThrow("already exists");
+185 |     const after = await readContainedGraph(f.graphDir); expect(after.revision).toBe(ready.revision); expect(after.phase).toBe("send-hold");
+                                                                                     ^
+error: expect(received).toBe(expected)
+
+Expected: "397f827b0f95da2962a7ae702b78e6b7e132ee0a2224c27fb9e4288be9b69739"
+Received: "da842fc43c8b7e050f917886c1c918c1f0da0164b38c2a436267a3f5cd852c91"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:185:80)
+(fail) a Send over an existing different review branch is refused before the Send is recorded [27835.72ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [28.05s]

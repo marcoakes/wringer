@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+162 | test('a router cannot carry a failed required check to review, preparation or Send', async () => {
+163 |     const f = await fixture(v => { v.nodes.check.then = 'route'; v.nodes.route = { kind: 'router', input: 'check', routes: [{ outcome: 'failed', to: 'review' }], otherwise: 'review' }; });
+164 |     const dispatch = f.driver.dispatch;
+165 |     f.driver.dispatch = async request => { await dispatch(request); if (request.node === 'check') (f.observed.get('check') as any).outcome = 'failed'; };
+166 |     const state = await advanceContainedGraph(f.dir, f.driver, { now });
+167 |     expect(state.phase).toBe('failed'); expect(state.reason).toContain('Required node check');
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: "failed"
+Received: "human-hold"
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:167:25)
+(fail) a router cannot carry a failed required check to review, preparation or Send [27.33ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [182.00ms]

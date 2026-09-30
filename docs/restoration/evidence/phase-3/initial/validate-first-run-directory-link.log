@@ -1,0 +1,23 @@
+$ bun scripts/validate.ts
+Checking workspace-links…
+workspace-links: PASS (29 ms)
+Checking standalone-build…
+standalone-build: FAIL (1012 ms)
+ [162ms]  bundle  395 modules
+ [222ms] compile  [checkout]/build/distribution-20181bd2-712c-4c0b-82d0-308731ec9fbb/wring
+146 |         if (seen.has(path)) continue;
+147 |         if (seen.size >= 512) throw new Error("Documentation closure exceeds its file bound");
+148 |         if (privatePath(path)) throw new Error("A private directory cannot be a documentation entry point");
+149 |         seen.add(path);
+150 |         const input = await safePath(source, path), info = await lstat(input);
+151 |         if (!info.isFile() || info.size > 10 * 1024 * 1024 || (bytes += info.size) > 32 * 1024 * 1024) throw new Error(`Documentation asset exceeds its file/size bound: ${path}`);
+                                                                                                                       ^
+error: Documentation asset exceeds its file/size bound: docs/restoration/evidence/phase-3/measurements
+      at copyDistributionDocs ([checkout]/scripts/distribution-docs.ts:151:114)
+      at async buildDistribution ([checkout]/scripts/build.ts:29:33)
+
+Bun v1.4.2 (macOS arm64)
+
+Validation record: [checkout]/.wringer/native-validation-2026-09-29T23-47-19-688Z
+error: script "validate" exited with code 1
+exit=1

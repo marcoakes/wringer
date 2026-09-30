@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+84 |     expect(rejected.phase).toBe('failed'); expect(f.calls).toEqual(['build', 'check']);
+85 | });
+86 | test('stale or forged human decisions refuse before recording or dispatching', async () => {
+87 |     const f = await fixture(), state = await advanceContainedGraph(f.dir, f.driver, { now }), base = decision(state);
+88 |     for (const bad of [{ expectedRevision: 'a'.repeat(64) }, { inputSha256: 'a'.repeat(64) }, { node: 'build' }, { actor: '' }, { note: '' }, { choice: 'auto-approve' }])
+89 |         await expect(decideContainedGraph(f.dir, { ...base, ...bad } as any, { now })).rejects.toThrow();
+                                                                                                    ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:89:96)
+(fail) stale or forged human decisions refuse before recording or dispatching [37.79ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [182.00ms]

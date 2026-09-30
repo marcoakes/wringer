@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+128 |     await expect(sendContainedGraph(f.dir, send(uncertain), f.driver, { now })).rejects.toThrow(); expect(f.sends).toEqual([]);
+129 | });
+130 | test('changed prepared Send identity and stale revision refuse before a push', async () => {
+131 |     const f = await fixture(), held = await advanceContainedGraph(f.dir, f.driver, { now }); await decideContainedGraph(f.dir, decision(held), { now });
+132 |     const ready = await advanceContainedGraph(f.dir, f.driver, { now });
+133 |     for (const change of [{ preparedSha256: 'b'.repeat(64) }, { expectedRevision: 'c'.repeat(64) }]) await expect(sendContainedGraph(f.dir, { ...send(ready), ...change }, f.driver, { now })).rejects.toThrow();
+                                                                                                                                                                                                             ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:133:200)
+(fail) changed prepared Send identity and stale revision refuse before a push [67.50ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 11 expect() calls
+Ran 1 test across 1 file. [212.00ms]

@@ -1,0 +1,39 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+27 |     const driver: GraphDriver = {
+28 |         async dispatch(request) {
+29 |             calls.push(request.node);
+30 |             expect(request.signal?.aborted).not.toBe(true);
+31 |             const history = await readContainedGraph(dir);
+32 |             expect(history.nodes[request.node]?.dispatched).toBe(true);
+                                                                 ^
+error: expect(received).toBe(expected)
+
+Expected: true
+Received: false
+
+      at dispatch ([isolated-checkout]/packages/scheduler/test/contained.test.ts:32:61)
+      at async advanceLocked ([isolated-checkout]/packages/scheduler/src/contained.ts:380:30)
+      at async locked ([isolated-checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) serial workflow reserves before dispatch, holds exact review and requires a separate Send [17.90ms]
+63 |     const state = await advanceContainedGraph(f.dir, f.driver, { now });
+64 |     expect(f.calls).toEqual(['build', 'check']); expect(state.reserved.roleSessions).toBe(reserved.roleSessions);
+65 |     expect(state.events.filter(e => e.kind === 'reserve' && e.node === 'build')).toHaveLength(1);
+66 | });
+67 | test('dispatch without a durable outcome remains charged and never silently repeats', async () => {
+68 |     const f = await fixture(); await expect(advanceContainedGraph(f.dir, f.driver, crash('dispatch'))).rejects.toThrow('simulated crash');
+                                                                                                                    ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "simulated crash"
+Received message: "expect(received).toBe(expected)\n\nExpected: true\nReceived: false\n"
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:68:112)
+(fail) dispatch without a durable outcome remains charged and never silently repeats [13.88ms]
+
+ 0 pass
+ 31 filtered out
+ 2 fail
+ 5 expect() calls
+Ran 2 tests across 1 file. [185.00ms]

@@ -1,0 +1,47 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+154 | test('simultaneous advances cannot allocate duplicate effects', async () => {
+155 |     const f = await fixture(), dispatch = f.driver.dispatch; let release!: () => void, entered!: () => void;
+156 |     const pending = new Promise<void>(r => release = r), started = new Promise<void>(r => entered = r);
+157 |     f.driver.dispatch = async request => { if (request.node === 'build') { entered(); await pending; } await dispatch(request); };
+158 |     const first = advanceContainedGraph(f.dir, f.driver, { now }); await started;
+159 |     try { await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow(); } finally { release(); }
+                                                                                      ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:159:81)
+
+# Unhandled error between tests
+-------------------------------
+273 | }
+274 | const eventName = (sequence: number) => `events/${String(sequence).padStart(4, '0')}.json`;
+275 | function emptyProgress(): Progress { return { nodes: Object.create(null), reserved: { roleSessions: 0, verificationAttempts: 0 }, cursor: '', startedAt: '', deadline: '', terminal: null, reason: null }; }
+276 | 
+277 | async function load(directory: string): Promise<History> {
+278 |     const plan = validateContainedGraph(parse(await boundedFile(directory, 'plan.json', MAX_PLAN_BYTES), 'plan.json'));
+                                                          ^
+ENOENT: no such file or directory, open '[temporary]'
+    path: "[temporary]",
+ syscall: "open",
+   errno: -2,
+    code: "ENOENT"
+
+      at async load ([isolated-checkout]/packages/scheduler/src/contained.ts:278:53)
+      at async readContainedGraph ([isolated-checkout]/packages/scheduler/src/contained.ts:354:26)
+      at async dispatch ([isolated-checkout]/packages/scheduler/test/contained.test.ts:31:35)
+      at async <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:157:110)
+      at async advanceLocked ([isolated-checkout]/packages/scheduler/src/contained.ts:381:30)
+-------------------------------
+
+(fail) simultaneous advances cannot allocate duplicate effects [18.78ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 1 error
+ 2 expect() calls
+Ran 1 test across 1 file. [173.00ms]

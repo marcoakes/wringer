@@ -1,0 +1,341 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph.test.ts:
+error: expect(received).toThrow(expected)
+
+Expected pattern: /candidate/i
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.contained-graph-plan.v1",
+  id: "serial-repair",
+  repository: {
+    url: "https://github.com/OWNER/REPOSITORY.git",
+    commit: "0000000000000000000000000000000000000000",
+  },
+  entry: "scope",
+  required: [ "build", "review", "verify" ],
+  budget: {
+    maxRoleSessions: 8,
+    maxVerificationAttempts: 10,
+    wallClockSeconds: 600,
+  },
+  nodes: [Object: null prototype] {
+    scope: {
+      kind: "human-hold",
+      input: "root",
+      prompt: "Review this exact scope before work.",
+      then: "build",
+    },
+    build: {
+      kind: "loop",
+      input: "root",
+      plan: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "src" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+            }
+          ],
+          protected_paths: [ "bun.lock", "package.json", "tests", "tests/acceptance.test.ts" ],
+        },
+        acceptance_sha256: "e94ab14ee89046720a2c74e34d5f90bd370afc02a688416ffd4174c631f85922",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "621f4b1a698ad2a3f7cdda98075b9e2170fa2b9841fe20f3146d6747860bf59b",
+      },
+      then: "verify",
+    },
+    verify: {
+      kind: "check",
+      input: "build",
+      then: "route",
+    },
+    route: {
+      kind: "router",
+      input: "verify",
+      routes: [
+        {
+          outcome: "passed",
+          to: "review",
+        }
+      ],
+      otherwise: "fail",
+    },
+    review: {
+      kind: "human-hold",
+      input: "route",
+      prompt: "Inspect the exact candidate and evidence.",
+      then: "done",
+    },
+  },
+  sha256: "015180aee713965ed478e53c3895055f67cbdc42b3650adf105719be34a06337",
+}
+
+(fail) graph refuses noncandidate human input before effects [6.89ms]
+
+packages/scheduler/test/contained.test.ts:
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:49:21)
+(fail) serial workflow reserves before dispatch, holds exact review and requires a separate Send [5.52ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:61:21)
+(fail) reserved but not dispatched work restarts once under its original allowance [2.32ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:68:21)
+(fail) dispatch without a durable outcome remains charged and never silently repeats [2.10ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:74:21)
+(fail) completed child before parent acknowledgement reconciles without another dispatch [3.48ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:81:21)
+(fail) human holds are stable across restart and rejected choices cannot become success [2.60ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:87:21)
+(fail) stale or forged human decisions refuse before recording or dispatching [2.07ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:93:21)
+(fail) failed required checks cannot be laundered by later human continuation [1.97ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:99:25)
+(fail) wrong-source, wrong-owner and invalid check outcomes never reach review [1.94ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:105:21)
+(fail) a check cannot replace its input candidate [1.92ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:110:21)
+(fail) the root wall clock clips all child deadlines and never resets on resume [3.07ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:116:21)
+(fail) Send reserves once and reconciles a lost completion without a second push [2.27ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:124:21)
+(fail) uncertain Send cannot be reissued by resume or a fresh send command [2.11ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:131:21)
+(fail) changed prepared Send identity and stale revision refuse before a push [2.22ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:137:21)
+(fail) delivery cannot report delivered before explicit Send [1.99ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:143:25)
+(fail) hash changes, missing events, duplicates and symlink records are detected by the reader [3.29ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:154:21)
+(fail) simultaneous advances cannot allocate duplicate effects [2.31ms]
+1 | import type { ContainedGraphPlan, GraphAuthority } from '@wringer/plan';
+2 | import type { GraphState, GraphDriver, GraphOptions, GraphDecision, GraphSend } from './contained-types';
+3 | export * from './contained-types';
+4 | export async function initializeContainedGraph(directory: string, plan: ContainedGraphPlan, authority: GraphAuthority, options: GraphOptions = {}): Promise<GraphState> { throw new Error('Contained graph initialization not implemented'); }
+                                                                                                                                                                                        ^
+error: Contained graph initialization not implemented
+      at initializeContainedGraph ([checkout]/packages/scheduler/src/contained.ts:4:181)
+      at fixture ([checkout]/packages/scheduler/test/contained.test.ts:41:11)
+      at async <anonymous> ([checkout]/packages/scheduler/test/contained.test.ts:162:21)
+(fail) changed initialization grant cannot overwrite a retained history [2.11ms]
+
+ 27 pass
+ 18 fail
+ 41 expect() calls
+Ran 45 tests across 2 files. [777.00ms]

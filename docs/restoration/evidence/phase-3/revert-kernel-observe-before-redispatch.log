@@ -1,0 +1,35 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+65 |     expect(state.events.filter(e => e.kind === 'reserve' && e.node === 'build')).toHaveLength(1);
+66 | });
+67 | test('dispatch without a durable outcome remains charged and never silently repeats', async () => {
+68 |     const f = await fixture(); await expect(advanceContainedGraph(f.dir, f.driver, crash('dispatch'))).rejects.toThrow('simulated crash');
+69 |     const first = await readContainedGraph(f.dir);
+70 |     for (let i = 0; i < 3; i++) { const state = await advanceContainedGraph(f.dir, f.driver, { now }); expect(state.phase).toBe('uncertain'); expect(state.revision).toBe(first.revision); }
+                                                                                                                                ^
+error: expect(received).toBe(expected)
+
+Expected: "uncertain"
+Received: "human-hold"
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:70:124)
+(fail) dispatch without a durable outcome remains charged and never silently repeats [34.49ms]
+70 |     for (let i = 0; i < 3; i++) { const state = await advanceContainedGraph(f.dir, f.driver, { now }); expect(state.phase).toBe('uncertain'); expect(state.revision).toBe(first.revision); }
+71 |     expect(f.calls).toEqual([]); expect(first.reserved.roleSessions).toBe(f.plan.budget.maxRoleSessions);
+72 | });
+73 | test('completed child before parent acknowledgement reconciles without another dispatch', async () => {
+74 |     const f = await fixture(), dispatch = f.driver.dispatch;
+75 |     f.driver.dispatch = async request => { await dispatch(request); if (request.node === 'build') throw new Error('lost acknowledgement'); };
+                                                                                                                 ^
+error: lost acknowledgement
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:75:109)
+      at async advanceLocked ([isolated-checkout]/packages/scheduler/src/contained.ts:382:26)
+      at async locked ([isolated-checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) completed child before parent acknowledgement reconciles without another dispatch [18.33ms]
+
+ 0 pass
+ 31 filtered out
+ 2 fail
+ 15 expect() calls
+Ran 2 tests across 1 file. [206.00ms]

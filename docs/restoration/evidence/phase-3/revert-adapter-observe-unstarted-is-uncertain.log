@@ -1,0 +1,25 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+132 |     for (const [name, dir, reason] of cases) await expect(inspectGraph(await dir), name).rejects.toThrow(reason);
+133 | }
+134 | test("observing an unstarted loop is uncertain and never starts its child", async () => {
+135 |     const f = await fixture(), state = await readContainedGraph(f.graphDir);
+136 |     const reservation = { roleSessions: 4, verificationAttempts: 5, deadline: state.deadline, input: { node: "root", source: f.graph.repository, candidate: null, evidenceSha256: f.graph.sha256 } };
+137 |     expect(await f.driver.observe({ directory: f.graphDir, plan: f.graph, authority: f.authority, node: "build", reservation })).toBeNull();
+                                                                                                                                       ^
+error: expect(received).toBeNull()
+
+Received: {
+  kind: "held",
+  reason: "The build child started but recorded no journey yet. Inspect it with wringer-drive status --state '[temporary]' and continue it with wringer-drive resume --state '[temporary]'; the graph never starts it again.",
+}
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:137:130)
+(fail) observing an unstarted loop is uncertain and never starts its child [2150.08ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [2.33s]

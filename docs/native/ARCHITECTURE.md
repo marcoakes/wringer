@@ -24,7 +24,7 @@ Wringer scopes, orchestrates, verifies, records and delivers. It does not author
 | `packages/workflow` | Controller-owned plan/authority state and durable orchestration |
 | `packages/board` | Shared HTML/Markdown/certificate derivations for standalone verification records; not a contained-state reader |
 | `packages/delivery` | Source/evidence anchoring, explicit publication, audit and falsification |
-| `packages/scheduler` | Internal/historical graph/fleet APIs, read-only public graph inspection and historical gate health |
+| `packages/scheduler` | The contained serial graph kernel (reservations, hash-chained history, reconciliation); internal/historical host graph/fleet APIs and gate health |
 | `packages/cli` | Thin command routing, acquisition, review pen and operator-facing diagnostics |
 
 ## Plans and isolation
@@ -73,7 +73,10 @@ The native record/evidence/delivery surfaces have deterministic test coverage. M
 
 Frozen schemas remain frozen. New facts use declared versions and sibling records. Old source-language installation/execution recipes are retired; historical artifacts remain readable where their contracts are supported. The [first rewrite report](IMPLEMENTATION_REPORT.md) is a dated snapshot, not current setup or proof of the new boundary.
 
-Public graph access is read-only (`wring graph show`, `status`, `explain`).
+Contained serial graphs run through `wringer-drive graph` ([GRAPHS.md](GRAPHS.md)):
+every executable node uses the contained controller, verifier and delivery
+services. Retired host graph files stay read-only (`wring graph show`, `status`,
+`explain`).
 `wring fleet` and `wring bench` execution refuse with a contained-plan migration
 route. Their retained implementation APIs are internal/historical; they do not
 provide a supported host-worker path around mandatory contained execution.

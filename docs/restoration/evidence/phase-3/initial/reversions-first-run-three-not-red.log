@@ -1,0 +1,68 @@
+compiler-declaration-version: red
+compiler-unknown-fields: red
+compiler-node-identity: red
+compiler-known-edges: red
+compiler-acyclic: red
+compiler-reachable: red
+compiler-entry: red
+compiler-dominating-input: red
+compiler-check-candidate: NOT RED
+compiler-human-hold-candidate: red
+compiler-router-typed-input: red
+compiler-router-outcomes: red
+compiler-router-unique-outcomes: red
+compiler-required-on-done-paths: red
+compiler-required-consequential: red
+compiler-required-unique: red
+compiler-role-allowance: red
+compiler-verification-allowance: red
+compiler-one-root-source: red
+compiler-graph-acceptance-set: red
+compiler-nondefault-branch: red
+compiler-credential-free-publication: NOT RED
+authority-no-send: red
+authority-bound-contract: red
+authority-expiry: red
+kernel-reserve-charges-allowance: red
+kernel-dispatch-marker: red
+kernel-observe-before-redispatch: red
+kernel-root-deadline: red
+kernel-authority-expiry: red
+kernel-lock: red
+kernel-init-refuses-nonempty: red
+kernel-outcome-set: red
+kernel-loop-owner: red
+kernel-loop-source-url: red
+kernel-check-candidate-identity: red
+kernel-delivered-needs-send: red
+kernel-prepared-candidate-identity: red
+kernel-required-failure-stops: red
+kernel-success-edge-only: red
+decision-graph-hold-only: red
+decision-revision: red
+decision-input-digest: red
+decision-closed-choice: red
+decision-expiry: red
+send-once: red
+send-revision: red
+send-prepared-digest: red
+send-expiry: red
+reader-event-names: red
+reader-sequence-field: red
+reader-chain: red
+reader-digest: NOT RED
+reader-graph-binding: red
+reader-regular-files: red
+reader-reservation-transition: red
+reader-single-dispatch: red
+49 |             if (restored.exit) throw new Error(`Restoration failed for ${probe.name}; no next mutation ran`);
+50 |         }
+51 |     }
+52 |     const restored = await run("restored-green", tests);
+53 |     await writeFile(join(evidence, "reversions.json"), JSON.stringify({ baseline: options.baseline ?? "7f4cc542fd1149c00a3be0ee8949c895b95ef0c3", kind: "Automated deterministic engineering fixtures; no live model or human judgment", control, results, restored }, null, 2) + "\n");
+54 |     if (restored.exit || results.some(row => !row.caught)) throw new Error("The reversion gate did not pass; inspect retained results");
+                                                                          ^
+error: The reversion gate did not pass; inspect retained results
+      at runReversions ([checkout]/scripts/rebuild-reversions.ts:54:70)
+
+Bun v1.4.2 (macOS arm64)

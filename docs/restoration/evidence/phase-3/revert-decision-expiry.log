@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+176 |     const refused = await decideContainedGraph(f.dir, { node: 'build', expectedRevision: first.revision, inputSha256: hashValue(first.nodes.build!.reservation.input), choice: 'continue', actor: 'Scripted engineering fixture', note: 'Cannot satisfy a child criterion.' }, { now }).then(() => null, (error: Error) => error);
+177 |     expect((await readContainedGraph(f.dir)).revision).toBe(first.revision); expect(refused?.message).toContain('hold');
+178 | });
+179 | test('an expired graph records no decision', async () => {
+180 |     const f = await fixture(), held = await advanceContainedGraph(f.dir, f.driver, { now });
+181 |     await expect(decideContainedGraph(f.dir, decision(held), { now: () => new Date('2026-09-29T12:10:01Z') })).rejects.toThrow('expired');
+                                                                                                                             ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:181:120)
+(fail) an expired graph records no decision [34.93ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [188.00ms]

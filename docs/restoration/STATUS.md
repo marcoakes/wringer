@@ -8,8 +8,8 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | Phase | State | Release / evidence |
 | --- | --- | --- |
 | 1. Loops and portable evidence | Published and verified | [alpha.24](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.24), commit `40421292da044b91a7d8b072e64066f4d56d6aa4`; [release verification](evidence/phase-1/release.json) |
-| 2. Improvement workflow | alpha.25 local qualification passed; remote release pending | Job handles, shared CLI/PM/MCP view, exact applicability, future typed proposal selection and retained replay; [local evidence](evidence/phase-2/README.md) |
-| 3. Serial graphs | Pending | — |
+| 2. Improvement workflow | Published and verified | [alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25), commit `599ea5f3694035822d214229f6e3bd212dabe455`; [release evidence](evidence/phase-2/release.json) |
+| 3. Serial graphs | alpha.26 local qualification passed; remote release pending | Contained graph compiler, kernel, production adapter, `wringer-drive graph` routes, five sibling schemas, portable export and Node-only reader; [measurements](PHASE_3_MEASUREMENTS.md) |
 | 4. Parallel branches/integration | Pending | — |
 | 5. Gate/workflow improvement | Pending | — |
 | 6. Tournament/prosecutor | Pending | — |
@@ -115,8 +115,58 @@ GitHub access; anonymous-install qualification was not measured. The
   the late source-scope correction. The [local validation record](evidence/phase-2/local-validation.json)
   retains that timing limit: clean-commit CI still must qualify the final source.
   Existing published schema bytes are unchanged; one sibling was added.
-- Remote CI jobs and publication remain pending.
-  Live benefit is unmeasured; fixture evidence cannot qualify adoption.
+- First-commit CI observed a Linux Figma rehearsal failure: Chromium could not
+  capture the corrected mobile image, and the product correctly blocked review.
+  The other four test jobs and Linux DAC passed. The same Figma flow passed
+  locally without code changes; one targeted Linux job rerun also passed.
+  The underlying Chromium/runner cause was not established. No timeout,
+  acceptance requirement or product guard was relaxed. Both attempts remain
+  retained; GitHub's reused green jobs are not described as independent reruns.
+- All six release jobs passed. Alpha.25 was published at
+  `2026-09-29T17:15:56Z`. All 14 public assets match the exact clean tagged source;
+  both archives' signed provenance verified. The public macOS download passed
+  17 extracted-route and 13 installer checks. Linux execution ran in native CI.
+  Downloads were authenticated; anonymous installation remains unmeasured.
+  The optional download of successful native CI artifacts was declined; retained
+  job records and local measurements were used instead. See the
+  [complete release record](evidence/phase-2/release.json).
+  Live benefit remains unmeasured; fixture evidence cannot qualify adoption.
+
+## Phase 3 measurements
+
+- Baseline: four historical graph tests passed; public `graph run` refused before
+  loading a graph; the old scheduler ran host workers and routed on prose. Reusing
+  an old authority or environment map for a changed source was refused, so handoff
+  derives a new child plan and grant. See the [baseline](PHASE_3_MEASUREMENTS.md).
+- The previous sandbox could not install dependencies (`EPERM`). On this machine
+  the install linked both new workspace dependencies. The targeted suite then
+  failed for behaviour: 27 pass, one compiler red, seventeen kernel stubs.
+- Measurement changed the design eight times. Holds are not outcomes. Each binding
+  guard lives once, in the shared transition. A failed required node stops the
+  graph at once. An effect-free preflight precedes each marker. The preflight
+  reads the current `PATH`, because this machine has `container` installed and the
+  first live-driver test wrote a marker before failing. A failed bare-origin check
+  counts as not bare. The export links loops through the controller journal head.
+  A local origin in the pinned plan is disclosed rather than redacted.
+- The first reversion run found three masked tests; each test was sharpened. Every
+  red is classified by what removing its guard changed, and layered guards are
+  listed with the guard that masks them.
+- Measurement errors are retained separately: a re-chaining helper that broke a
+  hold link, a wrong node count and three CLI expectations, two of which were
+  product gaps.
+- The packaged walkthrough drives 21 public commands and three fixture-binary
+  steps, including two crash probes. Loop and check observations are synthetic;
+  scripted decisions are engineering checkpoints, not human acceptance.
+- All **81 individual reversions** failed as intended and every restoration and
+  both controls passed. Removing a guard made a refusal vanish in 55 cases,
+  changed recorded state in 21, let a different guard refuse in 3, and turned a
+  named refusal into a crash in 2. See the [reversion record](evidence/phase-3/reversions.json)
+  and [effects](evidence/phase-3/effects.json).
+- The first full validation stopped at its build stage on a directory link; the
+  second passed all 27 core and 10 browser stages. The native suite recorded
+  1,276 pass, one Linux-only DAC skip, zero fail and 12,651 assertions. Existing
+  published schema bytes are unchanged; five siblings were added. Clean-commit CI
+  must still qualify the committed source.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.

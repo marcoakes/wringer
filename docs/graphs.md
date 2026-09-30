@@ -1,3 +1,8 @@
+> **Historical, 30 September 2026.** This describes the retired Python-era host
+> graph. Its files stay readable with `wring graph show|status|explain`; they do
+> not run. Contained serial graphs are documented in
+> [native/GRAPHS.md](native/GRAPHS.md).
+
 # Graphs of loops
 
 *Wringer composes AI software work as graphs of evidence-producing loops. Each

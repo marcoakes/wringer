@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+140 | test("a missing container runtime refuses before dispatch and leaves the loop reserved", async () => {
+141 |     const f = await fixture(), live = containedGraphDriver(), path = process.env.PATH;
+142 |     process.env.PATH = "/nonexistent-wringer-runtime-path";
+143 |     let refused: Error | null = null;
+144 |     try { refused = await advanceContainedGraph(f.graphDir, live).then(() => null, (error: Error) => error); } finally { process.env.PATH = path; }
+145 |     const state = await readContainedGraph(f.graphDir); expect(state.nodes.build!.dispatched).toBe(false); expect(state.phase).toBe("pending");
+                                                                                                    ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:145:95)
+(fail) a missing container runtime refuses before dispatch and leaves the loop reserved [2253.08ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [2.44s]

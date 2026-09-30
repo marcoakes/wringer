@@ -1,0 +1,15 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph.test.ts:
+error: expect(received).toThrow(expected)
+
+Expected pattern: /edge/i
+Received message: "undefined is not an object (evaluating 'node.kind')"
+
+(fail) graph refuses missing edge before effects [11.97ms]
+
+ 0 pass
+ 30 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [143.00ms]

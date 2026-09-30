@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+147 |     expect(await Bun.file(join(f.graphDir, "children/build/state/plan.json")).exists()).toBe(false);
+148 | }, 60000);
+149 | test("a check refuses a candidate its owner journal does not hold", async () => {
+150 |     const f = await fixture(), held = await toReview(f), reservation = structuredClone(held.nodes.verify!.reservation);
+151 |     reservation.input.candidate!.tree = "e".repeat(40);
+152 |     await expect(f.driver.preflight!({ directory: f.graphDir, plan: f.graph, authority: f.authority, node: "verify", reservation }, "dispatch")).rejects.toThrow("exact candidate");
+                                                                                                                                                               ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:152:154)
+(fail) a check refuses a candidate its owner journal does not hold [5708.48ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [5.96s]

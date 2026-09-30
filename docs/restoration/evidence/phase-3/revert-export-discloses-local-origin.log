@@ -1,0 +1,24 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+114 |     const node = Bun.spawnSync(["node", join(output, "read-bundle.mjs"), output], { stdout: "pipe", stderr: "pipe" });
+115 |     expect(node.exitCode).toBe(0); expect(JSON.parse(node.stdout.toString()).graph.sha256).toBe(f.graph.sha256);
+116 |     const leaks: string[] = [];
+117 |     // The pinned plan carries its declared local bare origin verbatim (disclosed in the index); nothing else may name a local path.
+118 |     for (const name of await files(output)) { const text = (await readFile(join(output, name), "utf8").catch(() => "")).replaceAll(f.origin, "<declared-publication-origin>"); if (text.includes(f.root) || /(?:^|["'\s])\/(?:Users|private|tmp|home|var\/folders)\//.test(text)) leaks.push(name); }
+119 |     expect(leaks).toEqual([]); expect(index.limits.some(limit => limit.includes("local bare origin"))).toBe(true);
+                                                                                                             ^
+error: expect(received).toBe(expected)
+
+Expected: true
+Received: false
+
+      at exportedEvidence ([isolated-checkout]/packages/application/test/graph.test.ts:119:104)
+      at async <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:81:11)
+(fail) a serial graph runs contained children, a fresh check, an exact review and a separate Send [33606.84ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 27 expect() calls
+Ran 1 test across 1 file. [33.81s]

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+65 | test("a serial graph runs contained children, a fresh check, an exact review and a separate Send", async () => {
+66 |     const f = await fixture(), held = await toReview(f);
+67 |     expect(held.nodes.build!.result!.outcome).toBe("ready"); expect(held.nodes.verify!.result!.outcome).toBe("passed");
+68 |     expect(held.nodes.verify!.result!.candidate).toEqual(held.nodes.build!.result!.candidate);
+69 |     const derivation = await readControllerFile(join(f.graphDir, "children/build/derivation.json")), childPlan = await readControllerFile(join(f.graphDir, "children/build/state/plan.json")), childAuthority = await readControllerFile(join(f.graphDir, "children/build/state/authority.json"));
+70 |     expect(derivation.sourceCommit).toBe(f.commit); expect(derivation.wallClockSeconds).toBeLessThanOrEqual(600); expect(childPlan.budget.wall_clock_seconds).toBe(derivation.wallClockSeconds);
+                                                                                             ^
+error: expect(received).toBeLessThanOrEqual(expected)
+
+Expected: <= 600
+Received: 3600
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:70:89)
+(fail) a serial graph runs contained children, a fresh check, an exact review and a separate Send [5747.23ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [5.92s]

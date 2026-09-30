@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+172 |     f.driver.observe = async request => request.node === 'build' ? { kind: 'held', reason: 'Child journey waits for its own human review.' } : observe(request);
+173 |     const first = await advanceContainedGraph(f.dir, f.driver, { now }), again = await advanceContainedGraph(f.dir, f.driver, { now });
+174 |     expect(first.phase).toBe('human-hold'); expect(first.reason).toContain('own human review'); expect(again.revision).toBe(first.revision);
+175 |     expect(f.calls).toEqual(['build']);
+176 |     const refused = await decideContainedGraph(f.dir, { node: 'build', expectedRevision: first.revision, inputSha256: hashValue(first.nodes.build!.reservation.input), choice: 'continue', actor: 'Scripted engineering fixture', note: 'Cannot satisfy a child criterion.' }, { now }).then(() => null, (error: Error) => error);
+177 |     expect((await readContainedGraph(f.dir)).revision).toBe(first.revision); expect(refused?.message).toContain('hold');
+                                                             ^
+error: expect(received).toBe(expected)
+
+Expected: "84b1172576451aba6c152b60bc6ab674b06be9b0c83fb246f71f8eb933c81fc9"
+Received: "2655bab8ee4b12c8c23570cec4979cc56f02d61e941f2eeec1122cd2bc63904b"
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:177:56)
+(fail) a child hold is reported without a graph decision or a second dispatch [29.48ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 8 expect() calls
+Ran 1 test across 1 file. [184.00ms]

@@ -1,0 +1,7 @@
+{
+  "command": "dist/wring graph run --json",
+  "exit": 2,
+  "stdout": "{\"status\":\"refused\",\"message\":\"Legacy graph execution is retired; its history remains readable. Declare bounded ACP roles in an execution plan.\",\"next_move\":\"wringer-drive plan --help\"}\n",
+  "stderr": "",
+  "providerCalls": 0
+}

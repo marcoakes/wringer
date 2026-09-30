@@ -1,0 +1,431 @@
+{
+  "phase": 2,
+  "release": {
+    "tag": "v1.0.0-alpha.25",
+    "url": "https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25",
+    "publishedAt": "2026-09-29T17:15:56Z",
+    "isDraft": false
+  },
+  "source": {
+    "commit": "599ea5f3694035822d214229f6e3bd212dabe455",
+    "dirty": false,
+    "contentSha256": "22689cfd7b4ab3c2da605d68499162eaf1053156b7ff348751a9bda6c5cb70d1"
+  },
+  "assets": [
+    {
+      "name": "wringer-1.0.0-alpha.25-darwin-arm64.tar.gz",
+      "sha256": "9c8b44b502bff52b0c37811709a9750ac88849ffd234e344fd57a239c815180e",
+      "bytes": 29372840
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-darwin-arm64.tar.gz.sha256",
+      "sha256": "ea630e44417b2f29afc3d94b7a766d5e590b5825b75c75c13a3f1440b07774c1",
+      "bytes": 109
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-darwin-arm64.tar.gz.manifest.json",
+      "sha256": "24bf7fe21fbf25924114c48051ece55b96feb2123a92bb0d0e673e08ecd5dfc3",
+      "bytes": 101799
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-darwin-arm64.tar.gz.inventory.json",
+      "sha256": "eeb292900e0198eab8edb227a91c73a3f748e6d6cf06676625cfd06c53cb35ed",
+      "bytes": 64725
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-darwin-arm64.tar.gz.claims.json",
+      "sha256": "c5ae9b73aeb19c499b04bf31d126db5d46bd2c154bb416f2291bcfaecc08405e",
+      "bytes": 1185
+    },
+    {
+      "name": "wring-1.0.0-alpha.25-darwin-arm64",
+      "sha256": "7a07035d187b026c552186a51451c208672a955807423467e0d0681100c6c3e1",
+      "bytes": 75353970
+    },
+    {
+      "name": "wring-1.0.0-alpha.25-darwin-arm64.sha256",
+      "sha256": "fcd08dd54e1e31386f1d44f0dfb49f84728500b66c43860eecc6200bc4231488",
+      "bytes": 100
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-linux-x64.tar.gz",
+      "sha256": "c0663926a38ebf663b18c6860586ea7096b0cbe9ef7979b3d23d7d1cbd907d5a",
+      "bytes": 40150576
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-linux-x64.tar.gz.sha256",
+      "sha256": "e20c664e39d2997cb536bdfce9ca583b5a67bcbb5ba615b3698d8df446ab4deb",
+      "bytes": 106
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-linux-x64.tar.gz.manifest.json",
+      "sha256": "d3d53fcc105896fd9f2d61f60b0e6492a15ab3c42b780107bea452a68e9f3f4a",
+      "bytes": 101796
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-linux-x64.tar.gz.inventory.json",
+      "sha256": "30917793d679c71813d37f63cc808c26f6bd68410f498ceab2f945d465185d57",
+      "bytes": 64719
+    },
+    {
+      "name": "wringer-1.0.0-alpha.25-linux-x64.tar.gz.claims.json",
+      "sha256": "cdddaa177496d3171891bee0e2308a71b84c87d13c61e13a8f1d9c9cec9e1abd",
+      "bytes": 1179
+    },
+    {
+      "name": "wring-1.0.0-alpha.25-linux-x64",
+      "sha256": "efaaf5f246db022def0edd3c9028135ddba16306c75ecc55ffc9bccf2e6f63ac",
+      "bytes": 94340576
+    },
+    {
+      "name": "wring-1.0.0-alpha.25-linux-x64.sha256",
+      "sha256": "80f0967d07dbfae96d8ecc6a14d6c1cee78e26c6bc73184496a4847005d4e987",
+      "bytes": 97
+    }
+  ],
+  "runs": [
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141",
+      "source": "599ea5f3694035822d214229f6e3bd212dabe455",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Rehearsals / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502250852",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502253488",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502253557",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502314599",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "action",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502323591",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36592746007",
+      "source": "599ea5f3694035822d214229f6e3bd212dabe455",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36592746007/job/109489753820",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36601064920",
+      "source": "599ea5f3694035822d214229f6e3bd212dabe455",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "build (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36601064920/job/109518276686",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (macos-14, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36601064920/job/109518276884",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36601064920/job/109518276911",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (macos-14, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36601064920/job/109518276955",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "permission-adversary / permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36601064920/job/109518277081",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "publish-draft",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36601064920/job/109526667648",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "attestations": [
+    {
+      "platform": "darwin-arm64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "599ea5f3694035822d214229f6e3bd212dabe455",
+        "sourceRef": "refs/tags/v1.0.0-alpha.25"
+      }
+    },
+    {
+      "platform": "linux-x64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "599ea5f3694035822d214229f6e3bd212dabe455",
+        "sourceRef": "refs/tags/v1.0.0-alpha.25"
+      }
+    }
+  ],
+  "publicVerification": {
+    "download": "Authenticated GitHub release download after publication; anonymous installation not measured",
+    "darwinArm64": {
+      "extractedChecks": 17,
+      "installerChecks": 13
+    },
+    "linuxX64": "Native Linux CI; archive bytes, manifests and signed provenance verified locally"
+  },
+  "retainedFailure": {
+    "commit": "599ea5f3694035822d214229f6e3bd212dabe455",
+    "run": 36592746141,
+    "attempt": 1,
+    "job": 109489754822,
+    "stage": "figma-api-pm-rehearsal",
+    "observed": "Chromium Page.captureScreenshot returned Unable to capture screenshot while generating the corrected fixture candidate mobile image. The product showed a blocked state and no review decision; the rehearsal timed out waiting for review.",
+    "cause": "Capture failure observed; underlying Chromium/runner cause not established.",
+    "productChange": "None. No guard, test deadline or acceptance requirement changed.",
+    "retainedSuccessfulChecks": [
+      "injected REST read recipe creates v2 desktop/mobile snapshots without forwarding credentials or retaining URLs",
+      "a design specification advertises its design tools",
+      "proposal holds without approving or spending",
+      "unapproved start refuses",
+      "guided page removes private fragment",
+      "bounded assistant wait observes without approving or spending",
+      "worker fixture receives the correct bounded playbook channel",
+      "judge fixture receives the correct bounded playbook channel",
+      "real Chromium keeps decisions disabled while required PNG requests are held",
+      "real browser image failure does not permit visual acceptance or correction",
+      "a replacement image generation keeps decisions closed while its required reference still fails",
+      "authenticated reference and actual desktop/mobile PNGs really decode before decisions",
+      "loop history starts open without displacing the human decision",
+      "same-page approach and check facts reflect validated v3 worker use",
+      "engineering details grant no authority or efficacy and keep the same next action",
+      "opening source details exposes the exact approved design snapshot",
+      "the design display is bound to the pinned snapshot without duplicating PM review images",
+      "full-size viewer displays the exact verified reference without new requests",
+      "Escape closes full-size pixels and restores keyboard focus",
+      "Close image returns to the same verified reference button",
+      "visual display notes remain available in collapsed details",
+      "product and design requirements are visible without invented separate reviewers",
+      "one approval automatically reaches the actual displayed human hold",
+      "coding app receives a credential-free ready pointer",
+      "the PM stayed on one origin with actual source-bound fixture output",
+      "legacy terminal-style review mechanics are absent",
+      "actual HTTP review refuses an invented display without recording Yes",
+      "worker fixture receives the correct bounded playbook channel",
+      "judge fixture receives the correct bounded playbook channel"
+    ],
+    "selectedTranscript": [
+      {
+        "capture": "owned-reference-desktop",
+        "htmlSha256": "739dd75ac33ccadf9c02394c27c2778c05f05ece7d3a354c014baf44687a2534",
+        "width": 1280,
+        "height": 800,
+        "sha256": "61f7cafb8cb293283a812e83563952b2fc84aa66fe2951072b98ead4b4ef763c",
+        "bytes": 70626,
+        "realChromium": true,
+        "isolatedBrowserContext": true,
+        "realContainmentMeasured": false
+      },
+      {
+        "capture": "owned-reference-mobile-for-injected-rest",
+        "htmlSha256": "739dd75ac33ccadf9c02394c27c2778c05f05ece7d3a354c014baf44687a2534",
+        "width": 390,
+        "height": 844,
+        "sha256": "f3032512bcecb559eadf84e3f0acefe5ef7bc21a6d764ccfeda964d39b6a3b4e",
+        "bytes": 51687,
+        "realChromium": true,
+        "isolatedBrowserContext": true,
+        "realContainmentMeasured": false
+      },
+      {
+        "browserDecisionTiming": {
+          "action": "approve",
+          "status": 202,
+          "elapsedMs": 30
+        },
+        "fixture": true
+      },
+      {
+        "capture": "7860e591ac71d565f9868bdcb0df745eb6d9643f/desktop",
+        "htmlSha256": "88b876e5e6311043fad66d035dce14cbe5b3b228bfeb40f2ee7f184240c34384",
+        "width": 1280,
+        "height": 800,
+        "sha256": "a2e032d804916bdd6233bbbac418e1e493ff07dacb82d893bfa57f4e7237321e",
+        "bytes": 69655,
+        "realChromium": true,
+        "isolatedBrowserContext": true,
+        "realContainmentMeasured": false
+      },
+      {
+        "capture": "7860e591ac71d565f9868bdcb0df745eb6d9643f/mobile",
+        "htmlSha256": "88b876e5e6311043fad66d035dce14cbe5b3b228bfeb40f2ee7f184240c34384",
+        "width": 390,
+        "height": 844,
+        "sha256": "1483a5b129fcb6c08671e027352d522b85c39b6a92b76ae54889d964027cf4e3",
+        "bytes": 48838,
+        "realChromium": true,
+        "isolatedBrowserContext": true,
+        "realContainmentMeasured": false
+      },
+      {
+        "browserDecisionTiming": {
+          "action": "correction",
+          "status": 202,
+          "elapsedMs": 3539
+        },
+        "fixture": true
+      },
+      {
+        "capture": "315c75a4af847d0d208db9decd5ab07dd57e6564/desktop",
+        "htmlSha256": "d5411697fc3801bdc8dd48eec088460adff5eedcdd3e58cd53ef7e2d6a39352a",
+        "width": 1280,
+        "height": 800,
+        "sha256": "61f7cafb8cb293283a812e83563952b2fc84aa66fe2951072b98ead4b4ef763c",
+        "bytes": 70626,
+        "realChromium": true,
+        "isolatedBrowserContext": true,
+        "realContainmentMeasured": false
+      },
+      {
+        "browserStopText": "The controller received your decision. Checking the recorded outcome…"
+      },
+      {
+        "stop": "waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for locator('#review-panel') to be visible\n    183 × locator resolved to hidden <section hidden=\"\" id=\"review-panel\" class=\"panel decision-panel\">…</section>\n"
+      }
+    ],
+    "localRepeat": {
+      "command": "bun run validate figma-api-pm-rehearsal",
+      "exit": 0,
+      "durationMs": 146014,
+      "platform": "darwin-arm64",
+      "limit": "A macOS repeat does not replace Linux qualification."
+    },
+    "remoteRepeat": "The single targeted Linux rerun passed on the identical commit. The first failed attempt remains retained.",
+    "optionalNativeArtifactDownload": "Declined; successful job records remain available. No substitute artifact fetch was made."
+  },
+  "limits": [
+    "Engineering fixtures establish mechanisms, not live benefit or independent human acceptance.",
+    "No live model calls or fleets were used.",
+    "The optional successful native CI artifact download was declined; job records and local measurements were used."
+  ],
+  "ciHistory": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141",
+        "source": "599ea5f3694035822d214229f6e3bd212dabe455",
+        "status": "completed",
+        "conclusion": "failure",
+        "jobs": [
+          {
+            "name": "Rehearsals / macos-latest",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109489754540",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Rehearsals / ubuntu-latest",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109489754822",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "name": "Bun / ubuntu-latest",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109489754869",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "action",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109489754959",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Bun / macos-latest",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109489755041",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "attempt": 2,
+        "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141",
+        "source": "599ea5f3694035822d214229f6e3bd212dabe455",
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Rehearsals / ubuntu-latest",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502250852",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Rehearsals / macos-latest",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502253488",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Bun / ubuntu-latest",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502253557",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Bun / macos-latest",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502314599",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "action",
+            "url": "https://github.com/marcoakes/wringer/actions/runs/36592746141/job/109502323591",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ],
+    "note": "Attempt 2 reran only the failed Linux browser job. Other green job results were retained by GitHub; their presence in the later attempt is not an independent rerun."
+  }
+}

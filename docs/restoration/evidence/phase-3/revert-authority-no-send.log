@@ -1,0 +1,42 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph.test.ts:
+78 |     expect(() => graph.validateContainedGraph({ ...plan, id: "changed" })).toThrow("digest");
+79 |     // Forgeries are re-signed: the self-computed digest alone proves nothing about binding.
+80 |     const resign = (value: any) => { const { sha256, ...body } = value; return { ...body, sha256: hashValue(body) }; };
+81 |     expect(() => graph.validateGraphAuthority({ ...authority, actor: "Someone else" }, plan, at)).toThrow("digest");
+82 |     expect(() => graph.validateGraphAuthority(resign({ ...authority, graphSha256: "e".repeat(64) }), plan, at)).toThrow("bound");
+83 |     expect(() => graph.validateGraphAuthority(resign({ ...authority, maySend: true }), plan, at)).toThrow("Send");
+                                                                                                       ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "Send"
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.contained-graph-authority.v1",
+  graphSha256: "c3b4109db9f91a3dfd746354748e3e2b70ba7199bdf8b0731a4bc35aabe7cf3f",
+  repository: {
+    url: "https://github.com/OWNER/REPOSITORY.git",
+    commit: "0000000000000000000000000000000000000000",
+  },
+  actor: "Scripted graph fixture",
+  grantedAt: "2026-09-29T12:00:00.000Z",
+  expiresAt: "2026-09-29T13:00:00Z",
+  budget: {
+    maxRoleSessions: 8,
+    maxVerificationAttempts: 10,
+    wallClockSeconds: 600,
+  },
+  maySend: true,
+  sha256: "2ea2ac92dfcb6b811fa5f19a73f806ff2b7e33b2995f65e62a0aa3030ecd8cc6",
+}
+
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph.test.ts:83:99)
+(fail) graph binds its complete immutable contract and finite execution grant [17.01ms]
+
+ 0 pass
+ 30 filtered out
+ 1 fail
+ 6 expect() calls
+Ran 1 test across 1 file. [149.00ms]

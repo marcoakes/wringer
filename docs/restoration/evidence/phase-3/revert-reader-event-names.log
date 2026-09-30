@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+191 |     ['non-canonical event name', 'reserve', async dir => { const { path } = await lastEvent(dir); await writeFile(`${path}.orig`, await readFile(path)); await rm(path); }, 'contiguous'],
+192 |     ['repeated dispatch', 'dispatch', async dir => { const { event } = await lastEvent(dir); const next = rehash({ ...event, sequence: event.sequence + 1, previousSha256: event.sha256 }); await writeFile(join(dir, 'events', `${String(next.sequence).padStart(4, '0')}.json`), JSON.stringify(next)); }, 'already dispatched'],
+193 | ];
+194 | for (const [name, at, forge, reason] of forgeries) test(`a rehashed ${name} is refused by transition and chain validation`, async () => {
+195 |     const f = await fixture(); await expect(advanceContainedGraph(f.dir, f.driver, crash(at))).rejects.toThrow('simulated crash');
+196 |     await forge(f.dir); await expect(readContainedGraph(f.dir)).rejects.toThrow(reason);
+                                                                              ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:196:73)
+(fail) a rehashed non-canonical event name is refused by transition and chain validation [17.81ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [172.00ms]

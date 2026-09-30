@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+4 | import { createHash } from "node:crypto";
+5 | import { readFile, readdir, lstat, realpath } from "node:fs/promises";
+6 | import { resolve, join, sep } from "node:path";
+7 | import { pathToFileURL } from "node:url";
+8 | const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+9 | const insist = (ok, message) => { if (!ok) throw new Error(message); };
+                                                         ^
+error: Check verify evidence does not match its recorded result
+      at insist ([isolated-checkout]/examples/evidence/read-bundle.mjs:9:54)
+      at inspectGraph ([isolated-checkout]/examples/evidence/read-bundle.mjs:104:46)
+      at async exportContainedGraph ([isolated-checkout]/packages/application/src/graph.ts:285:11)
+      at async exportedEvidence ([isolated-checkout]/packages/application/test/graph.test.ts:107:64)
+      at async <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:81:11)
+(fail) a serial graph runs contained children, a fresh check, an exact review and a separate Send [32866.74ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 17 expect() calls
+Ran 1 test across 1 file. [33.07s]

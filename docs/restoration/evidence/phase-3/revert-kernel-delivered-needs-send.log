@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+134 |     expect(f.sends).toEqual([]);
+135 | });
+136 | test('delivery cannot report delivered before explicit Send', async () => {
+137 |     const f = await fixture(), held = await advanceContainedGraph(f.dir, f.driver, { now }); await decideContainedGraph(f.dir, decision(held), { now });
+138 |     const dispatch = f.driver.dispatch; f.driver.dispatch = async request => { await dispatch(request); f.observed.set(request.node, { kind: 'complete', outcome: 'delivered', candidate: f.candidate, evidenceSha256: hashValue('forged-send') }); };
+139 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('Send');
+                                                                                ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:139:75)
+(fail) delivery cannot report delivered before explicit Send [46.04ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 10 expect() calls
+Ran 1 test across 1 file. [199.00ms]

@@ -1,0 +1,11 @@
+61 | const main = (await execute("unchanged-default-branch", ["git", "--git-dir", prepared.origin, "rev-parse", "main"])).stdout.trim();
+62 | if (main !== prepared.baseCommit) throw new Error("Graph delivery changed the default branch");
+63 | const exported = join(directory, "export");
+64 | await execute("public-graph-export", [drive, "graph", "export", "--state", state, "--output", exported]);
+65 | const inspected = json((await execute("node-only-independent-reader", [node, join(exported, "read-bundle.mjs"), exported], { env: { PATH: "/usr/bin:/bin" } })).stdout);
+66 | if (inspected.finished !== "done" || inspected.nodes.length !== 4) throw new Error("Independent reader did not confirm the finished lineage");
+                                                                                  ^
+error: Independent reader did not confirm the finished lineage
+      at [checkout]/scripts/graph-distribution.ts:66:78
+
+Bun v1.4.2 (macOS arm64)

@@ -1,6 +1,6 @@
 {
   "name": "@wringer/application",
-  "version": "1.0.0-alpha.25",
+  "version": "1.0.0-alpha.26",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
@@ -12,6 +12,7 @@
     "@wringer/runtime": "workspace:*",
     "@wringer/workflow": "workspace:*",
     "@wringer/delivery": "workspace:*",
+    "@wringer/scheduler": "workspace:*",
     "@wringer/design": "workspace:*",
     "@wringer/figma-connect": "workspace:*"
   }

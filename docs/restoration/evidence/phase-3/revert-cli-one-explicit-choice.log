@@ -1,0 +1,19 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/graph-cli.test.ts:
+12 | const directories: string[] = [];
+13 | afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }); });
+14 | const ajv = addFormats(new Ajv2020({ strict: false }));
+15 | const schema = async (name: string) => ajv.compile(await Bun.file(join(root, "schema", name)).json());
+16 | const drive = (...argv: string[]) => dispatch(["graph", ...argv], "wringer-drive");
+17 | async function refused(action: Promise<unknown>) { return action.then(() => { throw new Error("expected a refusal"); }, (error: any) => error); }
+                                                                                             ^
+error: expected a refusal
+      at <anonymous> ([isolated-checkout]/packages/cli/test/graph-cli.test.ts:17:89)
+(fail) decisions bind the exact revision and input; a stale or ambiguous one records nothing [43.35ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [206.00ms]

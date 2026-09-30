@@ -1,6 +1,6 @@
 # Capabilities and their evidence
 
-Updated during restoration phase 2, 29 September 2026. Source implementation,
+Updated for restoration phase 3, 30 September 2026. Source implementation,
 fixture coverage, live qualification and comparative benefit are separate facts.
 The [release notes](https://github.com/marcoakes/wringer/releases) identify the
 exact published commit and native artifact measurements.
@@ -10,10 +10,10 @@ exact published commit and native artifact measurements.
 | Bounded contained loops | Worker/check/judge/repair, repeat stops, outcome warnings and durable reservations | Fixtures establish controller behavior. Live convergence is task/model dependent and unmeasured here. |
 | First-class loop inspection | `wring job loop`, `wringer.inspect_loop`, job-page history from a shared validated reader | Observation supplies no execution or human authority. Published in alpha.24; exact release evidence is linked above. |
 | Portable evidence | Contained delivery v1–v4, offline audit/falsification, standalone verification sets; new export envelope and Node-only reader | The independent reader checks integrity. Wringer's audit validates carried semantics. Neither proves the author honest or reruns behavior. |
-| Prediction-gated playbook improvement | Fixed comparisons, bounded collection, development patterns, inert proposals, future-only adoption/rollback | Ordinary-job CLI/PM/MCP integration and future typed proposal selection are under alpha.25 qualification. No general improvement percentage has been established. |
+| Prediction-gated playbook improvement | Fixed comparisons, bounded collection, development patterns, inert proposals, future-only adoption/rollback | Ordinary-job CLI/PM/MCP integration and future typed proposal selection are published in alpha.25. No general improvement percentage has been established. |
 | ACP / MCP | Agent lifecycle and restricted assistant tools | A protocol is not containment; end-to-end client journeys need separate live evidence. |
 | Apple Container / gVisor Kubernetes | Both execution adapters exist | Native operating-system binaries, sandbox backends and workflow durability are different dimensions. Live isolation claims require platform-specific measurements. |
-| Serial graphs | Historical readers/validators; public graph execution retired | Phase 3 replaces host execution with contained child journeys. |
+| Serial graphs | `wringer-drive graph plan/authority/run/resume/status/decide/send/export`; contained loops, fresh checks, typed routers, human holds and deliveries; aggregate reservation, hash-chained history, effect-free preflight, read-only reconciliation, portable export with a Node-only reader | Published in alpha.26 and fixture-tested, including crash/reconcile probes through the compiled binary. Live agent convergence, real containment and any benefit over a single job are unmeasured. No MCP graph tool yet; no parallel branches. The retired host graph format stays read-only. |
 | Parallel branches and integration | Historical internal orchestration only | Phase 4 introduces aggregate reservations, isolated branches and a freshly verified integrated candidate. |
 | Gate/workflow self-improvement | Worker-playbook proposals exist; broader changes are not qualified | Phase 5 adds independent evaluation and reviewable source PRs. |
 | Tournament / prosecutor | Not implemented as a supported contained workflow | Phase 6; no majority-vote correctness or performance claim. |

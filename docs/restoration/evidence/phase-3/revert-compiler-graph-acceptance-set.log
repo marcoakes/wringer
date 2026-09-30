@@ -1,0 +1,296 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph.test.ts:
+66 | test("a later loop cannot write an earlier leaf's acceptance input", () => {
+67 |     const input = graphFixture(), { schema_version, plan_sha256, acceptance_sha256, intent_sha256, ...raw } = input.nodes.build.plan as any;
+68 |     const writer = compileDeclaration({ ...raw, version: 3, scope: { writable: ["tests"] }, acceptance: { ...raw.acceptance, protected_paths: [], checks: raw.acceptance.checks.map((check: any) => ({ ...check, files: ["package.json"] })) } });
+69 |     const graphInput: any = { ...input, required: [...input.required, "rewrite"], budget: { ...input.budget, maxRoleSessions: input.budget.maxRoleSessions * 2, maxVerificationAttempts: input.budget.maxVerificationAttempts * 2 },
+70 |         nodes: { ...input.nodes, verify: { ...input.nodes.verify, then: "rewrite" }, rewrite: { kind: "loop", input: "verify", plan: writer, then: "route" }, route: { ...input.nodes.route, input: "verify" } } };
+71 |     expect(() => compile(graphInput)).toThrow("acceptance input");
+                                           ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "acceptance input"
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.contained-graph-plan.v1",
+  id: "serial-repair",
+  repository: {
+    url: "https://github.com/OWNER/REPOSITORY.git",
+    commit: "0000000000000000000000000000000000000000",
+  },
+  entry: "scope",
+  required: [ "build", "review", "rewrite", "ship", "verify" ],
+  budget: {
+    maxRoleSessions: 16,
+    maxVerificationAttempts: 20,
+    wallClockSeconds: 600,
+  },
+  nodes: [Object: null prototype] {
+    scope: {
+      kind: "human-hold",
+      input: "root",
+      prompt: "Review this exact scope before work.",
+      then: "build",
+    },
+    build: {
+      kind: "loop",
+      input: "root",
+      plan: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "src" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+            }
+          ],
+          protected_paths: [ "bun.lock", "package.json", "tests", "tests/acceptance.test.ts" ],
+        },
+        acceptance_sha256: "e94ab14ee89046720a2c74e34d5f90bd370afc02a688416ffd4174c631f85922",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "621f4b1a698ad2a3f7cdda98075b9e2170fa2b9841fe20f3146d6747860bf59b",
+      },
+      then: "verify",
+    },
+    verify: {
+      kind: "check",
+      input: "build",
+      then: "rewrite",
+    },
+    route: {
+      kind: "router",
+      input: "verify",
+      routes: [
+        {
+          outcome: "passed",
+          to: "review",
+        }
+      ],
+      otherwise: "fail",
+    },
+    review: {
+      kind: "human-hold",
+      input: "verify",
+      prompt: "Inspect the exact candidate and evidence.",
+      then: "ship",
+    },
+    ship: {
+      kind: "delivery",
+      input: "review",
+      publication: {
+        remote: "https://example.test/repository.git",
+        sourceBranch: "wringer/serial-repair",
+        targetBranch: "main",
+      },
+      then: "done",
+    },
+    rewrite: {
+      kind: "loop",
+      input: "verify",
+      plan: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "tests" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "package.json" ],
+            }
+          ],
+          protected_paths: [ "package.json" ],
+        },
+        acceptance_sha256: "d7903086cf4b7ba904d7f08cbc011e584700a86ff4dcf0d64d27248a325d4938",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "7ec8f0ff2163fa2839eb2f6aff0bd950aa329270c8d9f897393654dc44cd9812",
+      },
+      then: "route",
+    },
+  },
+  sha256: "361e2cf3eaba2af50adbcf848b84c1f782788c4b279ffbc72a881a5b06129032",
+}
+
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph.test.ts:71:39)
+(fail) a later loop cannot write an earlier leaf's acceptance input [17.66ms]
+
+ 0 pass
+ 30 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [143.00ms]

@@ -1,0 +1,62 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/graph-cli.test.ts:
+26 | test("graph plan pins every leaf and shows the allowance without any effect", async () => {
+27 |     const result: any = await drive("plan", example), validate = await schema("contained-graph-plan-v1.schema.json");
+28 |     expect(validate(result.value)).toBe(true);
+29 |     expect(result.value.nodes.build.plan.schema_version).toBe("wringer.execution-plan.v3");
+30 |     expect(result.text).toContain("No agent, container or repository command ran");
+31 |     expect((await drive("--help") as any).text).toContain("wringer-drive graph run GRAPH.yaml");
+                                                     ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "wringer-drive graph run GRAPH.yaml"
+Received: "wringer-drive · one durable PM journey\n\nThe DSL configures; Bun orchestrates; ACP carries work; agent runtimes execute;\nApple container or gVisor/Kubernetes contains each repository clone.\n\n  wringer-drive plan PLAN.yaml                 Validate and show the exact plan; no spend\n  wringer-drive propose TEMPLATE --intent PRD.md --actor NAME --expires ISO --state DIR --output PLAN.json\n  wringer-drive authority PLAN.yaml --actor NAME --expires ISO --output authority.json\n  wringer-drive run PLAN.yaml --authority authority.json [--state DIRECTORY]\n  wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority\n  wringer-drive status --state DIRECTORY       Validate and read the authoritative journal\n  wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations\n  wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget\n  wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend\n  wringer-drive planning-new-grant --state DIR  Preview a separate planning grant; no spend\n  wringer-drive new-grant --state DIRECTORY    Preview separate execution approval; no spend\n  wringer-drive board --state DIRECTORY        Live, private localhost PM workspace\n      [--port 0] [--output NEW_FILE.html]       An output file is a read-only snapshot\n  wringer-drive doctor --plan PLAN.yaml        Reuse existing keys; report prerequisites\n  wringer-drive doctor --state DIRECTORY --probe-agents\n                                              Open ACP sessions without a model prompt\n  wringer-drive show --state DIRECTORY --criterion ID\n  wringer-drive review --state DIRECTORY --criterion ID --display UUID --verdict met --by NAME --note TEXT\n  wringer-drive request-revision --state DIRECTORY --by NAME --note TEXT\n  wringer-drive recover-command --state DIRECTORY --command UUID --acknowledge-uncertain\n  wringer-drive deliver --state DIRECTORY --remote URL_OR_BARE_PATH --source-branch REVIEW --target-branch BASE\n  wringer-drive deliver [the same options] --send\n  wringer-drive source-review --state DIR      Inventory all source credential-shaped matches; no values printed\n      --inventory SHA256 --finding SHA256 --policy-dir EXTERNAL_OPERATOR_DIRECTORY\n      --actor NAME --actor-kind operator|delegated-agent --reason TEXT\n                                              Record one exact non-secret example decision; no wildcard exemptions\n      --policy-dir EXTERNAL_OPERATOR_DIRECTORY --decisions PRIVATE_JSON\n                                              Finite exact-ID decisions, each with its own actor/reason; no approve-all\n      PRIVATE_JSON is a mode-600 file within that separate operator directory:\n      {\"schema_version\":\"wringer.source-review-decisions.v1\",\"candidateCommit\":\"EXACT_COMMIT\",\n       \"inventorySha256\":\"EXACT_INVENTORY_DIGEST\",\"decisions\":[{\"findingId\":\"EXACT_FINDING_ID\",\n       \"inventorySha256\":\"EXACT_INVENTORY_DIGEST\",\"actor\":\"OPERATOR_OR_AGENT_NAME\",\n       \"actorKind\":\"delegated-agent\",\"reason\":\"YOUR_EVIDENCE_FOR_THIS_EXACT_NON_SECRET_EXAMPLE\"}]}\n  wringer-drive audit --bundle PATH            Audit a carried contained delivery offline\n  wringer-drive falsify --bundle PATH          Challenge the committed range in isolation\n      [--output DIRECTORY] [--max-attempts 24] [--wall-seconds 60]\n\nPLAN may also be a constrained literal TypeScript definePlan declaration. No\nrepository TypeScript is evaluated on the host. Runtime images and source commits\nmust be pinned. Existing credentials cross only through declared environment names.\n\nRoutine authority excludes publication and human judgement. Resume does not reset\nbudgets. --retry-stopped explicitly retries a known stopped role within remaining\nlimits; --retry-uncertain acknowledges possible duplicate spend after interruption.\n--retry-verification retries a known unavailable check; --retry-judge retries an\nunsettled judge. Each reserves a new attempt within the original ceilings.\nAn exhausted grant cannot be retried. new-grant and planning-new-grant first show\nthe exact confirmation options without allocating work. A confirmed new grant\nuses a fresh state; old reservations, failures and unknown spend remain intact.\n--retry-uncertain is only applicable to a genuinely interrupted current attempt.\nPropose delegates bounded planning to the declared ACP planner; its output is\nunapproved and cannot grant itself execution authority. A planning call may spend.\nThe board uses the same guarded actions as the CLI, never an alternate authority.\nIts private URL grants local control: do not share it. Keep its server running.\nRecovery releases an application lock only after its owner is provably dead;\norphan runtimes and domain reservations remain uncertain. Nothing is replayed.\nNo sandbox bypass. Old direct-HTTP drafting and host coding launchers are retired.\nNo automatic model, endpoint, key, human verdict, merge or deployment is selected.\nDelivery prepares by default. --send explicitly authorizes branch publication;\n--forge-config FILE declares a hosted review request separately from a Git push.\nRun audit and falsify from the fresh review-branch clone root, using mr.md's exact\nbundle path. Audit is offline. Falsify executes supported committed-line mutations\nin the declared isolated verifier, with no coding/judging agent calls. It records\nthe exact range/commit and caught/survived/unavailable results; missing runtime or\nfailed control is inconclusive, not a pass or a complete software-quality score.\n"
+
+      at <anonymous> ([checkout]/packages/cli/test/graph-cli.test.ts:31:49)
+(fail) graph plan pins every leaf and shows the allowance without any effect [70.41ms]
+31 |     expect((await drive("--help") as any).text).toContain("wringer-drive graph run GRAPH.yaml");
+32 | });
+33 | test("a retired host graph is refused by name and stays readable through the legacy reader", async () => {
+34 |     const error = await refused(drive("plan", legacy));
+35 |     expect(error.exit_code).toBe(2); expect(error.message).toContain("retired host-execution graph"); expect(error.message).toContain("wring graph show");
+36 |     expect(((await dispatch(["graph", "show", legacy])) as any).text).toContain("issue-to-mr");
+                                                                           ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "issue-to-mr"
+Received: "flowchart TD\n  read-intent[\"read-intent: intent\"]\n  read-intent --> approve-plan\n  approve-plan[\"approve-plan: human\"]\n  approve-plan --> build\n  build[\"build: loop\"]\n  build --> route\n  route[\"route: router\"]\n  route --> deliver\n  route --> fail\n  deliver[\"deliver: deliver\"]\n  deliver --> done\n"
+
+      at <anonymous> ([checkout]/packages/cli/test/graph-cli.test.ts:36:71)
+(fail) a retired host graph is refused by name and stays readable through the legacy reader [8.93ms]
+50 |     expect(again.message).toContain("not empty");
+51 | }, 60000);
+52 | test("decisions bind the exact revision and input; a stale or ambiguous one records nothing", async () => {
+53 |     const f = await started(), view: any = f.run.value, base = ["--state", f.state, "--node", "scope", "--input", view.next.inputSha256, "--by", "Scripted engineering fixture", "--note", "Fixture checkpoint, not human acceptance."];
+54 |     const stale = await refused(drive("decide", ...base, "--revision", "a".repeat(64), "--continue"));
+55 |     expect(stale.message).toContain("revision"); expect((await readdir(join(f.state, "events"))).length).toBe(2);
+                               ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "revision"
+Received: "--continue needs a value"
+
+      at <anonymous> ([checkout]/packages/cli/test/graph-cli.test.ts:55:27)
+(fail) decisions bind the exact revision and input; a stale or ambiguous one records nothing [17.02ms]
+35 |             value = true;
+36 |         }
+37 |         else {
+38 |             value = rest.length ? rest.join("=") : argv[++i]!;
+39 |             if (value === undefined || value.startsWith("--"))
+40 |                 throw new Error(`--${key} needs a value`);
+                               ^
+error: --continue needs a value
+      at parseArgs ([checkout]/packages/cli/src/args.ts:40:27)
+      at dispatch ([checkout]/packages/cli/src/app.ts:25:15)
+      at <anonymous> ([checkout]/packages/cli/test/graph-cli.test.ts:63:11)
+(fail) resume refuses a missing container runtime before dispatch; the loop stays reserved [16.64ms]
+
+ 2 pass
+ 4 fail
+ 26 expect() calls
+Ran 6 tests across 1 file. [867.00ms]

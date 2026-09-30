@@ -1,0 +1,24 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+107 |     expect(index.revision).toBe(done.revision); expect(index.nodes.find(row => row.id === "ship")!.delivery).toBe("deliveries/ship");
+108 |     const inspected = await inspectGraph(output);
+109 |     expect(inspected.finished).toBe("done"); expect(inspected.nodes.map(row => row.id)).toEqual(["build", "verify", "review", "ship"]);
+110 |     const node = Bun.spawnSync(["node", join(output, "read-bundle.mjs"), output], { stdout: "pipe", stderr: "pipe" });
+111 |     expect(node.exitCode).toBe(0); expect(JSON.parse(node.stdout.toString()).graph.sha256).toBe(f.graph.sha256);
+112 |     for (const name of await files(output)) { const text = await readFile(join(output, name), "utf8").catch(() => ""); expect(text.includes(f.root)).toBe(false); expect(/(?:^|["'\s])\/(?:Users|private|tmp|home|var\/folders)\//.test(text)).toBe(false); }
+                                                                                                                                                           ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at exportedEvidence ([checkout]/packages/application/test/graph.test.ts:112:150)
+      at async <anonymous> ([checkout]/packages/application/test/graph.test.ts:81:11)
+(fail) a serial graph runs contained children, a fresh check, an exact review and a separate Send [32118.48ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 36 expect() calls
+Ran 1 test across 1 file. [32.55s]

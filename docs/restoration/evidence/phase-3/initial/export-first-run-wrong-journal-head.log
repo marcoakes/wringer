@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+4 | import { createHash } from "node:crypto";
+5 | import { readFile, readdir, lstat, realpath } from "node:fs/promises";
+6 | import { resolve, join, sep } from "node:path";
+7 | import { pathToFileURL } from "node:url";
+8 | const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+9 | const insist = (ok, message) => { if (!ok) throw new Error(message); };
+                                                         ^
+error: Delivery ship is not the journal state its loop recorded
+      at insist ([checkout]/examples/evidence/read-bundle.mjs:9:54)
+      at inspectGraph ([checkout]/examples/evidence/read-bundle.mjs:114:17)
+      at async exportContainedGraph ([checkout]/packages/application/src/graph.ts:285:11)
+      at async exportedEvidence ([checkout]/packages/application/test/graph.test.ts:103:64)
+      at async <anonymous> ([checkout]/packages/application/test/graph.test.ts:81:11)
+(fail) a serial graph runs contained children, a fresh check, an exact review and a separate Send [30684.46ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 17 expect() calls
+Ran 1 test across 1 file. [31.33s]

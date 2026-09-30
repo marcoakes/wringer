@@ -4,6 +4,25 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.26 — serial graphs of contained loops
+
+- `wringer-drive graph plan|authority|run|resume|status|decide|send|export`
+  composes contained loops, fresh checks, typed routers, human holds and
+  deliveries into one resumable workflow. Every executable node uses the existing
+  contained controller, verifier and delivery services.
+- The whole allowance is reserved before any effect. A durable marker precedes
+  each effect, an effect-free preflight precedes each marker, and resume only
+  reconciles. A failed required node cannot be routed or decided into success.
+- Holds bind the exact revision and input; Send binds the prepared delivery and is
+  never reissued. Child plans and grants are clipped to the root deadline.
+- `graph export` carries the hash-chained history and per-node evidence; the
+  Node-only reader verifies integrity and loop-to-delivery lineage.
+- New sibling contracts: `wringer.contained-graph-plan.v1`, `-authority.v1`,
+  `-event.v1`, `-status.v1`, `-export.v1`. Existing contracts keep their bytes and
+  meaning; retired host graphs stay read-only. Fixture-tested only: no live agent,
+  containment or human acceptance result is claimed. See the
+  [qualification record](docs/restoration/STATUS.md).
+
 ## 1.0.0-alpha.25 — improvements from ordinary jobs
 
 - Job handles connect owned comparison storage and expose registered predictions,

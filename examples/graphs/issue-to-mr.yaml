@@ -1,3 +1,4 @@
+# Historical host graph (retired, read-only). Contained graphs: examples/graphs/serial-repair/graph.yaml
 # The canonical graph: intent in, a reviewed branch out, with a person in the
 # middle and evidence at the end. `wring graph validate` checks every rule
 # below before anything runs.

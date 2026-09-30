@@ -1,0 +1,13 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/scheduler.test.ts:
+(pass) graph validation and durable execution > strict graph grammar rejects cycles, shell keys and missing dataflow [3.77ms]
+(pass) graph validation and durable execution > a real worker runs only after the human park; resume ignores forged state snapshots [647.40ms]
+(pass) graph validation and durable execution > routing a forged success directly to delivery cannot invent evidence [78.88ms]
+(pass) graph validation and durable execution > duplicate graph YAML and duplicate human approval keys refuse before any worker [86.61ms]
+
+ 4 pass
+ 6 filtered out
+ 0 fail
+ 21 expect() calls
+Ran 4 tests across 1 file. [1.62s]

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Finite grant to execute one exact contained graph",
+  "description": "Binds one compiled graph, source and allowance to an actor and expiry. It never grants Send, a human verdict or any child's human acceptance. The actor is recorded, not authenticated.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "graphSha256",
+    "repository",
+    "actor",
+    "grantedAt",
+    "expiresAt",
+    "budget",
+    "maySend",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-authority.v1"
+    },
+    "graphSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "grantedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxRoleSessions",
+        "maxVerificationAttempts",
+        "wallClockSeconds"
+      ],
+      "properties": {
+        "maxRoleSessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxVerificationAttempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "maySend": {
+      "const": false
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

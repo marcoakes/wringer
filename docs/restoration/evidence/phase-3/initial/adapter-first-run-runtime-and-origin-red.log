@@ -1,0 +1,36 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+83 |     expect(await Bun.file(join(f.graphDir, "children/build/state/plan.json")).exists()).toBe(false); expect(f.roles).toEqual([]);
+84 | }, 60000);
+85 | test("a missing container runtime refuses before dispatch and leaves the loop reserved", async () => {
+86 |     const f = await fixture(), live = containedGraphDriver(), path = process.env.PATH;
+87 |     process.env.PATH = "/nonexistent-wringer-runtime-path";
+88 |     try { await expect(advanceContainedGraph(f.graphDir, live)).rejects.toThrow("Containment unavailable"); } finally { process.env.PATH = path; }
+                                                                             ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "Containment unavailable"
+Received message: "Source transport Git operation failed: Executable not found in $PATH: \"git\""
+
+      at <anonymous> ([checkout]/packages/application/test/graph.test.ts:88:73)
+(fail) a missing container runtime refuses before dispatch and leaves the loop reserved [2245.49ms]
+108 |     await assertAcceptanceInputsUnchanged(store, f.graph, await git(["-C", f.repo, "rev-parse", "HEAD"]));
+109 |     expect(product).not.toBe(weakened);
+110 | }, 60000);
+111 | test("delivery to a non-bare local origin is refused before preparation is recorded", async () => {
+112 |     const f = await fixture({ remote: "source" }), held = await toReview(f); await decideContainedGraph(f.graphDir, decide(held));
+113 |     await expect(advanceContainedGraph(f.graphDir, f.driver)).rejects.toThrow("bare repository");
+                                                                            ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "bare repository"
+Received message: "Inspecting the local publication origin failed; nothing was changed"
+
+      at <anonymous> ([checkout]/packages/application/test/graph.test.ts:113:71)
+(fail) delivery to a non-bare local origin is refused before preparation is recorded [5838.11ms]
+
+ 6 pass
+ 2 fail
+ 40 expect() calls
+Ran 8 tests across 1 file. [93.53s]

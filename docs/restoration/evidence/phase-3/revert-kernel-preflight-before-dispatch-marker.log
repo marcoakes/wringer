@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+228 | test('a refused preflight leaves work reserved, never dispatched or uncertain', async () => {
+229 |     const f = await fixture(); let ready = false;
+230 |     f.driver.preflight = async (request, operation) => { if (!ready && operation === 'dispatch') throw new Error(`Containment unavailable for ${request.node}; nothing was dispatched`); };
+231 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('Containment unavailable');
+232 |     const reserved = await readContainedGraph(f.dir, { now });
+233 |     expect(reserved.phase).toBe('pending'); expect(reserved.nodes.build!.dispatched).toBe(false); expect(f.calls).toEqual([]);
+                                 ^
+error: expect(received).toBe(expected)
+
+Expected: "pending"
+Received: "uncertain"
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:233:28)
+(fail) a refused preflight leaves work reserved, never dispatched or uncertain [18.50ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [172.00ms]

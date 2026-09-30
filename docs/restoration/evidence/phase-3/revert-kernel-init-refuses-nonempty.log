@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+209 |     expect(state.phase).toBe('expired'); expect(calls).toEqual([]); expect(state.events).toHaveLength(1);
+210 | });
+211 | test('a non-empty unrelated state directory is never adopted', async () => {
+212 |     const dir = await mkdtemp(join(tmpdir(), 'wringer-contained-graph-')); directories.push(dir); await writeFile(join(dir, 'notes.txt'), 'unrelated');
+213 |     const plan = compileContainedGraph(declaration()), authority = createGraphAuthority(plan, { actor: 'Scripted engineering fixture', at, expiresAt: '2026-09-29T13:00:00Z' });
+214 |     await expect(initializeContainedGraph(dir, plan, authority, { now })).rejects.toThrow('not empty');
+                                                                                        ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:214:83)
+(fail) a non-empty unrelated state directory is never adopted [11.21ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [165.00ms]

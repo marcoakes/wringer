@@ -1,0 +1,24 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+127 |         ["loop derivation rebound", forged(output, async dir => { const name = join(dir, "nodes/build/derivation.json"), value = JSON.parse(await readFile(name, "utf8")); value.inputSha256 = "b".repeat(64); await writeFile(name, JSON.stringify(value)); }), "Loop build"],
+128 |         ["loop result not the delivered journal", forged(output, async dir => { const name = join(dir, "graph/events/0003.json"), event = JSON.parse(await readFile(name, "utf8")); expect(event.kind).toBe("result"); event.data.evidenceSha256 = "c".repeat(64); await writeFile(name, JSON.stringify(event)); }, 3), "journal state"],
+129 |         ["missing delivery envelope", forged(output, async dir => rm(join(dir, "deliveries/ship"), { recursive: true })), "ENOENT"],
+130 |     ];
+131 |     expect(verifyResult).toBeGreaterThan(3);
+132 |     for (const [name, dir, reason] of cases) await expect(inspectGraph(await dir), name).rejects.toThrow(reason);
+                                                                                                       ^
+error: check evidence swapped
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at exportedEvidence ([isolated-checkout]/packages/application/test/graph.test.ts:132:98)
+      at async <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:81:11)
+(fail) a serial graph runs contained children, a fresh check, an exact review and a separate Send [33068.48ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 34 expect() calls
+Ran 1 test across 1 file. [33.31s]

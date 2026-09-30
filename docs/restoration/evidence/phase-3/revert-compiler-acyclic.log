@@ -1,0 +1,15 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph.test.ts:
+error: expect(received).toThrow(expected)
+
+Expected pattern: /cycle/i
+Received message: "Graph has an unreachable node"
+
+(fail) graph refuses cycle before effects [14.95ms]
+
+ 0 pass
+ 30 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [137.00ms]

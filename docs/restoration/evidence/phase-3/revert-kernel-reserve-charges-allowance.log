@@ -1,0 +1,25 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+28 |         async dispatch(request) {
+29 |             calls.push(request.node);
+30 |             expect(request.signal?.aborted).not.toBe(true);
+31 |             const history = await readContainedGraph(dir);
+32 |             expect(history.nodes[request.node]?.dispatched).toBe(true);
+33 |             expect(history.reserved.roleSessions).toBeGreaterThan(0);
+                                                       ^
+error: expect(received).toBeGreaterThan(expected)
+
+Expected: > 0
+Received: 0
+
+      at dispatch ([isolated-checkout]/packages/scheduler/test/contained.test.ts:33:51)
+      at async advanceLocked ([isolated-checkout]/packages/scheduler/src/contained.ts:381:30)
+      at async locked ([isolated-checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) serial workflow reserves before dispatch, holds exact review and requires a separate Send [19.02ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [170.00ms]

@@ -1,0 +1,988 @@
+{
+  "baseline": "599ea5f3694035822d214229f6e3bd212dabe455",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "compiler-declaration-version",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-unknown-fields",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-node-identity",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-known-edges",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-acyclic",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-reachable",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-entry",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-dominating-input",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-check-candidate",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-human-hold-candidate",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-router-typed-input",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-router-outcomes",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-router-unique-outcomes",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-required-on-done-paths",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-required-consequential",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-required-unique",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-role-allowance",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-verification-allowance",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-one-root-source",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-graph-acceptance-set",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-nondefault-branch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-credential-free-publication",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "authority-no-send",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "authority-bound-contract",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "authority-digest",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "authority-expiry",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-reserve-charges-allowance",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-dispatch-marker",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-observe-before-redispatch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-preflight-before-dispatch-marker",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "send-preflight-before-marker",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-root-deadline",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-authority-expiry",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-lock",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-init-refuses-nonempty",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-outcome-set",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-loop-owner",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-loop-source-url",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-check-candidate-identity",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-delivered-needs-send",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-prepared-candidate-identity",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-required-failure-stops",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-success-edge-only",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "decision-graph-hold-only",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "decision-revision",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "decision-input-digest",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "decision-closed-choice",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "decision-expiry",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "send-once",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "send-revision",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "send-prepared-digest",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "send-expiry",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-event-names",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-sequence-field",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-chain",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-digest",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-graph-binding",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-regular-files",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-reservation-transition",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-single-dispatch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-clip-wall-clock",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-clip-authority-expiry",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-owner-tree-binding",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-acceptance-inputs",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-observe-unstarted-is-uncertain",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-runtime-preflight",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-bare-origin",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-send-target-branch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-send-existing-branch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-send-reconcile-remote",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "export-portable-verification",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "export-discloses-local-origin",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-graph-file-digests",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-graph-event-digest",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-graph-event-chain",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-graph-binding",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-graph-check-evidence",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-graph-loop-derivation",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-graph-delivery-journal",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "cli-legacy-format-named",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "cli-one-explicit-choice",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

@@ -1,10 +1,16 @@
 # @wringer/scheduler
 
-This package retains internal/historical graph/fleet APIs and supported offline
-history readers. **It is not a production agent execution route.** Public
-`wring graph show`, `status` and `explain` are read-only. `wring fleet` and
-`wring bench` execution refuse with a contained-plan migration instruction;
-public graph execution is retired too.
+This package holds the contained serial graph kernel (`src/contained.ts`):
+aggregate reservations, a hash-chained append-only history, effect-free
+preflight, dispatch markers and read-only reconciliation. Effects run only
+through a driver; the production driver in `@wringer/application` uses the
+contained controller, verifier and delivery services. See
+[GRAPHS.md](../../docs/native/GRAPHS.md).
+
+It also retains internal/historical host graph/fleet APIs and supported offline
+history readers. **Those are not a production agent execution route.** Public
+`wring graph show`, `status` and `explain` read retired host graphs.
+`wring fleet`, `wring bench` and `wring graph run` refuse.
 
 For new agent work, follow [QUICKSTART.md](../../QUICKSTART.md) and
 [HEADLESS.md](../../docs/native/HEADLESS.md). The production plan, authority and

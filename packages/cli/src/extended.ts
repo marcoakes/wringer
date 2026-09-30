@@ -27,7 +27,7 @@ export async function extended(a: Args, repo: string, context: DispatchContext =
                 const value = await graphStatus(repo, file);
                 return { value, text: JSON.stringify(value, null, 2), exit: value.exit_code };
             }
-            throw new EngineError("Legacy graph execution is retired; its history remains readable. Declare bounded ACP roles in an execution plan.", 2, "wringer-drive plan --help");
+            throw new EngineError("Legacy host graph execution is retired; its history remains readable. Contained graphs of loops run with wringer-drive graph.", 2, "wringer-drive graph --help");
         }
         case "fleet": {
             throw new EngineError("Legacy host fleet execution is retired; no worker ran. Use an authorized contained execution plan.", 2, "wringer-drive plan --help");

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+107 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('candidate');
+108 | });
+109 | test('the root wall clock clips all child deadlines and never resets on resume', async () => {
+110 |     const f = await fixture(); await expect(advanceContainedGraph(f.dir, f.driver, crash('reserve'))).rejects.toThrow();
+111 |     const reserved = await readContainedGraph(f.dir); expect(reserved.nodes.build!.reservation.deadline).toBe('2026-09-29T12:10:00.000Z');
+112 |     expect((await advanceContainedGraph(f.dir, f.driver, { now: () => new Date('2026-09-29T12:10:01Z') })).phase).toBe('expired');
+                                                                                                                        ^
+error: expect(received).toBe(expected)
+
+Expected: "expired"
+Received: "human-hold"
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:112:115)
+(fail) the root wall clock clips all child deadlines and never resets on resume [33.47ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 9 expect() calls
+Ran 1 test across 1 file. [187.00ms]

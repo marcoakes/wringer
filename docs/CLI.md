@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.25
+Wringer · Bun/TypeScript · 1.0.0-alpha.26
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -64,7 +64,7 @@ Standalone trusted-local verification and historical evidence:
   wring verify --falsify --delivery ID Measure a committed range in a scratch clone
   wring attest --delivery ID          Record an independent audit report
   wring get URL DIRECTORY             Clone a repository; run none of its contents
-  wring graph show|status|explain     Read legacy graph declarations or history
+  wring graph show|status|explain     Read retired host-graph declarations or history
   wring job loop --job ID            Inspect attempts, decisions and remaining allowance
   wring job improvements --job ID    Inspect predictions, trials and future selection
   wring bundle --help                Export portable evidence with an independent reader
@@ -158,8 +158,9 @@ Next: wringer-drive --help
 wring graph show FILE
 wring graph status RECORD
 wring graph explain RECORD
-Read-only legacy graph inspection. Execution is retired; configure ACP roles in a contained plan.
-Next: wringer-drive plan --help
+Read-only inspection of retired host graphs. Their execution stays retired.
+Contained graphs of loops run with wringer-drive graph.
+Next: wringer-drive graph --help
 ```
 
 ## wring fleet
@@ -294,7 +295,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.25
+Wringer assistant entry point — 1.0.0-alpha.26
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.
@@ -362,6 +363,7 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
   wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
+  wringer-drive graph --help                   Serial graphs of contained loops: plan, run, decide, send, export
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
   wringer-drive planning-new-grant --state DIR  Preview a separate planning grant; no spend
@@ -462,6 +464,7 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
   wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
+  wringer-drive graph --help                   Serial graphs of contained loops: plan, run, decide, send, export
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
   wringer-drive planning-new-grant --state DIR  Preview a separate planning grant; no spend
@@ -651,4 +654,27 @@ Read structured failures from ordinary jobs without collecting anything:
   wring experiment patterns --from ORDINARY_CONTROLLER [--from ANOTHER] --task-family FAMILY
 Comparisons live in PRIVATE_ROOT/experiments/<registered-id>. Paths are never accepted
 from the coding-app tool or a browser decision. Connecting starts and approves nothing.
+```
+
+## wring drive graph
+
+```text
+wringer-drive graph · serial graphs of contained loops
+
+  wringer-drive graph plan GRAPH.yaml            Validate, pin every leaf plan and show the allowance; no spend
+  wringer-drive graph authority GRAPH.yaml --actor NAME --expires ISO --output AUTH.json
+  wringer-drive graph run GRAPH.yaml --authority AUTH.json --state DIR [--source-bundle FILE]
+  wringer-drive graph resume --state DIR          Advance or reconcile; never a new grant or a repeated effect
+  wringer-drive graph status --state DIR          Nodes, candidates, allowance and the exact next action
+  wringer-drive graph decide --state DIR --node ID --revision SHA --input SHA (--continue | --reject) --by NAME --note TEXT
+  wringer-drive graph send --state DIR --node ID --revision SHA --prepared SHA --by NAME --note TEXT
+  wringer-drive graph export --state DIR --output DIR
+
+Each loop node is an ordinary contained journey under children/NODE/state, with
+its own status, review and resume commands. Allowance for every declared leaf is
+reserved before any effect. A human hold binds the exact revision and input; it
+does not satisfy a child's own human criteria. Delivery is prepared, then needs
+a separate Send. Graph authority never grants Send.
+Exit: 0 complete, 1 failed, 3 waiting (hold, Send, uncertain, expired), 2 refused.
+Legacy host graphs stay readable with wring graph show|status|explain.
 ```

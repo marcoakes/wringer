@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+165 |     await assertAcceptanceInputsUnchanged(store, f.graph, await git(["-C", f.repo, "rev-parse", "HEAD"]));
+166 |     expect(product).not.toBe(weakened);
+167 | }, 60000);
+168 | test("delivery to a non-bare local origin is refused before preparation is recorded", async () => {
+169 |     const f = await fixture({ remote: "source" }), held = await toReview(f); await decideContainedGraph(f.graphDir, decide(held));
+170 |     await expect(advanceContainedGraph(f.graphDir, f.driver)).rejects.toThrow("bare repository");
+                                                                            ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "bare repository"
+Received message: "Contained delivery Git operation failed (128): fatal: not a git repository: '[temporary]'\n"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:170:71)
+(fail) delivery to a non-bare local origin is refused before preparation is recorded [6009.89ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [6.17s]

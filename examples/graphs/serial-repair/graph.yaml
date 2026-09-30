@@ -1,0 +1,52 @@
+# A contained serial graph: agree the scope, build in a contained loop, check the
+# exact candidate afresh, route on the typed outcome, review that candidate,
+# then prepare a delivery that still needs its own Send.
+#
+#   wringer-drive graph plan examples/graphs/serial-repair/graph.yaml
+#
+# Compile-only: the leaf plan pins a placeholder commit and image.
+version: 1
+id: serial-repair
+repository:
+  url: https://github.com/OWNER/REPOSITORY.git
+  commit: '0000000000000000000000000000000000000000'
+entry: scope
+required: [build, verify, review, ship]
+budget:
+  maxRoleSessions: 8        # every declared loop's sessions, reserved before any effect
+  maxVerificationAttempts: 10  # loop verifiers + discovery + the fresh check
+  wallClockSeconds: 3600    # root deadline; each child is clipped to what remains
+nodes:
+  scope:
+    kind: human-hold
+    input: root
+    prompt: Confirm this exact scope and allowance before any work starts.
+    then: build
+  build:
+    kind: loop
+    input: root
+    plan: plan.yaml
+    then: verify
+  verify:
+    kind: check
+    input: build
+    then: route
+  route:
+    kind: router
+    input: verify
+    routes:
+      - { outcome: passed, to: review }
+    otherwise: fail
+  review:
+    kind: human-hold
+    input: verify
+    prompt: Inspect the exact candidate and its evidence. Continue only if it is right.
+    then: ship
+  ship:
+    kind: delivery
+    input: review
+    publication:
+      remote: https://github.com/OWNER/REPOSITORY.git
+      sourceBranch: wringer/serial-repair
+      targetBranch: main
+    then: done

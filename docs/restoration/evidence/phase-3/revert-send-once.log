@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+123 | test('uncertain Send cannot be reissued by resume or a fresh send command', async () => {
+124 |     const f = await fixture(), held = await advanceContainedGraph(f.dir, f.driver, { now }); await decideContainedGraph(f.dir, decision(held), { now });
+125 |     const ready = await advanceContainedGraph(f.dir, f.driver, { now });
+126 |     await expect(sendContainedGraph(f.dir, send(ready), f.driver, crash('send'))).rejects.toThrow('simulated crash');
+127 |     const uncertain = await advanceContainedGraph(f.dir, f.driver, { now }); expect(uncertain.phase).toBe('uncertain');
+128 |     await expect(sendContainedGraph(f.dir, send(uncertain), f.driver, { now })).rejects.toThrow(); expect(f.sends).toEqual([]);
+                                                                                              ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:128:89)
+(fail) uncertain Send cannot be reissued by resume or a fresh send command [65.42ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 13 expect() calls
+Ran 1 test across 1 file. [219.00ms]

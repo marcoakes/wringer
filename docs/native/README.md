@@ -9,6 +9,8 @@ Wringer coordinates agents, checks and evidence. The agents author the product c
 
 This is prerelease software. Deterministic integration tests are not proof of live-agent convergence or real platform isolation.
 
+[Serial graphs](GRAPHS.md) compose contained loops, fresh checks, routers,
+human holds and deliveries into one resumable workflow.
 [Measured repair loops](MEASURED_LOOPS.md) explains the v3 contract: actual failure
 feedback, assertion-level checks, repeated-candidate stops and pinned worker
 playbooks. [Experiments](EXPERIMENTS.md) covers separately authorised comparisons
@@ -155,9 +157,10 @@ different format.
 the older repository-local verification record format. Its board derives Built ·
 Checks passing · Requirements proved · Human judgement complete · Ready to deliver ·
 Delivered. Those tools do not resume the contained journey above. Local checks
-and displays are trusted host execution, not an isolation fallback. Public
-graph execution, fleet execution and host-worker benchmarks are retired; retained
-graph/fleet APIs and readers are internal or historical tools.
+and displays are trusted host execution, not an isolation fallback. Host graph
+execution, fleet execution and host-worker benchmarks are retired; their retained
+APIs and readers are internal or historical tools. Contained serial graphs are a
+separate route: see [GRAPHS.md](GRAPHS.md).
 
 ## No-spend development exercise
 

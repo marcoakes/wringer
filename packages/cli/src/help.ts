@@ -49,7 +49,7 @@ Standalone trusted-local verification and historical evidence:
   wring verify --falsify --delivery ID Measure a committed range in a scratch clone
   wring attest --delivery ID          Record an independent audit report
   wring get URL DIRECTORY             Clone a repository; run none of its contents
-  wring graph show|status|explain     Read legacy graph declarations or history
+  wring graph show|status|explain     Read retired host-graph declarations or history
   wring job loop --job ID            Inspect attempts, decisions and remaining allowance
   wring job improvements --job ID    Inspect predictions, trials and future selection
   wring bundle --help                Export portable evidence with an independent reader
@@ -73,6 +73,7 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
   wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
+  wringer-drive graph --help                   Serial graphs of contained loops: plan, run, decide, send, export
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
   wringer-drive planning-new-grant --state DIR  Preview a separate planning grant; no spend
@@ -163,7 +164,7 @@ export const commandHelp: Record<string, string> = {
     plan: `wring plan PLAN.yaml\nValidates YAML or a literal TypeScript definePlan declaration. No repository code runs on the host.\nNext: wringer-drive --help`,
     run: `wring run PLAN.yaml --authority FILE [--state DIRECTORY]\nAlias for wringer-drive run. Worker and judge run over ACP in separate contained repository clones. No host execution fallback.\nNext: wringer-drive --help`,
     resume: `wring resume --state DIRECTORY [--retry-stopped | --retry-uncertain]\nAlias for wringer-drive resume. Revalidates the journal and existing bounded authority; does not reset budgets. Legacy host-loop/fleet/graph execution is retired.\nNext: wringer-drive --help`,
-    graph: `wring graph show FILE\nwring graph status RECORD\nwring graph explain RECORD\nRead-only legacy graph inspection. Execution is retired; configure ACP roles in a contained plan.\nNext: wringer-drive plan --help`,
+    graph: `wring graph show FILE\nwring graph status RECORD\nwring graph explain RECORD\nRead-only inspection of retired host graphs. Their execution stays retired.\nContained graphs of loops run with wringer-drive graph.\nNext: wringer-drive graph --help`,
     fleet: `Legacy host fleet execution is retired; retained records remain available to inspection.\nNext: wringer-drive plan --help`,
     health: `wring health [--from DIRECTORY (repeatable)] [--strict] [--json] [--output NEW_FILE]\nReads recorded history only: no worker, environment reads, network or new evidence bundle. Every unreadable or duplicated bundle is named. Strict exits 1 only for a currently required zombie.`,
     bench: `Legacy host worker benchmarks are retired. Use a separately authorized contained execution plan for each measurement.\nNext: wringer-drive plan --help`,

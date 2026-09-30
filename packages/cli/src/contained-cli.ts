@@ -15,6 +15,10 @@ const statePath = (repo: string, a: Args) => resolve(repo, required(a, "state"))
 const nextResume = (state: string) => `wringer-drive resume --state ${quote(state)}`;
 const nextBoard = (state: string) => `wringer-drive board --state ${quote(state)}`;
 export async function containedDrive(a: Args, repo: string, context: DispatchContext): Promise<Answer> {
+    if (a.command === "graph") {
+        const { graphDrive } = await import("./graph-cli");
+        return graphDrive(a, repo, context);
+    }
     if (flag(a, "help") || !a.command) return { text: DRIVE_HELP };
     context.signal?.throwIfAborted();
     if (a.command === "propose") {

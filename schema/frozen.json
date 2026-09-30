@@ -133,6 +133,11 @@
   "witness.schema.json": "2e3ea26f7629a26c3745e0eafdf327e4bb13cdc5d1c20f028fb831f1b490a017",
   "worker-diagnosis-v2.schema.json": "0f40b24b633bf00ed02e2c59a6fc1615a7c10804f0c4c98769d66cff71ebdf3b",
   "worker-diagnosis-v3.schema.json": "28a1e6a7b7b0344c7581fce0b066acf6ee65c2e5ceafff40766882c5475a87fa",
-  "worker-diagnosis.schema.json": "87ad2f64049c71f144b81a8bb7f61a1fb5c13b0feb11365aee7dd4fe7f5ec0a5"
+  "worker-diagnosis.schema.json": "87ad2f64049c71f144b81a8bb7f61a1fb5c13b0feb11365aee7dd4fe7f5ec0a5",
+  "contained-graph-plan-v1.schema.json": "6ea163fb697e73a79fae78905245faac28d994828c679cb7d5e847b1c52c8f88",
+  "contained-graph-authority-v1.schema.json": "7350c99d99a4755b17f57ce06d4e594866aaae7d938de8aceaa2d08800cfe38d",
+  "contained-graph-event-v1.schema.json": "541aeba5404a087dfd547960e61c53a8f0ed6732470b8d9745f8feecc00c355e",
+  "contained-graph-status-v1.schema.json": "6e840d3d3aa2a25ca0062015e990c093785628fc180b69415ac02eb6db5e772a",
+  "contained-graph-export-v1.schema.json": "2da720e47e334255442eeff0b14b6ff086e96abbec3b1f7026d335f34b7ec68b"
  }
 }

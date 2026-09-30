@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+157 |     await writeFile(join(f.repo, "check.sh"), "true\n"); await git(["-C", f.repo, "commit", "-am", "Weaken the check"]);
+158 |     const weakened = await git(["-C", f.repo, "rev-parse", "HEAD"]);
+159 |     await writeFile(join(f.repo, "src/value.js"), "export const expected = true;\n"); await git(["-C", f.repo, "commit", "-am", "Change product only"]);
+160 |     const product = await git(["-C", f.repo, "rev-parse", "HEAD"]);
+161 |     await git(["--git-dir", store, "fetch", f.repo, "main:refs/heads/main"]);
+162 |     await expect(assertAcceptanceInputsUnchanged(store, f.graph, weakened)).rejects.toThrow("acceptance input");
+                                                                                          ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:162:85)
+(fail) a candidate that changed an acceptance input cannot seed a derived child [3015.78ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [3.17s]

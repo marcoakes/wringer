@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+204 | test('graph authority expiry stops new work before the root wall clock', async () => {
+205 |     const dir = await mkdtemp(join(tmpdir(), 'wringer-contained-graph-')); directories.push(dir);
+206 |     const plan = compileContainedGraph(declaration()), authority = createGraphAuthority(plan, { actor: 'Scripted engineering fixture', at, expiresAt: '2026-09-29T12:05:00Z' });
+207 |     await initializeContainedGraph(dir, plan, authority, { now }); const calls: string[] = [];
+208 |     const state = await advanceContainedGraph(dir, { async dispatch(request) { calls.push(request.node); }, async observe() { return null; }, async send() { throw new Error('unexpected Send'); } }, { now: () => new Date('2026-09-29T12:06:00Z') });
+209 |     expect(state.phase).toBe('expired'); expect(calls).toEqual([]); expect(state.events).toHaveLength(1);
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: "expired"
+Received: "uncertain"
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:209:25)
+(fail) graph authority expiry stops new work before the root wall clock [20.26ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [167.00ms]

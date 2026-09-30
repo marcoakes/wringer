@@ -37,3 +37,4 @@ export * from "./delegation-recovery";
 export * from "./storage";
 export * from "./verification-send-recovery";
 export * from "./verification-recovery";
+export * from "./graph";

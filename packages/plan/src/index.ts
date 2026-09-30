@@ -7,4 +7,5 @@ export * from "./planning";
 export * from "./family";
 export * from "./playbook";
 export { validatePlaybookAdoption } from "./adoption";
+export * from "./graph";
 export type { PlanValidationOptions } from "./compile";

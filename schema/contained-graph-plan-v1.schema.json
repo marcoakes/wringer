@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compiled contained serial graph",
+  "description": "A validated acyclic graph of contained loops, deterministic checks, routers, human holds and deliveries. Data only: no repository code or command string is evaluated. sha256 is the canonical-JSON digest of every other field. The compiler also enforces dominance of inputs, typed outcomes, required nodes on every done path, protected cross-leaf acceptance inputs and an aggregate allowance that reserves every declared leaf.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "repository",
+    "entry",
+    "required",
+    "budget",
+    "nodes",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-plan.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "entry": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "required": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "maxLength": 80
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxRoleSessions",
+        "maxVerificationAttempts",
+        "wallClockSeconds"
+      ],
+      "properties": {
+        "maxRoleSessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxVerificationAttempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "nodes": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then",
+              "plan"
+            ],
+            "properties": {
+              "kind": {
+                "const": "loop"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "plan": {
+                "type": "object",
+                "description": "A complete compiled execution plan pinned into the graph. It must itself validate as wringer.execution-plan.v3 or v4 and pin the graph's root source.",
+                "required": [
+                  "schema_version",
+                  "plan_sha256",
+                  "repository",
+                  "budget",
+                  "acceptance"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "enum": [
+                      "wringer.execution-plan.v3",
+                      "wringer.execution-plan.v4"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "check"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "prompt",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "human-hold"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16384
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then",
+              "publication"
+            ],
+            "properties": {
+              "kind": {
+                "const": "delivery"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "publication": {
+                "description": "Credential-free HTTPS/SSH URL or an absolute local bare origin; the source branch is a distinct non-default review branch. Publication still needs a separate Send.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "remote",
+                  "sourceBranch",
+                  "targetBranch"
+                ],
+                "properties": {
+                  "remote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "sourceBranch": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "targetBranch": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "routes",
+              "otherwise"
+            ],
+            "properties": {
+              "kind": {
+                "const": "router"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "routes": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "to"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    },
+                    "to": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    }
+                  }
+                }
+              },
+              "otherwise": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          }
+        ]
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

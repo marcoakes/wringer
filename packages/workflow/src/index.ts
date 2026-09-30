@@ -2,7 +2,7 @@ export * from "./types";
 export { draftSpec, reviseSpec, runDrive, resumeDrive, judge } from "./migration";
 export { loadNativePlan, loadSpec, planDigest, specFromPlan, savePlan, answerQuestion, decideAssumption, approveSpec, compilePlan, renderPlan } from "./plan";
 export { createAuthority, loadAuthority, validateAuthority, AUTHORITY_ACTIONS } from "./authority";
-export { WorkflowError, WORKFLOW_DIR, SPEC_PATH, PLAN_PATH, SOURCE_PATH } from "./storage";
+export { WorkflowError, WORKFLOW_DIR, SPEC_PATH, PLAN_PATH, SOURCE_PATH, locked, safePath, workflowLockStatus } from "./storage";
 export { runContainedJourney, resumeContainedJourney, readValidatedContainedState, recordContainedHumanJudgement, recordContainedHumanDecisions, requestContainedRevision, withContainedJourneyLock } from "./contained";
 export { validContainedHumanAttribution } from "./human-decision";
 export type { ValidatedContainedState } from "./contained";

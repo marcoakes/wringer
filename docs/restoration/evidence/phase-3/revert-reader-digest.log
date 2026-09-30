@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+146 |         // A semantically valid edit without a re-hash: only the digest can notice it.
+147 |         if (mutation === 'hash') { const v = JSON.parse(bytes); v.at = '2026-09-29T12:00:05.000Z'; await writeFile(path, JSON.stringify(v)); }
+148 |         if (mutation === 'missing') await rm(path);
+149 |         if (mutation === 'duplicate') await writeFile(join(eventDir, '9999.json'), bytes);
+150 |         if (mutation === 'symlink') { const outside = join(f.dir, 'copied-event.json'); await writeFile(outside, bytes); await rm(path); await symlink(outside, path); }
+151 |         await expect(readContainedGraph(f.dir)).rejects.toThrow();
+                                                              ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:151:57)
+(fail) hash changes, missing events, duplicates and symlink records are detected by the reader [34.73ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [180.00ms]

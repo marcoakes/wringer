@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph.test.ts:
+172 | }, 120000);
+173 | test("a Send to an absent target branch is refused before the Send is recorded", async () => {
+174 |     const f = await fixture({ targetBranch: "release" }), held = await toReview(f); await decideContainedGraph(f.graphDir, decide(held));
+175 |     const ready = await advanceContainedGraph(f.graphDir, f.driver); expect(ready.phase).toBe("send-hold");
+176 |     await expect(sendContainedGraph(f.graphDir, send(ready), f.driver)).rejects.toThrow("target branch");
+177 |     const after = await readContainedGraph(f.graphDir); expect(after.revision).toBe(ready.revision); expect(after.phase).toBe("send-hold");
+                                                                                     ^
+error: expect(received).toBe(expected)
+
+Expected: "be6dfe709b3c46c8b434af6d7318c1cf0cae897fd0c87d3c8b061d5195b52d99"
+Received: "da9c6a42d5f9436b1b3c67947c9fbf755f1c03945f07a3c4f69959968cc48da2"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph.test.ts:177:80)
+(fail) a Send to an absent target branch is refused before the Send is recorded [27462.02ms]
+
+ 0 pass
+ 8 filtered out
+ 1 fail
+ 5 expect() calls
+Ran 1 test across 1 file. [27.63s]

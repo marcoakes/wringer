@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained.test.ts:
+197 | });
+198 | test('a non-required failed check does not continue along its success edge', async () => {
+199 |     const f = await fixture(v => { v.required = v.required.filter((id: string) => id !== 'check'); }), dispatch = f.driver.dispatch;
+200 |     f.driver.dispatch = async request => { await dispatch(request); if (request.node === 'check') (f.observed.get('check') as any).outcome = 'failed'; };
+201 |     const state = await advanceContainedGraph(f.dir, f.driver, { now });
+202 |     expect(state.phase).toBe('failed'); expect(state.reason).toBe('check ended failed'); expect(state.nodes.review).toBeUndefined();
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: "failed"
+Received: "human-hold"
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained.test.ts:202:25)
+(fail) a non-required failed check does not continue along its success edge [29.37ms]
+
+ 0 pass
+ 32 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [184.00ms]

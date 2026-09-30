@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/graph-cli.test.ts:
+30 |     expect(result.text).toContain("No agent, container or repository command ran");
+31 |     expect((await drive("--help") as any).text).toContain("wringer-drive graph run GRAPH.yaml");
+32 | });
+33 | test("a retired host graph is refused by name and stays readable through the legacy reader", async () => {
+34 |     const error = await refused(drive("plan", legacy));
+35 |     expect(error.exit_code).toBe(2); expect(error.message).toContain("retired host-execution graph"); expect(error.message).toContain("wring graph show");
+                                                                ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "retired host-execution graph"
+Received: "Contained graph refused before any effect: graph has an unknown field"
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/graph-cli.test.ts:35:60)
+(fail) a retired host graph is refused by name and stays readable through the legacy reader [11.33ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [258.00ms]

@@ -1,0 +1,19 @@
+{
+  "observations": [
+    {
+      "name": "old authority",
+      "refused": true,
+      "message": "Error: Authority is bound to a different plan, acceptance contract or source revision"
+    },
+    {
+      "name": "new source authority with old environment",
+      "refused": true,
+      "message": "Error: Observations cannot update an altered or stale environment map"
+    }
+  ],
+  "rolesDispatched": 0,
+  "fixture": true,
+  "providerCalls": 0,
+  "conclusion": "A carried candidate needs a newly derived source-bound plan/authority and measured map. Reusing the original leaf authority or map fails before role dispatch.",
+  "diagnosticError": "The first public CLI probe looked for its JSON refusal on stderr. The recorded refusal is correctly on stdout; the corrected probe parses that JSON."
+}

@@ -1,17 +1,19 @@
 # Current product evidence — 29 September 2026
 
 The current verified public release is
-[1.0.0-alpha.24](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.24),
-commit `40421292da044b91a7d8b072e64066f4d56d6aa4`. All final-commit
-test/DAC jobs and all six release jobs passed. All 14 assets matched that clean
-source; both archives' signed provenance verified. Public macOS extraction and
-installation passed 17 and 13 checks respectively. Linux ran in native CI.
-See the [release verification](docs/restoration/evidence/phase-1/release.json)
-for exact hashes, jobs and the authenticated-download limitation.
+[1.0.0-alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25),
+commit `599ea5f3694035822d214229f6e3bd212dabe455`. All final test/DAC
+jobs and all six release jobs passed. A first Linux browser attempt failed when
+Chromium could not capture a fixture image; its single targeted rerun passed
+without code changes. That failure remains visible in the release record.
+All 14 public assets matched the clean source, both archives' signed provenance
+verified, and public macOS extraction/installation passed 17/13 checks. Linux
+ran in native CI. See the [release verification](docs/restoration/evidence/phase-2/release.json)
+for hashes, jobs, prior attempts and the authenticated-download limitation.
 
-Phase 2 connects measured improvement to ordinary jobs. It is under local
-qualification as alpha.25; this working tree is not yet a published release.
-Follow the [execution record](docs/restoration/STATUS.md) and
+Phase 3 adds serial graphs of contained loops as alpha.26; it is under local
+qualification and not yet a published release. Follow the
+[execution record](docs/restoration/STATUS.md) and
 [capability ledger](docs/CAPABILITIES.md).
 
 Fixture loop control, portable audits and prediction-gated playbook experiments
