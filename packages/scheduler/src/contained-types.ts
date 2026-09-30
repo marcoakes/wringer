@@ -4,8 +4,10 @@ import type { ContainedGraphPlan, GraphAuthority, RepositoryRef } from '@wringer
 export interface GraphCandidate { source: RepositoryRef; tree: string; owner: string; }
 /** What a node received: its predecessor (`root` or a node id), that
  * predecessor's source, candidate and evidence digest. */
-export interface GraphBranchInput { branch: string; node: string; candidate: GraphCandidate; evidenceSha256: string; }
-export interface GraphInput { node: string; source: RepositoryRef; candidate: GraphCandidate | null; evidenceSha256: string; /** A join's inputs, one per branch in declared order. */ branches?: GraphBranchInput[]; }
+/** One branch's arrival. A join's branches always carry a candidate; a tournament's
+ * also carry the arriving outcome, and a disqualified branch may have no candidate. */
+export interface GraphBranchInput { branch: string; node: string; outcome?: string; candidate: GraphCandidate | null; evidenceSha256: string; }
+export interface GraphInput { node: string; source: RepositoryRef; candidate: GraphCandidate | null; evidenceSha256: string; /** A join's or tournament's inputs, one per branch in declared order. */ branches?: GraphBranchInput[]; }
 export interface GraphResult { kind: 'complete'; outcome: string; candidate: GraphCandidate | null; evidenceSha256: string; }
 export interface GraphPreparation { kind: 'prepared'; candidate: GraphCandidate; evidenceSha256: string; }
 export type GraphObservation = GraphResult | GraphPreparation | { kind: 'held'; reason: string };
@@ -13,7 +15,7 @@ export interface GraphReservation { roleSessions: number; verificationAttempts: 
 export interface GraphRoute { outcome: string; to: string; via: string[]; reason: string | null; /** A fork's route: every branch it opens. */ branches?: string[]; }
 export type GraphEventKind = 'start' | 'reserve' | 'dispatch' | 'prepared' | 'send' | 'result' | 'decision' | 'route';
 export interface GraphEvent {
-    schema_version: 'wringer.contained-graph-event.v1' | 'wringer.contained-graph-event.v2'; graphSha256: string; sequence: number; previousSha256: string | null;
+    schema_version: 'wringer.contained-graph-event.v1' | 'wringer.contained-graph-event.v2' | 'wringer.contained-graph-event.v3'; graphSha256: string; sequence: number; previousSha256: string | null;
     at: string; node: string | null; kind: GraphEventKind;
     data: any; sha256: string;
 }

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+132 | }, 240000);
+133 | test("a challenge run that cannot show its exact candidate in a contained verifier makes the tournament unavailable", async () => {
+134 |     const f = await fixture({ branches: { "build-a": "hardcoded", "build-b": "arith" }, tamperChallengeRuns: true }), state = await advanceContainedGraph(f.graphDir, f.driver);
+135 |     const t = await record(f.graphDir);
+136 |     expect(t.challenges[0].validation).toBe("valid"); expect(t.runs.every((row: any) => row.outcome === "unavailable")).toBe(true);
+137 |     expect(t.selection.outcome).toBe("unavailable"); expect(state.phase).toBe("failed");
+                                      ^
+error: expect(received).toBe(expected)
+
+Expected: "unavailable"
+Received: "selected"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:137:33)
+(fail) a challenge run that cannot show its exact candidate in a contained verifier makes the tournament unavailable [16211.25ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [16.43s]

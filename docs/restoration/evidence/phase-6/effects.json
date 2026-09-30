@@ -1,0 +1,190 @@
+{
+  "layered": [
+    {
+      "guard": "fork names its own tournament; tournament names its fork",
+      "maskedBy": "each other, as in phase 4: the fork-side check refuses a mismatched pair first"
+    },
+    {
+      "guard": "a candidate that does not descend from the fork's source is ineligible",
+      "maskedBy": "every branch child is derived from the fork's input; no fixture can produce another base"
+    },
+    {
+      "guard": "the selection is recorded before the final evaluator runs",
+      "maskedBy": "structural order in one function; the test checks that challenge runs precede evaluator runs and that a candidate the evaluator fails stays selected"
+    },
+    {
+      "guard": "the reader re-derives each run's outcome and each challenge's validation",
+      "maskedBy": "the reader's selection recomputation refuses the same forgeries, because a rescued run changes the survivors"
+    },
+    {
+      "guard": "the selected candidate's owner record matches the kernel result",
+      "maskedBy": "the kernel accepts only a delivered branch candidate owned by the tournament"
+    },
+    {
+      "guard": "trusted controls are re-checked when the tournament runs",
+      "maskedBy": "the preflight refuses a missing control before the dispatch marker"
+    }
+  ],
+  "effects": [
+    {
+      "name": "compiler-tournament-needs-version-3",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-prosecutor-writes-one-file",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-prosecutor-same-source",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-challenge-limit",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-control-limit",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "compiler-control-exact-commit",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-evaluator-required",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-evaluator-one-content-per-path",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-gate-safe-path",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-gate-timeout-bound",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-tie-declared",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-no-required-branch",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-no-check-after-tournament",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-tournament-reservation",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-tournament-owns-candidate",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-stopped-branch-arrives",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-tournament-waits-for-every-branch",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-selects-only-a-delivered-candidate",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-tournament-owns-selection",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-no-winner-has-no-candidate",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-version-3-events",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-eligible-needs-own-checks",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-labels-follow-content",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-prosecutor-one-file",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-challenge-limit",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-challenge-cites-requirement",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-challenge-files-own-prefix",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-challenge-must-pass-controls",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-no-control-is-advisory",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-spurious-not-replayed",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-only-valid-disqualifies",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-contained-provenance",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-tie-rule-no-winner",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "tournament-selection-by-tree",
+      "effect": "not-red"
+    },
+    {
+      "name": "tournament-unavailable-run-blocks-selection",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-control-preflight",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-tournament-owner",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "reader-recomputes-selection",
+      "effect": "not-red"
+    },
+    {
+      "name": "reader-binds-tournament-evidence",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-tournament-delivery-carries-export",
+      "effect": "recorded-state-changed"
+    }
+  ]
+}

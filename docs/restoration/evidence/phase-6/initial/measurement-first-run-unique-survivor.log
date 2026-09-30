@@ -1,0 +1,43 @@
+{
+  "currentContract": {
+    "graphCompiles": "wringer.contained-graph-plan.v2",
+    "joinOutcomeForAlternatives": "conflict",
+    "conflictingPaths": [
+      "src/total.sh"
+    ],
+    "reading": "A version 2 join integrates every branch; alternatives that edit the same file conflict. A branch that stops ends the whole graph. Nothing selects one alternative or tries to falsify it."
+  },
+  "policies": {
+    "single": {
+      "orders": 24,
+      "selectedDefect": 16,
+      "noWinner": 0,
+      "orderSensitiveTasks": 4
+    },
+    "vote": {
+      "orders": 24,
+      "selectedDefect": 6,
+      "noWinner": 6,
+      "orderSensitiveTasks": 3
+    },
+    "tournament": {
+      "orders": 24,
+      "selectedDefect": 0,
+      "noWinner": 24,
+      "orderSensitiveTasks": 0
+    }
+  },
+  "resources": {
+    "single": {
+      "roleSessions": "1 worker + 1 judge per journey (max_sessions 2)",
+      "verificationRuns": 1
+    },
+    "tournament": {
+      "roleSessions": "3 × (worker + judge) + 1 prosecutor = 7",
+      "verificationRuns": "3 own checks + 1 control validation + 3 challenge runs + 1 final evaluation = 8"
+    },
+    "hostCommandRuns": 41,
+    "hostCommandMedianMs": 8.8,
+    "reading": "A three-candidate tournament costs about 3.5 times the role sessions and 8 times the verification runs of one candidate here. Contained verifiers add runtime start-up to every run."
+  }
+}

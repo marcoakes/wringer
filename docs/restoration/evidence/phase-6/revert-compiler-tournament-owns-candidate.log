@@ -1,0 +1,21 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v3.test.ts:
+33 | }
+34 | const KINDS = ['loop', 'check', 'router', 'human-hold', 'delivery'], PARALLEL_KINDS = ['fork', 'join'], TOURNAMENT_KINDS = ['tournament'];
+35 | /** A node that closes a fork: it waits for every branch and reads their results. */
+36 | export const closesFork = (node: ContainedGraphNode | undefined): node is Extract<ContainedGraphNode, { kind: 'join' | 'tournament' }> => node?.kind === 'join' || node?.kind === 'tournament';
+37 | const SINKS = ['done', 'fail'];
+38 | function fail(message: string): never { throw new Error(message); }
+                                                                    ^
+error: Unknown candidate reference
+      at fail ([isolated-checkout]/packages/plan/src/graph.ts:38:64)
+      at graphCandidateOwner ([isolated-checkout]/packages/plan/src/graph.ts:66:53)
+      at compileContainedGraph ([isolated-checkout]/packages/plan/src/graph.ts:285:70)
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph-v3.test.ts:10:80)
+(fail) a version 3 graph closes a fork with a tournament that owns the selected candidate [20.75ms]
+
+ 0 pass
+ 18 filtered out
+ 1 fail
+Ran 1 test across 1 file. [146.00ms]

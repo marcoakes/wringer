@@ -1,0 +1,39 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+193 |     await advanceContainedGraph(outside.graphDir, outside.driver); expect((await record(outside.graphDir)).prosecutor.reason).toContain("never replaces candidate files");
+194 | }, 240000);
+195 | test("without a trusted control, challenges are advisory and disqualify nobody", async () => {
+196 |     const f = await fixture({ branches: { "build-a": "hardcoded", "build-b": "arith" }, controls: "none", tie: "no-winner" }); await advanceContainedGraph(f.graphDir, f.driver);
+197 |     const t = await record(f.graphDir);
+198 |     expect(t.challenges[0].validation).toBe("advisory"); expect(t.runs.find((row: any) => row.branch === "build-a")).toMatchObject({ outcome: "survived", reproduced: [] });
+                                                                                                                           ^
+error: expect(received).toMatchObject(expected)
+
+  {
+-   "outcome": "survived",
+-   "reproduced": [],
++   "branch": "build-a",
++   "outcome": "disqualified",
++   "reproduced": [
++     "grid",
++   ],
++   "results": [
++     {
++       "challenge": "grid",
++       "code": 1,
++     },
++   ],
+  }
+
+- Expected  - 2
++ Received  + 11
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:198:118)
+(fail) without a trusted control, challenges are advisory and disqualify nobody [14277.69ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [14.49s]

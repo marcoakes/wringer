@@ -71,3 +71,10 @@ test("the public graph route exposes no fixture driver, clock or crash hook", as
     const source = await readFile(join(root, "packages/cli/src/graph-cli.ts"), "utf8");
     for (const hook of ["executeRole", "runCommands", "checkpoint", "now:", "FIXTURE"]) expect(source.includes(hook)).toBe(false);
 });
+test("the tournament example compiles as a version 3 graph and states its selection policy", async () => {
+    const result: any = await drive("plan", join(root, "examples/graphs/tournament/graph.yaml")), validate = await schema("contained-graph-plan-v3.schema.json");
+    expect(validate(result.value)).toBe(true); expect(result.value.schema_version).toBe("wringer.contained-graph-plan.v3");
+    expect(result.value.nodes.pick.prosecutor.plan.scope.writable).toEqual(["wringer/challenges.json"]);
+    expect(result.text).toContain("1 prosecutor, 1 trusted control, 1 final evaluator gate, ties → tree-order");
+    expect(result.text).toContain("reserve 25/25 role sessions");
+});

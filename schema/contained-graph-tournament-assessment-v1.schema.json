@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The final untouched evaluator's assessment of a tournament",
+  "description": "children/NODE/assessment.json, written after the selection it names by digest. It assesses every eligible candidate for the record and never changes the selection.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tournamentSha256",
+    "candidates",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-tournament-assessment.v1"
+    },
+    "tournamentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "branch",
+          "outcome",
+          "codes"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "unavailable"
+            ]
+          },
+          "codes": {
+            "type": "array",
+            "items": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

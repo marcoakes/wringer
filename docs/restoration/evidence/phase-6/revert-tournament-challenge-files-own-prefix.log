@@ -1,0 +1,19 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+188 |     const tooMany = await fixture({ branches: { "build-a": "arith", "build-b": "expr" }, challenges: [1, 2, 3, 4, 5].map(n => ({ ...grid, id: `grid-${n}`, files: [{ ...grid.files[0]!, path: `wringer/challenges/grid-${n}.sh` }], argv: ["sh", `wringer/challenges/grid-${n}.sh`] })) });
+189 |     await advanceContainedGraph(tooMany.graphDir, tooMany.driver); expect((await record(tooMany.graphDir)).prosecutor.reason).toContain("at most 4");
+190 |     const uncited = await fixture({ branches: { "build-a": "arith", "build-b": "expr" }, challenges: [{ ...grid, criterion: "speed" }] });
+191 |     await advanceContainedGraph(uncited.graphDir, uncited.driver); expect((await record(uncited.graphDir)).prosecutor.reason).toContain("cites no requirement");
+192 |     const outside = await fixture({ branches: { "build-a": "arith", "build-b": "expr" }, challenges: [{ ...grid, files: [{ path: "src/total.sh", content: "echo 5\n" }] }] });
+193 |     await advanceContainedGraph(outside.graphDir, outside.driver); expect((await record(outside.graphDir)).prosecutor.reason).toContain("never replaces candidate files");
+                                                                                                                                    ^
+error: Received value must be an array type, or both received and expected values must be strings.
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:193:127)
+(fail) challenges beyond the declared limit or citing no requirement are refused [36873.80ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [37.08s]

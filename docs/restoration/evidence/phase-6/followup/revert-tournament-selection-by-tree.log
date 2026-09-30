@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+176 | }, 240000);
+177 | test("the selection does not depend on branch order", async () => {
+178 |     const first = await fixture({ branches: { "build-a": "hardcoded", "build-b": "arith", "build-c": "expr" } });
+179 |     const second = await fixture({ branches: { "build-a": "hardcoded", "build-b": "arith", "build-c": "expr" }, order: ["build-c", "build-a", "build-b"] });
+180 |     const left = await advanceContainedGraph(first.graphDir, first.driver), right = await advanceContainedGraph(second.graphDir, second.driver);
+181 |     expect(left.nodes.pick!.result!.candidate!.tree).toBe(right.nodes.pick!.result!.candidate!.tree);
+                                                           ^
+error: expect(received).toBe(expected)
+
+Expected: "e8009ff18b940f8a89a2145bc3e8f1740bf45f04"
+Received: "78b47aa9738da7839b8ffc321c9747c53367947a"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:181:54)
+(fail) the selection does not depend on branch order [37538.95ms]
+
+ 1 pass
+ 10 filtered out
+ 1 fail
+ 26 expect() calls
+Ran 2 tests across 1 file. [68.39s]

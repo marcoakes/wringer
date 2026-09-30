@@ -1,0 +1,19 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+186 | }, 240000);
+187 | test("challenges beyond the declared limit or citing no requirement are refused", async () => {
+188 |     const tooMany = await fixture({ branches: { "build-a": "arith", "build-b": "expr" }, challenges: [1, 2, 3, 4, 5].map(n => ({ ...grid, id: `grid-${n}`, files: [{ ...grid.files[0]!, path: `wringer/challenges/grid-${n}.sh` }], argv: ["sh", `wringer/challenges/grid-${n}.sh`] })) });
+189 |     await advanceContainedGraph(tooMany.graphDir, tooMany.driver); expect((await record(tooMany.graphDir)).prosecutor.reason).toContain("at most 4");
+190 |     const uncited = await fixture({ branches: { "build-a": "arith", "build-b": "expr" }, challenges: [{ ...grid, criterion: "speed" }] });
+191 |     await advanceContainedGraph(uncited.graphDir, uncited.driver); expect((await record(uncited.graphDir)).prosecutor.reason).toContain("cites no requirement");
+                                                                                                                                    ^
+error: Received value must be an array type, or both received and expected values must be strings.
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:191:127)
+(fail) challenges beyond the declared limit or citing no requirement are refused [27051.16ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [27.30s]

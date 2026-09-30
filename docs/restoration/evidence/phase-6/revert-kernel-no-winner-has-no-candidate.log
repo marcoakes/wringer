@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-tournament.test.ts:
+61 |     const f = await fixture({ pick: (input, of) => ({ kind: 'complete', outcome: 'selected', candidate: of('build-a'), evidenceSha256: hashValue(input.branches) }) });
+62 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('must own');
+63 | });
+64 | test('no winner carries no candidate and a required tournament then fails the graph', async () => {
+65 |     const forged = await fixture({ pick: (input, of) => ({ kind: 'complete', outcome: 'no-winner', candidate: of('build-a', 'pick'), evidenceSha256: hashValue(input.branches) }) });
+66 |     await expect(advanceContainedGraph(forged.dir, forged.driver, { now })).rejects.toThrow('with a candidate');
+                                                                                         ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-tournament.test.ts:66:85)
+(fail) no winner carries no candidate and a required tournament then fails the graph [57.29ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [199.00ms]

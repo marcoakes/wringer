@@ -1,0 +1,28 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-tournament.test.ts:
+78 |     expect(resumed.nodes.pick!.result!.outcome).toBe('no-winner'); expect(f.calls.filter(node => node === 'pick')).toHaveLength(0);
+79 | });
+80 | test('a tournament writes version 3 events', async () => {
+81 |     const f = await fixture(); await advanceContainedGraph(f.dir, f.driver, { now });
+82 |     const state = await readContainedGraph(f.dir);
+83 |     expect(new Set(state.events.map(event => event.schema_version))).toEqual(new Set(['wringer.contained-graph-event.v3']));
+                                                                          ^
+error: expect(received).toEqual(expected)
+
+  Set {
+-   "wringer.contained-graph-event.v3",
++   "wringer.contained-graph-event.v1",
+  }
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-tournament.test.ts:83:70)
+(fail) a tournament writes version 3 events [67.84ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [210.00ms]

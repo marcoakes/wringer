@@ -67,11 +67,33 @@ const hashJson = value => digest(canonical(value));
 const withoutDigest = value => { const { sha256, ...body } = value; return body; };
 /** A contained graph export: plan, grant, hash-chained events, per-node evidence
  * bound to the recorded results, and nested delivery envelopes. */
+// A tournament's selection is recomputed from its recorded rows, never trusted.
+function tournamentSelection(t) {
+    const tie = t.selection?.tie, base = { tie, survivors: [], selected: null };
+    for (const challenge of t.challenges) {
+        const codes = challenge.controls.map(row => row.code);
+        const expected = !codes.length ? "advisory" : codes.some(code => code === null) ? "unavailable" : codes.every(code => code === 0) ? "valid" : "spurious";
+        insist(challenge.validation === expected, `Tournament challenge ${challenge.id} validation does not follow from its control runs`);
+    }
+    for (const run of t.runs) {
+        const valid = run.results.filter(result => t.challenges.find(row => row.id === result.challenge)?.validation === "valid");
+        const reproduced = valid.filter(result => result.code !== null && result.code !== 0).map(result => result.challenge);
+        const outcome = run.results.some(result => result.code === null) ? "unavailable" : reproduced.length ? "disqualified" : "survived";
+        insist(JSON.stringify(run.reproduced) === JSON.stringify(reproduced) && run.outcome === outcome, `Tournament run for ${run.branch} does not follow from its results`);
+    }
+    if (t.prosecutor.status === "stopped") return { ...base, outcome: "unavailable", reason: t.selection.reason };
+    if (t.challenges.some(row => row.validation === "unavailable") || t.runs.some(row => row.outcome === "unavailable")) return { ...base, outcome: "unavailable", reason: t.selection.reason };
+    const eligible = t.candidates.filter(row => row.eligible);
+    const survivors = eligible.filter(row => t.runs.find(run => run.branch === row.branch)?.outcome !== "disqualified").sort((a, b) => a.tree.localeCompare(b.tree) || a.commit.localeCompare(b.commit)).map(row => row.branch);
+    if (!survivors.length) return { ...base, outcome: "no-winner", reason: t.selection.reason };
+    if (survivors.length === 1 || tie === "tree-order") return { tie, survivors, selected: survivors[0], outcome: "selected", reason: t.selection.reason };
+    return { tie, survivors, selected: null, outcome: "no-winner", reason: t.selection.reason };
+}
 export async function inspectGraph(input) {
     insist(!(await lstat(input)).isSymbolicLink(), "Symlink export root");
     const root = await realpath(input), json = async name => JSON.parse(await file(root, name));
     const index = await json("graph.json");
-    const version = { "wringer.contained-graph-export.v1": 1, "wringer.contained-graph-export.v2": 2 }[index.schema_version];
+    const version = { "wringer.contained-graph-export.v1": 1, "wringer.contained-graph-export.v2": 2, "wringer.contained-graph-export.v3": 3 }[index.schema_version];
     insist(version, "Unsupported graph export index");
     insist(index.files && typeof index.files === "object" && !Array.isArray(index.files) && Array.isArray(index.nodes), "Invalid graph export inventory");
     const deliveries = index.nodes.filter(row => row.delivery).map(row => row.delivery);
@@ -111,11 +133,22 @@ export async function inspectGraph(input) {
             insist(JSON.stringify(carried.integration.branches.map(item => item.commit)) === JSON.stringify(arrived.map(item => item.candidate.source.commit)), `Join ${row.id} integrated candidates other than its branches`);
             insist(result.data.outcome === "conflict" ? !result.data.candidate : result.data.candidate?.source.commit === carried.integration.commit, `Join ${row.id} outcome names a candidate other than its integration`);
         }
+        if (node.kind === "tournament" && result) {
+            const carried = row.evidence && await json(row.evidence), t = carried?.tournament, assessed = carried?.assessment;
+            insist(carried && hashJson(carried) === result.data.evidenceSha256, `Tournament ${row.id} evidence does not match its recorded result`);
+            insist(t?.schema_version === "wringer.contained-graph-tournament.v1" && hashJson(withoutDigest(t)) === t.sha256 && t.graphSha256 === plan.sha256 && t.node === row.id && reserve && t.inputSha256 === hashJson(reserve.data.reservation.input), `Tournament ${row.id} record is not bound to its reserved input`);
+            insist(assessed?.schema_version === "wringer.contained-graph-tournament-assessment.v1" && hashJson(withoutDigest(assessed)) === assessed.sha256 && assessed.tournamentSha256 === t.sha256, `Tournament ${row.id} assessment is not bound to its selection`);
+            const arrived = reserve.data.reservation.input.branches ?? [];
+            insist(JSON.stringify(t.candidates.map(item => [item.branch, item.commit])) === JSON.stringify(arrived.map(item => [item.branch, item.candidate?.source.commit ?? null])), `Tournament ${row.id} candidates are not its branch arrivals`);
+            insist(JSON.stringify(tournamentSelection(t)) === JSON.stringify(t.selection), `Tournament ${row.id} selection does not follow from its recorded runs`);
+            const winner = t.candidates.find(item => item.branch === t.selection.selected);
+            insist(result.data.outcome === t.selection.outcome && (winner ? result.data.candidate?.source.commit === winner.commit && result.data.candidate?.tree === winner.tree : !result.data.candidate), `Tournament ${row.id} outcome names a candidate other than its selection`);
+        }
         if (node.kind === "delivery") {
             if (prepared) insist(row.prepared && hashJson(await json(row.prepared)) === prepared.data.evidenceSha256, `Delivery ${row.id} preparation does not match its record`);
             if (result) insist(row.evidence && hashJson(await json(row.evidence)) === result.data.evidenceSha256, `Delivery ${row.id} outcome does not match its record`);
-            // A join-owned delivery publishes this graph export itself; only a loop's delivery has an envelope.
-            if (prepared && plan.nodes[prepared.data.candidate.owner]?.kind !== "join") {
+            // A join- or tournament-owned delivery publishes this graph export itself; only a loop's delivery has an envelope.
+            if (prepared && !["join", "tournament"].includes(plan.nodes[prepared.data.candidate.owner]?.kind)) {
                 insist(row.delivery, `Delivery ${row.id} is missing its evidence envelope`);
                 const inspected = await inspectBundle(join(root, row.delivery)), candidate = prepared.data.candidate;
                 const manifest = JSON.parse(await file(join(root, row.delivery, "evidence"), "manifest.json")), owner = recorded(candidate.owner, "result");

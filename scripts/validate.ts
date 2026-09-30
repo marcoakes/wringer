@@ -38,6 +38,8 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["compiled-graph-contract", [process.execPath, "scripts/graph-distribution.ts"], workspace],
         // No-model compiled parallel graph: two branches, a verified integration and a graph-evidence Send.
         ["compiled-parallel-graph-contract", [process.execPath, "scripts/graph-parallel-distribution.ts"], workspace],
+        // No-model compiled tournament: refused dispatch, crash reconcile, prosecutor, trusted control, selection, Send, fresh-clone Node audit.
+        ["compiled-tournament-graph-contract", [process.execPath, "scripts/graph-tournament-distribution.ts"], workspace],
         // No-model compiled gate proposal: oracle, register, evaluate, change, Send, future-only adoption.
         ["compiled-gate-experiment-contract", [process.execPath, "scripts/gate-experiment-distribution.ts"], workspace],
         ["compiled-loop-inspection", [process.execPath, "scripts/loop-inspection-rehearsal.ts"], workspace],
@@ -91,8 +93,8 @@ if (import.meta.main) {
             continue;
         console.log(`Checking ${name}…`);
         const stageEnvironment = name === "portable-python-corpus" ? { ...environment, WRINGER_TEST_CORPUS: join(workspace, "packages/records/test/corpus.json") } : environment;
-        // native-check measured 580–600 s on macOS runners by alpha.12, and passed 1,200 s on a macOS-latest runner
-        // at alpha.29 (1,135 s locally). Its bound is a hang guard, so it keeps about twice that.
+        // native-check measured 580–600 s on macOS runners by alpha.12, passed 1,200 s on a macOS-latest runner at
+        // alpha.29 (1,135 s locally), and passed 1,200 s locally at alpha.30. Its bound is a hang guard, so it keeps about twice that.
         const result = await runProcess(command, { cwd, env: stageEnvironment, timeout: name === "assistant-launch-rehearsal" ? 300 : name === "native-check" ? 2400 : 600, maxBytes: 8 * 1024 * 1024, redactor: new Redactor() });
         await writeFile(join(directory, `${name}.stdout.log`), result.stdout);
         await writeFile(join(directory, `${name}.stderr.log`), result.stderr);

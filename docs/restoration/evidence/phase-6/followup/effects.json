@@ -1,0 +1,38 @@
+{
+  "layered": [
+    {
+      "guard": "fork names its own tournament; tournament names its fork",
+      "maskedBy": "each other, as in phase 4: the fork-side check refuses a mismatched pair first"
+    },
+    {
+      "guard": "a candidate that does not descend from the fork's source is ineligible",
+      "maskedBy": "every branch child is derived from the fork's input; no fixture can produce another base"
+    },
+    {
+      "guard": "the selection is recorded before the final evaluator runs",
+      "maskedBy": "structural order in one function; the test checks that challenge runs precede evaluator runs and that a candidate the evaluator fails stays selected"
+    },
+    {
+      "guard": "the reader re-derives each run's outcome and each challenge's validation",
+      "maskedBy": "the reader's selection recomputation refuses the same forgeries, because a rescued run changes the survivors"
+    },
+    {
+      "guard": "the selected candidate's owner record matches the kernel result",
+      "maskedBy": "the kernel accepts only a delivered branch candidate owned by the tournament"
+    },
+    {
+      "guard": "trusted controls are re-checked when the tournament runs",
+      "maskedBy": "the preflight refuses a missing control before the dispatch marker"
+    }
+  ],
+  "effects": [
+    {
+      "name": "tournament-selection-by-tree",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "reader-recomputes-selection",
+      "effect": "refusal-vanished"
+    }
+  ]
+}

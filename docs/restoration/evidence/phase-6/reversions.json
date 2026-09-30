@@ -1,0 +1,496 @@
+{
+  "baseline": "9231c5ae431b69e6c2c6796c58ed2a24c82fbe91",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "compiler-tournament-needs-version-3",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-prosecutor-writes-one-file",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-prosecutor-same-source",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-challenge-limit",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-control-limit",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-control-exact-commit",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-evaluator-required",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-evaluator-one-content-per-path",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-gate-safe-path",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-gate-timeout-bound",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-tie-declared",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-no-required-branch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-no-check-after-tournament",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-tournament-reservation",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-tournament-owns-candidate",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-stopped-branch-arrives",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-tournament-waits-for-every-branch",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-selects-only-a-delivered-candidate",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-tournament-owns-selection",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-no-winner-has-no-candidate",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-version-3-events",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-eligible-needs-own-checks",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-labels-follow-content",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-prosecutor-one-file",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-challenge-limit",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-challenge-cites-requirement",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-challenge-files-own-prefix",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-challenge-must-pass-controls",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-no-control-is-advisory",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-spurious-not-replayed",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-only-valid-disqualifies",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-contained-provenance",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-tie-rule-no-winner",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-selection-by-tree",
+      "exit": 0,
+      "assertions": true,
+      "failed": false,
+      "caught": false,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "tournament-unavailable-run-blocks-selection",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-control-preflight",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-tournament-owner",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-recomputes-selection",
+      "exit": 0,
+      "assertions": true,
+      "failed": false,
+      "caught": false,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-binds-tournament-evidence",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-tournament-delivery-carries-export",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

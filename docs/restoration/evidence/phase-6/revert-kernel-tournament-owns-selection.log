@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-tournament.test.ts:
+57 |     const f = await fixture({ stopped: ['build-a'], pick: (input) => ({ kind: 'complete', outcome: 'selected', candidate: { source: { url: input.source.url, commit: 'a'.repeat(40) }, tree: '1' + 'a'.repeat(39), owner: 'pick' }, evidenceSha256: hashValue(input.branches) }) });
+58 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('no branch delivered');
+59 | });
+60 | test('a tournament must own the candidate it selects', async () => {
+61 |     const f = await fixture({ pick: (input, of) => ({ kind: 'complete', outcome: 'selected', candidate: of('build-a'), evidenceSha256: hashValue(input.branches) }) });
+62 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('must own');
+                                                                               ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-tournament.test.ts:62:75)
+(fail) a tournament must own the candidate it selects [62.22ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [195.00ms]

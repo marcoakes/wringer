@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+179 |     expect(order.lastIndexOf("challenge")).toBeLessThan(order.indexOf("evaluator"));
+180 | }, 240000);
+181 | test("a prosecutor that edits anything but its challenge file makes the tournament unavailable", async () => {
+182 |     const f = await fixture({ branches: { "build-a": "arith", "build-b": "hardcoded" }, prosecutorPatch: async (write, modify) => (await write("wringer/challenges.json", JSON.stringify([grid]))) + (await modify("echo 5")) });
+183 |     const state = await advanceContainedGraph(f.graphDir, f.driver), t = await record(f.graphDir);
+184 |     expect(t.prosecutor.status).toBe("stopped"); expect(t.prosecutor.reason).toContain("other than");
+                                      ^
+error: expect(received).toBe(expected)
+
+Expected: "stopped"
+Received: "completed"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:184:33)
+(fail) a prosecutor that edits anything but its challenge file makes the tournament unavailable [16259.76ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [16.49s]

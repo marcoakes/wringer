@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v3.test.ts:
+43 |     ["a check after a tournament", v => { v.nodes.pick.then = "recheck"; v.nodes.recheck = { kind: "check", input: "pick", then: "review" }; v.nodes.review.input = "recheck"; v.budget.maxVerificationAttempts++; }, "cannot follow a tournament"],
+44 |     ["a tournament closing another fork", v => { v.nodes.pick.fork = "review"; }, "must name"],
+45 |     ["too little allowance for the prosecutor", v => { v.budget.maxRoleSessions -= 1; }, "role allowance"],
+46 |     ["too little allowance for the challenge runs", v => { v.budget.maxVerificationAttempts -= 1; }, "verification allowance"],
+47 | ];
+48 | for (const [name, edit, message] of refusals) test(`refuses ${name}`, () => { expect(() => compile(changed(edit))).toThrow(message); });
+                                                                                                                        ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "at most 4"
+Received message: "Graph verification allowance cannot reserve every declared leaf"
+
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph-v3.test.ts:48:116)
+(fail) refuses too many controls [19.77ms]
+
+ 0 pass
+ 18 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [145.00ms]

@@ -1,0 +1,318 @@
+{
+  "schema_version": "wringer.restoration-local-validation.v1",
+  "phase": 6,
+  "version": "1.0.0-alpha.30",
+  "baseline": "f24a0ca83c09430ca5796142da4fa4283e310419",
+  "sourceState": "working tree; remote CI must qualify the eventual commit",
+  "kind": "deterministic engineering fixtures; no provider calls or human acceptance",
+  "command": "bun run validate, then the remaining stages by name after a fix",
+  "core": {
+    "stages": [
+      {
+        "name": "workspace-links",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 62,
+        "run": "first"
+      },
+      {
+        "name": "native-confirmation-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 3642,
+        "run": "first"
+      },
+      {
+        "name": "native-confirmation-probe",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 717,
+        "run": "first"
+      },
+      {
+        "name": "assistant-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 40416,
+        "run": "first"
+      },
+      {
+        "name": "standalone-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1243,
+        "run": "rerun"
+      },
+      {
+        "name": "native-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1383554,
+        "run": "rerun"
+      },
+      {
+        "name": "design-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 27265,
+        "run": "rerun"
+      },
+      {
+        "name": "figma-api-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 17484,
+        "run": "rerun"
+      },
+      {
+        "name": "meta-loop-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 57782,
+        "run": "rerun"
+      },
+      {
+        "name": "meta-portable-handover",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 22047,
+        "run": "rerun"
+      },
+      {
+        "name": "portable-python-corpus",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5266,
+        "run": "rerun"
+      },
+      {
+        "name": "standalone-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5302,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-contained-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 40337,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-graph-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 42587,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-parallel-graph-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 24563,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-tournament-graph-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 35439,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-gate-experiment-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 16417,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-loop-inspection",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2772,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-evidence-export",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 23845,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-job-improvements",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2897,
+        "run": "rerun"
+      },
+      {
+        "name": "local-delivery-fixture",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4153,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-version",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 129,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-cli-reference",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4071,
+        "run": "rerun"
+      },
+      {
+        "name": "adoption-examples",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5185,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-board",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 130,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-drive",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 131,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-assistant",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 323,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-figma-broker",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 94,
+        "run": "rerun"
+      },
+      {
+        "name": "compiled-assistant-lifecycle",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 6463,
+        "run": "rerun"
+      },
+      {
+        "name": "local-source-route",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 14505,
+        "run": "rerun"
+      },
+      {
+        "name": "assistant-launch-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 109220,
+        "run": "rerun"
+      },
+      {
+        "name": "guided-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 91113,
+        "run": "rerun"
+      },
+      {
+        "name": "design-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 136956,
+        "run": "rerun"
+      },
+      {
+        "name": "figma-api-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 144358,
+        "run": "rerun"
+      },
+      {
+        "name": "local-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 108820,
+        "run": "rerun"
+      },
+      {
+        "name": "local-design-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 135117,
+        "run": "rerun"
+      },
+      {
+        "name": "adoption-connections-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2804,
+        "run": "rerun"
+      }
+    ],
+    "testTotals": {
+      "passed": 1392,
+      "skipped": 1,
+      "failed": 0,
+      "assertions": 13131
+    },
+    "skip": "Linux DAC executes separately on Linux CI"
+  },
+  "browser": {
+    "stages": [
+      {
+        "name": "improvements-browser-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2700,
+        "run": "rerun"
+      },
+      {
+        "name": "job-improvements-browser-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2601,
+        "run": "rerun"
+      },
+      {
+        "name": "verification-browser-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 15326,
+        "run": "rerun"
+      }
+    ]
+  },
+  "firstRunFailures": [
+    {
+      "name": "native-check",
+      "exit_code": 143,
+      "timed_out": true
+    }
+  ],
+  "fix": "The first run's native suite passed validation's own 1,200-second hang guard with no failure recorded; the guard was raised to 2,400 seconds and the build and every stage from the native suite on passed on the corrected commit.",
+  "limits": [
+    "Scripted decisions and browser clicks are engineering fixtures, not independent human observations.",
+    "The macOS Linux-DAC skip is not Linux qualification.",
+    "No live model, live containment or comparative product benefit was measured."
+  ],
+  "diagnosticErrors": []
+}

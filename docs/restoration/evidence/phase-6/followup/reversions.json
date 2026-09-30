@@ -1,0 +1,40 @@
+{
+  "baseline": "9231c5ae431b69e6c2c6796c58ed2a24c82fbe91",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "tournament-selection-by-tree",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-recomputes-selection",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

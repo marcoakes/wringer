@@ -4,6 +4,30 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.30 — tournaments that try to falsify every attempt
+
+- Version 3 graphs add `tournament`, which closes a fork of independent attempts
+  instead of merging them. An attempt is eligible only if its branch passed its
+  own checks; a branch that stops for good arrives disqualified instead of ending
+  the graph.
+- One contained prosecutor session, whose plan may write only
+  `wringer/challenges.json`, sees every eligible attempt's change labelled by tree
+  id and proposes executable challenges that cite a declared requirement.
+- A challenge counts only after it passes on every trusted control carried by the
+  graph's root source bundle; a spurious one is dropped. The frozen set then runs
+  on every attempt's exact tree in a contained verifier. Without a control,
+  challenges are advisory.
+- Selection is among survivors only: one survivor is `selected`; a tie is
+  `no-winner` or, when declared, the smallest tree id; none is `no-winner`. The
+  selection is recorded before a final untouched evaluator assesses every
+  attempt, and the evaluator never changes it.
+- The Node reader recomputes the selection from the recorded runs. A delivery of
+  the selected attempt carries the graph's own export.
+- New sibling contracts: `wringer.contained-graph-plan.v3`, `-event.v3`,
+  `-status.v3`, `-export.v3`, `wringer.contained-graph-tournament.v1` and
+  `-tournament-assessment.v1`. Version 1 and 2 graphs keep their records.
+  Fixture-tested only; see the [qualification record](docs/restoration/STATUS.md).
+
 ## 1.0.0-alpha.29 — gate and workflow proposals judged by a frozen oracle
 
 - `wring experiment gate` compares a proposed set of checks with the current one

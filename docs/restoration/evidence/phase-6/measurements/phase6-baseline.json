@@ -1,0 +1,337 @@
+{
+  "schema_version": "wringer.restoration-phase6-measurement.v1",
+  "kind": "deterministic: real Git candidates and real commands on exported trees; scripted prosecutor challenges; the final evaluator is the oracle",
+  "git": "git version 2.50.1 (Apple Git-155)",
+  "currentContract": {
+    "graphCompiles": "wringer.contained-graph-plan.v2",
+    "joinOutcomeForAlternatives": "conflict",
+    "conflictingPaths": [
+      "src/total.sh"
+    ],
+    "reading": "A version 2 join integrates every branch; alternatives that edit the same file conflict. A branch that stops ends the whole graph. Nothing selects one alternative or tries to falsify it."
+  },
+  "tasks": [
+    {
+      "task": "persuasive-wrong",
+      "reading": "One candidate hard-codes the checked example; it passes its own check.",
+      "ownCheck": {
+        "a-hardcoded": true,
+        "a-arith": true,
+        "a-expr": true
+      },
+      "finalEvaluator": {
+        "a-hardcoded": false,
+        "a-arith": true,
+        "a-expr": true
+      },
+      "challenges": [
+        {
+          "id": "grid",
+          "validAgainstControl": true
+        }
+      ],
+      "reproduced": {
+        "a-hardcoded": [
+          "grid"
+        ],
+        "a-arith": [],
+        "a-expr": []
+      },
+      "survivors": [
+        "a-arith",
+        "a-expr"
+      ],
+      "changedLines": {
+        "a-hardcoded": 2,
+        "a-arith": 2,
+        "a-expr": 2
+      },
+      "single": {
+        "orders": 6,
+        "selectedDefect": 2,
+        "noWinner": 0,
+        "distinctSelections": 3
+      },
+      "vote": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 0,
+        "distinctSelections": 2
+      },
+      "tournament": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournamentSmallestChange": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournamentTreeOrder": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 0,
+        "distinctSelections": 1
+      }
+    },
+    {
+      "task": "shared-defect",
+      "reading": "Every candidate drops the sign of its inputs, the same correlated mistake.",
+      "ownCheck": {
+        "b-strip": true,
+        "b-awk-abs": true,
+        "b-sed": true
+      },
+      "finalEvaluator": {
+        "b-strip": false,
+        "b-awk-abs": false,
+        "b-sed": false
+      },
+      "challenges": [
+        {
+          "id": "negative",
+          "validAgainstControl": true
+        }
+      ],
+      "reproduced": {
+        "b-strip": [
+          "negative"
+        ],
+        "b-awk-abs": [
+          "negative"
+        ],
+        "b-sed": [
+          "negative"
+        ]
+      },
+      "survivors": [],
+      "changedLines": {
+        "b-strip": 2,
+        "b-awk-abs": 2,
+        "b-sed": 2
+      },
+      "single": {
+        "orders": 6,
+        "selectedDefect": 6,
+        "noWinner": 0,
+        "distinctSelections": 3
+      },
+      "vote": {
+        "orders": 6,
+        "selectedDefect": 6,
+        "noWinner": 0,
+        "distinctSelections": 3
+      },
+      "tournament": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournamentSmallestChange": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournamentTreeOrder": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      }
+    },
+    {
+      "task": "spurious-challenge",
+      "reading": "The prosecutor also writes a test that asserts the wrong answer.",
+      "ownCheck": {
+        "c-arith": true,
+        "c-hardcoded": true,
+        "c-awk": true
+      },
+      "finalEvaluator": {
+        "c-arith": true,
+        "c-hardcoded": false,
+        "c-awk": true
+      },
+      "challenges": [
+        {
+          "id": "wrong-expectation",
+          "validAgainstControl": false
+        },
+        {
+          "id": "grid",
+          "validAgainstControl": true
+        }
+      ],
+      "reproduced": {
+        "c-arith": [],
+        "c-hardcoded": [
+          "grid"
+        ],
+        "c-awk": []
+      },
+      "survivors": [
+        "c-arith",
+        "c-awk"
+      ],
+      "changedLines": {
+        "c-arith": 2,
+        "c-hardcoded": 2,
+        "c-awk": 2
+      },
+      "single": {
+        "orders": 6,
+        "selectedDefect": 2,
+        "noWinner": 0,
+        "distinctSelections": 3
+      },
+      "vote": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 0,
+        "distinctSelections": 2
+      },
+      "tournament": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournamentSmallestChange": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournamentTreeOrder": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 0,
+        "distinctSelections": 1
+      }
+    },
+    {
+      "task": "no-valid-candidate",
+      "reading": "No candidate is correct; two fail differently and one hard-codes.",
+      "ownCheck": {
+        "d-hardcoded": true,
+        "d-off": true,
+        "d-minus": true
+      },
+      "finalEvaluator": {
+        "d-hardcoded": false,
+        "d-off": false,
+        "d-minus": false
+      },
+      "challenges": [
+        {
+          "id": "grid",
+          "validAgainstControl": true
+        }
+      ],
+      "reproduced": {
+        "d-hardcoded": [
+          "grid"
+        ],
+        "d-off": [
+          "grid"
+        ],
+        "d-minus": [
+          "grid"
+        ]
+      },
+      "survivors": [],
+      "changedLines": {
+        "d-hardcoded": 2,
+        "d-off": 2,
+        "d-minus": 2
+      },
+      "single": {
+        "orders": 6,
+        "selectedDefect": 6,
+        "noWinner": 0,
+        "distinctSelections": 3
+      },
+      "vote": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournament": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournamentSmallestChange": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      },
+      "tournamentTreeOrder": {
+        "orders": 6,
+        "selectedDefect": 0,
+        "noWinner": 6,
+        "distinctSelections": 1
+      }
+    }
+  ],
+  "policies": {
+    "single": {
+      "orders": 24,
+      "selectedDefect": 16,
+      "noWinner": 0,
+      "orderSensitiveTasks": 4
+    },
+    "vote": {
+      "orders": 24,
+      "selectedDefect": 6,
+      "noWinner": 6,
+      "orderSensitiveTasks": 3
+    },
+    "uniqueSurvivor": {
+      "orders": 24,
+      "selectedDefect": 0,
+      "noWinner": 24,
+      "orderSensitiveTasks": 0
+    },
+    "smallestChangeThenNoWinner": {
+      "orders": 24,
+      "selectedDefect": 0,
+      "noWinner": 24,
+      "orderSensitiveTasks": 0
+    },
+    "smallestTreeId": {
+      "orders": 24,
+      "selectedDefect": 0,
+      "noWinner": 12,
+      "orderSensitiveTasks": 0
+    }
+  },
+  "resources": {
+    "single": {
+      "roleSessions": "1 worker + 1 judge per journey (max_sessions 2)",
+      "verificationRuns": 1
+    },
+    "tournament": {
+      "roleSessions": "3 × (worker + judge) + 1 prosecutor = 7",
+      "verificationRuns": "3 own checks + 1 control validation + 3 challenge runs + 1 final evaluation = 8"
+    },
+    "hostCommandRuns": 41,
+    "hostCommandMedianMs": 10.7,
+    "reading": "A three-candidate tournament costs about 3.5 times the role sessions and 8 times the verification runs of one candidate here. Contained verifiers add runtime start-up to every run."
+  },
+  "readings": [
+    "Taking the first candidate that passes its own check ships the hard-coded answer whenever it comes first, so the result depends on branch order.",
+    "A majority vote over outputs ships the shared defect: agreement between candidates is not evidence of correctness when their mistakes are correlated.",
+    "A challenge validated against a trusted control and replayed on every exact candidate removes the hard-coded candidate and the shared defect. A spurious challenge fails the control and is dropped.",
+    "Requiring a unique survivor never ships a defect here but never selects either: correct alternatives survive together and tie. Diff size does not separate them. Breaking a tie by tree id is arbitrary but independent of branch order, so the selection is the same for every ordering.",
+    "With no survivor, selection must return no winner rather than the least-bad candidate."
+  ]
+}

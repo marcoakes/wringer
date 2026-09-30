@@ -1,57 +1,54 @@
-Wringer 1.0.0-alpha.29 lets a failure propose a better check or workflow and
-judges that proposal on held-out work against a frozen oracle. A proposal changes
-how work is graded, so it never grades itself.
+Wringer 1.0.0-alpha.30 lets several independent attempts at one task compete
+and tries to falsify every one of them before anything is selected.
 
 ```sh
-wring experiment gate register --input experiment.json --proposal proposal.json --source-bundle corpus.bundle --state DIR
-wring experiment gate evaluate --state DIR --oracle oracle.json --yes
-wring experiment gate change --state DIR --output NEW-DIRECTORY
+wringer-drive graph plan examples/graphs/tournament/graph.yaml
+wringer-drive graph run GRAPH.yaml --authority AUTH.json --state DIR --source-bundle SOURCE.bundle
+wringer-drive graph status --state DIR
 ```
 
-Phase 5's measurement shows why the oracle matters. On one labelled corpus, a
-weakened gate had the highest pass rate (100%) and caught none of four seeded
-defects. A noisy gate caught three but failed two of three correct
-implementations. A property gate caught all four and failed no control. A gate's
-pass rate cannot tell these apart; the labels can.
+A version 3 graph adds a `tournament`, which closes a fork of attempts instead of
+merging them. Phase 6's measurement shows the problem it addresses. Across four
+constructed tasks and every candidate order, taking the first attempt that
+passed its own check shipped a defect in 16 of 24 orderings. A majority vote
+shipped a defect every attempt shared. Requiring a unique survivor never shipped
+a defect, but it never selected anything either, because correct alternatives tie.
 
-Registration freezes a corpus of exact commits and trees with development and
-held-out splits. It also freezes a digest of the oracle's labels, both arms' gates
-pinned by content in evaluator commits, the prediction, the run budget, the wall
-clock and the holdout policy. The labels stay with the evaluator until
-evaluation. A proposal that names a held-out item cannot be registered. Every run
-overlays the arm's pinned gate files on the item, so an item cannot rewrite the
-gate that judges it.
+An attempt is eligible only if its branch ended with a candidate that passed its
+own checks. A branch that stops for good arrives disqualified; it no longer ends
+the graph. One contained prosecutor session, whose plan may write only
+`wringer/challenges.json`, sees every eligible attempt's change, labelled by tree
+id rather than branch order. It proposes executable challenges that cite the
+attempts' declared requirements.
 
-Evaluation runs every item once in each arm, in corpus order, in a contained
-verifier. A run that cannot show its exact commit and tree, a clone made inside
-and no host mounts is `unavailable`. An infrastructure failure stops collection,
-and the remaining runs stay in the denominator. A reservation without a record
-is `uncertain` and is never rerun. With no container runtime on PATH, the command
-refuses before reserving anything.
+A challenge counts only after it passes on every trusted control. These are
+known-correct commits carried by the graph's root source bundle; a challenge that
+fails one is dropped as spurious. The frozen set then runs on every eligible
+attempt's exact tree in a contained verifier, so a shared defect is reproduced on
+each attempt rather than voted on. Without a control, challenges are advisory
+and disqualify nobody.
 
-A result qualifies only on the held-out split. The candidate must catch the
-predicted extra defects, add no false positives on correct controls beyond the
-prediction, add no required human holds beyond the allowance, record every
-planned run and never have seen a held-out item. The evaluation also records each
-arm's gate latency and required holds. A workflow proposal is compared through
-the gates its loops require and its required holds.
+Selection is among survivors only. One survivor is selected. A tie is
+`no-winner` or, when declared, the survivor with the smallest tree id, which is
+arbitrary but the same in every branch order. No survivor is `no-winner`. The
+selection is written before a final untouched evaluator, pinned in the plan,
+assesses every attempt; the evaluator never changes it. A delivery of the
+selected attempt carries the graph's export. A fresh clone's Node reader
+recomputes the selection from the recorded runs and refuses a record that does
+not match them.
 
-A qualified evaluation can prepare a reviewable source change. It carries the
-patch, the prediction, the held-out results, the scope limits and the rollback.
-Sending it to a review branch and adopting its gates for future plans are
-separate confirmed actions. Adoption is revision-checked and can be undone. No
-action edits an active plan, grader or approval.
-
-New sibling records are `wringer.gate-proposal.v1`, `-oracle.v1`,
-`-experiment.v1`, `-evaluation.v1` and `-adoption.v1`. Published schemas keep
-their bytes. The phase has 47 isolated reversion checks, each classified by what
-removing the guard changed. A compiled walkthrough drives the public binary
-through proposal, sealing, registration, a refused evaluation without a runtime,
-qualification, change, Send and adoption, and a weakened gate that looks greener
-and fails. Its gate runs come from a separately compiled fixture runner that
-really runs each gate on the exported item tree. It does not start a container.
-Real containment, live agent failures as a corpus source and any rate of
-improvement remain unmeasured.
+New sibling records are `wringer.contained-graph-plan.v3`, `-event.v3`,
+`-status.v3`, `-export.v3`, `wringer.contained-graph-tournament.v1` and
+`-tournament-assessment.v1`. Version 1 and 2 graphs keep their records, and
+published schemas keep their bytes. The phase has 40 isolated reversion checks,
+each classified by what removing the guard changed. A compiled walkthrough drives
+the public binary through a missing runtime, a crash after the attempts finished,
+the prosecutor, a spurious challenge dropped on the control, a hard-coded attempt
+disqualified, selection, Send, a fresh-clone Node audit and a refused edited
+record. Its role replies come from a separately compiled fixture binary, and its
+verifier really runs every check, challenge and evaluator gate on exported trees.
+Live agents, real containment, how often real attempts share mistakes, and any
+benefit of a tournament over one attempt remain unmeasured.
 
 Native macOS arm64 and Linux x64 archives retain checksums, inventories, signed
 provenance and exact-artifact claim reports. The required release jobs verify
@@ -59,9 +56,9 @@ those archives and their installer/package routes before staging publication.
 GitHub publication does not itself publish an npm package, Homebrew tap or MCP
 registry listing. The documented cooperative-local operator boundary remains.
 
-[Gate and workflow proposals](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.29/docs/native/GATE_EXPERIMENTS.md)
-· [Capabilities and limits](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.29/docs/CAPABILITIES.md)
-· [Previous release: parallel branches](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.28)
+[Graphs, parallel branches and tournaments](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.30/docs/native/GRAPHS.md)
+· [Capabilities and limits](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.30/docs/CAPABILITIES.md)
+· [Previous release: gate and workflow proposals](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.29)
 
-Tournaments with a prosecutor, Temporal durability and A2A remain subsequent
-phases in the restoration plan.
+Temporal durability, A2A and comparative qualification remain subsequent phases
+in the restoration plan.

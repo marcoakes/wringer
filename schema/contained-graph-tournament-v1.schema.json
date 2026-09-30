@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One tournament's candidates, challenges, runs and selection",
+  "description": "children/NODE/tournament.json, written once before any final evaluation. A candidate is eligible only if its branch passed its own checks. A challenge is valid only if it passed on every trusted control; with no control it is advisory. The frozen challenges run on every eligible candidate's exact tree; one reproduced valid challenge disqualifies it. Selection is a pure function of these rows: one survivor is selected; several tie to no winner or, when declared, to the smallest tree id; none is no winner. Labels follow tree ids, never branch order.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "graphSha256",
+    "node",
+    "fork",
+    "inputSha256",
+    "source",
+    "candidates",
+    "prosecutor",
+    "challenges",
+    "runs",
+    "selection",
+    "evidenceKind",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-tournament.v1"
+    },
+    "graphSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "node": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "fork": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "inputSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "branch",
+          "node",
+          "outcome",
+          "commit",
+          "tree",
+          "label",
+          "eligible",
+          "reason"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "node": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "outcome": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "commit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              }
+            ]
+          },
+          "tree": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              }
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "prosecutor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "baseCommit",
+        "runtimeId",
+        "artifactSha256",
+        "reason"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "completed",
+            "stopped",
+            "not-run"
+          ]
+        },
+        "baseCommit": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          ]
+        },
+        "runtimeId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artifactSha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "challenges": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "criterion",
+          "argv",
+          "timeout_seconds",
+          "files",
+          "sha256",
+          "validation",
+          "controls"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "criterion": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 600
+          },
+          "files": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "content"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "pattern": "^wringer/challenges/"
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 262144
+                }
+              }
+            }
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "validation": {
+            "enum": [
+              "valid",
+              "spurious",
+              "advisory",
+              "unavailable"
+            ]
+          },
+          "controls": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "code"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "maxLength": 80
+                },
+                "code": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "runs": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "branch",
+          "results",
+          "reproduced",
+          "outcome"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "challenge",
+                "code"
+              ],
+              "properties": {
+                "challenge": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "maxLength": 80
+                },
+                "code": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "reproduced": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "maxLength": 80
+            }
+          },
+          "outcome": {
+            "enum": [
+              "survived",
+              "disqualified",
+              "unavailable"
+            ]
+          }
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tie",
+        "survivors",
+        "selected",
+        "outcome",
+        "reason"
+      ],
+      "properties": {
+        "tie": {
+          "enum": [
+            "no-winner",
+            "tree-order"
+          ]
+        },
+        "survivors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          }
+        },
+        "selected": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "maxLength": 80
+            }
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "selected",
+            "no-winner",
+            "unavailable"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "evidenceKind": {
+      "enum": [
+        "contained",
+        "deterministic-fixture"
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

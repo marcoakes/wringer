@@ -11,18 +11,18 @@ import { randomUUID } from 'node:crypto';
 import { link, lstat, mkdir, open, readFile, readdir, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Redactor } from '@wringer/engine';
-import { graphOutcomes, graphRegions, graphReservation, hashValue, validateContainedGraph, validateGraphAuthority, type ContainedGraphNode, type ContainedGraphPlan, type GraphAuthority } from '@wringer/plan';
+import { closesFork, graphInput, graphOutcomes, graphRegions, graphReservation, hashValue, validateContainedGraph, validateGraphAuthority, type ContainedGraphNode, type ContainedGraphPlan, type GraphAuthority } from '@wringer/plan';
 import { locked, safePath } from '@wringer/workflow';
 import type { GraphCandidate, GraphDecision, GraphDriver, GraphEffectRequest, GraphEvent, GraphEventKind, GraphInput, GraphNodeState, ContainedGraphOptions, GraphPreparation, GraphReservation, GraphResult, GraphRoute, GraphSend, GraphState } from './contained-types';
 export * from './contained-types';
 
-// A parallel (version 2) graph writes version 2 events; a serial graph keeps version 1.
-const eventSchema = (plan: ContainedGraphPlan) => plan.schema_version === 'wringer.contained-graph-plan.v2' ? 'wringer.contained-graph-event.v2' : 'wringer.contained-graph-event.v1';
-const EFFECT_KINDS = ['loop', 'check', 'delivery', 'join'];
+// Each graph version writes its own event version; older graphs keep theirs.
+const eventSchema = (plan: ContainedGraphPlan) => plan.schema_version === 'wringer.contained-graph-plan.v3' ? 'wringer.contained-graph-event.v3' : plan.schema_version === 'wringer.contained-graph-plan.v2' ? 'wringer.contained-graph-event.v2' : 'wringer.contained-graph-event.v1';
+const EFFECT_KINDS = ['loop', 'check', 'delivery', 'join', 'tournament'];
 const LOCK = 'contained-graph';
 const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
 const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
-const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed', fork: 'forked', join: 'integrated' };
+const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed', fork: 'forked', join: 'integrated', tournament: 'selected' };
 const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 
 function fail(message: string): never { throw new Error(message); }
@@ -91,6 +91,14 @@ function validateResult(plan: ContainedGraphPlan, id: string, state: GraphNodeSt
         if (result.outcome !== 'conflict' && !result.candidate) fail(`Join ${id} reported ${result.outcome} without its integrated candidate`);
         if (result.candidate && result.candidate.owner !== id) fail(`Candidate owner must be the integrating join ${id}`);
         if (result.candidate && result.candidate.source.url !== plan.repository.url) fail(`Candidate source is not the graph repository`);
+    } else if (node.kind === 'tournament') {
+        // Only a surviving branch candidate can be selected, and only as the tournament's own.
+        if (result.outcome !== 'selected' && result.candidate) fail(`Tournament ${id} reported ${result.outcome} with a candidate`);
+        if (result.outcome === 'selected') {
+            if (!result.candidate || result.candidate.owner !== id) fail(`Tournament ${id} must own the candidate it selects`);
+            const chosen = result.candidate;
+            if (!(state.reservation.input.branches ?? []).some(row => row.candidate && row.candidate.source.commit === chosen.source.commit && row.candidate.tree === chosen.tree && row.candidate.source.url === chosen.source.url)) fail(`Tournament ${id} selected a candidate that no branch delivered`);
+        }
     } else if (node.kind === 'check') {
         if (!same(result.candidate, state.reservation.input.candidate)) fail(`A check cannot replace its input candidate`);
     } else if (node.kind === 'delivery') {
@@ -108,6 +116,18 @@ function validatePreparation(id: string, state: GraphNodeState, value: unknown):
 }
 function expectedInput(plan: ContainedGraphPlan, progress: Progress, id: string): GraphInput {
     const node = plan.nodes[id]!;
+    if (node.kind === 'tournament') {
+        // Every branch arrives, disqualified or not, in declared branch order.
+        const fork = plan.nodes[node.fork] as Extract<ContainedGraphNode, { kind: 'fork' }>, forked = progress.nodes[node.fork];
+        if (!forked?.result) fail(`Fork ${node.fork} of ${id} has no recorded result`);
+        const branches = fork.branches.map(branch => {
+            const arrival = (progress.arrivals[id] ?? []).find(row => row.branch === branch);
+            const result = arrival ? progress.nodes[arrival.node]?.result : undefined;
+            if (!arrival || !result) fail(`Tournament ${id} has no arrival from branch ${branch}`);
+            return { branch, node: arrival.node, outcome: result.outcome, candidate: result.candidate, evidenceSha256: result.evidenceSha256 };
+        });
+        return { node: node.fork, source: forked.result.candidate?.source ?? forked.reservation.input.source, candidate: null, evidenceSha256: hashValue(branches), branches };
+    }
     if (node.kind === 'join') {
         // The exact candidate each branch delivered, in declared branch order.
         const fork = plan.nodes[node.fork] as Extract<ContainedGraphNode, { kind: 'fork' }>, forked = progress.nodes[node.fork];
@@ -120,10 +140,11 @@ function expectedInput(plan: ContainedGraphPlan, progress: Progress, id: string)
         });
         return { node: node.fork, source: forked.result.candidate?.source ?? forked.reservation.input.source, candidate: null, evidenceSha256: hashValue(branches), branches };
     }
-    if (node.input === 'root') return { node: 'root', source: { url: plan.repository.url, commit: plan.repository.commit }, candidate: null, evidenceSha256: plan.sha256 };
-    const prior = progress.nodes[node.input];
-    if (!prior?.result) fail(`Input ${node.input} of ${id} has no recorded result`);
-    const input: GraphInput = { node: node.input, source: prior.result.candidate?.source ?? prior.reservation.input.source, candidate: prior.result.candidate, evidenceSha256: prior.result.evidenceSha256 };
+    const read = graphInput(node)!;
+    if (read === 'root') return { node: 'root', source: { url: plan.repository.url, commit: plan.repository.commit }, candidate: null, evidenceSha256: plan.sha256 };
+    const prior = progress.nodes[read];
+    if (!prior?.result) fail(`Input ${read} of ${id} has no recorded result`);
+    const input: GraphInput = { node: read, source: prior.result.candidate?.source ?? prior.reservation.input.source, candidate: prior.result.candidate, evidenceSha256: prior.result.evidenceSha256 };
     if (['check', 'delivery'].includes(node.kind) && !input.candidate) fail(`${node.kind} ${id} has no candidate to act on`);
     return input;
 }
@@ -141,6 +162,8 @@ function resolveRoute(plan: ContainedGraphPlan, progress: Progress, from: string
     // A recorded required failure can never become success in an acyclic graph;
     // stop before any later hold, preparation or Send could act on it.
     if (plan.required.includes(from) && outcome !== SUCCESS[node.kind]) return { outcome, to: 'fail', via, reason: `Required node ${from} ended ${outcome}; a failed requirement cannot be routed onward` };
+    // A tournament candidate that stops or fails still arrives, to be disqualified there.
+    if (outcome !== SUCCESS[node.kind] && plan.nodes[node.then]?.kind === 'tournament') return { outcome, to: node.then, via, reason: null };
     if (outcome === SUCCESS[node.kind]) next = node.then;
     else {
         const target = plan.nodes[node.then];
@@ -270,8 +293,8 @@ function apply(plan: ContainedGraphPlan, progress: Progress, event: GraphEvent, 
                 progress.terminal = expected.to; progress.reason = expected.reason;
                 progress.cancelled = [...progress.active]; progress.active = [];
             } else if (node.kind === 'fork') progress.active.push(...(expected.branches ?? []));
-            else if (plan.nodes[expected.to]?.kind === 'join') {
-                const joined = plan.nodes[expected.to] as Extract<ContainedGraphNode, { kind: 'join' }>, fork = plan.nodes[joined.fork] as Extract<ContainedGraphNode, { kind: 'fork' }>, where = branches.get(id);
+            else if (closesFork(plan.nodes[expected.to])) {
+                const joined = plan.nodes[expected.to] as Extract<ContainedGraphNode, { kind: 'join' | 'tournament' }>, fork = plan.nodes[joined.fork] as Extract<ContainedGraphNode, { kind: 'fork' }>, where = branches.get(id);
                 if (!where || where.fork !== joined.fork) fail(`${id} cannot arrive at join ${expected.to} from outside its branches`);
                 const arrivals = progress.arrivals[expected.to] ??= [];
                 if (arrivals.some(row => row.branch === where.branch)) fail(`Branch ${where.branch} already arrived at join ${expected.to}`);

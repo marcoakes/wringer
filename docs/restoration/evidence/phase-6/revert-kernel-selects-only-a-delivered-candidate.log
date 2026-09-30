@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-tournament.test.ts:
+49 |     const state = await advanceContainedGraph(dir, driver, { now });
+50 |     expect(state.phase).toBe('failed'); expect(state.nodes.merge).toBeUndefined();
+51 | });
+52 | test('a tournament cannot select a candidate that no branch delivered', async () => {
+53 |     const f = await fixture({ pick: (input, of) => ({ kind: 'complete', outcome: 'selected', candidate: { ...of('build-a', 'pick'), tree: 'e'.repeat(40) }, evidenceSha256: hashValue(input.branches) }) });
+54 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('no branch delivered');
+                                                                               ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-tournament.test.ts:54:75)
+(fail) a tournament cannot select a candidate that no branch delivered [58.55ms]
+
+ 0 pass
+ 7 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [216.00ms]

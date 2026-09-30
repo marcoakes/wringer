@@ -1,0 +1,178 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:88:21)
+(fail) a persuasive but wrong candidate is disqualified by a validated challenge; the survivor tie is broken by tree id and delivered [2892.44ms]
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:126:21)
+(fail) a shared defect reproduced on every candidate leaves no winner, never a vote [3027.03ms]
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:134:21)
+(fail) a spurious challenge fails the trusted control and disqualifies nobody; a declared no-winner tie holds [2956.43ms]
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:143:21)
+(fail) a branch that stops arrives disqualified and the graph still selects among the rest [2887.42ms]
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:149:25)
+(fail) the selection does not depend on branch order [2857.89ms]
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:159:21)
+(fail) the final evaluator is recorded after the selection and never changes it [2892.50ms]
+39 |     for (const [branch, body] of Object.entries(options.branches)) patches[branch] = await patch(bodies[body]);
+40 |     // A trusted control on its own branch, carried by the root bundle beside the base.
+41 |     await git(["-C", repo, "checkout", "-q", "-b", "reference"]); await writeFile(join(repo, "src/total.sh"), `#!/bin/sh\n${bodies.arith}\n`); await git(["-C", repo, "commit", "-qam", "Trusted reference"]);
+42 |     const control = await git(["-C", repo, "rev-parse", "HEAD"]); await git(["-C", repo, "checkout", "-q", "main"]);
+43 |     const bundle = join(root, "source.bundle"); await git(["-C", repo, "bundle", "create", bundle, "main", "reference"]);
+44 |     const artifact = async (path: string, content: string) => { const scratch = join(root, `artifact-${crypto.randomUUID()}`); await git(["init", "-q", scratch]); await mkdir(join(scratch, "wringer"), { recursive: true }); await writeFile(join(scratch, path), content); await git(["-C", scratch, "add", "-A"]); return await git(["-C", scratch, "diff", "--cached", "--binary", "--full-index"]) + "\n"; };
+                                                                                                                                                                                                                                          ^
+ENOENT: no such file or directory, open '[tmp]/wringer-tournament-adapter-YMP9mj/artifact-8507a3e8-a881-45a2-9663-5232623e8b72/src/total.sh'
+    path: "[tmp]/wringer-tournament-adapter-YMP9mj/artifact-8507a3e8-a881-45a2-9663-5232623e8b72/src/total.sh",
+ syscall: "open",
+   errno: -2,
+    code: "ENOENT"
+
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:44:230)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:168:195)
+      at async fixture ([checkout]/packages/application/test/graph-tournament.test.ts:45:65)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:168:21)
+(fail) a prosecutor that edits anything but its challenge file makes the tournament unavailable [2701.78ms]
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:174:27)
+(fail) challenges beyond the declared limit or citing no requirement are refused [2608.69ms]
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:182:21)
+(fail) without a trusted control, challenges are advisory and disqualify nobody [2553.58ms]
+130 |     const a = record(value, "acceptance", ["criteria", "checks", "protected_paths"]);
+131 |     const criteria = distinct(list(a.criteria, "acceptance.criteria", v => {
+132 |         const c = record(v, "criterion", ["id", "title", "quote", "kind", "required", "show"]);
+133 |         const quote = text(c.quote, "criterion.quote");
+134 |         if (!intent.includes(quote))
+135 |             throw new Error("Every criterion must quote the original intent verbatim");
+                            ^
+error: Every criterion must quote the original intent verbatim
+      at <anonymous> ([checkout]/packages/plan/src/compile.ts:135:23)
+      at map (1:11)
+      at acceptance ([checkout]/packages/plan/src/compile.ts:131:31)
+      at compileDeclaration ([checkout]/packages/plan/src/compile.ts:230:22)
+      at <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:56:102)
+      at map (1:11)
+      at fixture ([checkout]/packages/application/test/graph-tournament.test.ts:56:41)
+      at async <anonymous> ([checkout]/packages/application/test/graph-tournament.test.ts:189:21)
+(fail) a trusted control missing from the root bundle is refused before the tournament dispatches [2545.34ms]
+
+ 0 pass
+ 10 fail
+Ran 10 tests across 1 file. [28.18s]

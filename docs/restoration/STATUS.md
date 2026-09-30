@@ -11,8 +11,8 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 2. Improvement workflow | Published and verified | [alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25), commit `599ea5f3694035822d214229f6e3bd212dabe455`; [release evidence](evidence/phase-2/release.json) |
 | 3. Serial graphs | Published and verified | [alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26), commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`; [release evidence](evidence/phase-3/release.json); [measurements](PHASE_3_MEASUREMENTS.md) |
 | 4. Parallel branches/integration | Published and verified | [alpha.28](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.28), commit `b7e9827cc94ddcb3521556ea5b2192b5d750b80c`; [release evidence](evidence/phase-4/release.json); [measurements](PHASE_4_MEASUREMENTS.md). The `v1.0.0-alpha.27` tag's release build failed on macOS 14 and was never published |
-| 5. Gate/workflow improvement | alpha.29 local qualification passed; remote release pending | Gate and workflow proposals judged on held-out items against a frozen oracle, pinned gate overlays, reviewable change, separate Send and future-only adoption, five sibling schemas; [measurements](PHASE_5_MEASUREMENTS.md) |
-| 6. Tournament/prosecutor | Pending | — |
+| 5. Gate/workflow improvement | Published and verified | [alpha.29](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.29), commit `f24a0ca83c09430ca5796142da4fa4283e310419`; [release evidence](evidence/phase-5/release.json); [measurements](PHASE_5_MEASUREMENTS.md). Two earlier remote runs stopped at CI hang guards; see the phase 5 section |
+| 6. Tournament/prosecutor | alpha.30 local qualification passed; remote release pending | Version 3 graphs with a tournament: prosecutor challenges validated on trusted controls, replayed on every attempt, selection among survivors, a final untouched evaluator, six sibling schemas; [measurements](PHASE_6_MEASUREMENTS.md) |
 | 7. Temporal durability | Pending | — |
 | 8. Platform interfaces | Pending | — |
 | 9. Comparative qualification | Pending; live and independent observations need their actual prerequisites | — |
@@ -264,6 +264,40 @@ GitHub access; anonymous-install qualification was not measured. The
   guard (it took 1,135 s locally) and was stopped; macOS 14 passed. That guard is
   now 2,400 seconds. The [run](evidence/phase-5/ci-attempt2-native-timeout/ci-tests.json)
   and its [job log](evidence/phase-5/ci-attempt2-native-timeout/macos-latest-job.log) are kept.
+
+## Phase 6 measurements
+
+- Baseline (on the phase 5 source): over four constructed tasks and all 24
+  candidate orders, the first attempt that passed its own check shipped a defect
+  in 16; a majority vote shipped the shared defect in 6; a unique-survivor rule
+  never shipped a defect but never selected. A tree-id tie rule selected a correct
+  survivor in every order of the two tasks that had one. See the
+  [baseline](PHASE_6_MEASUREMENTS.md).
+- The design follows those measurements: a version 3 `tournament` closing a fork,
+  one prosecutor session, challenges that count only after passing on trusted
+  controls, replay on every attempt's exact tree, selection among survivors with
+  `no-winner` or a declared tree-id rule, and a final evaluator recorded after
+  the selection.
+- The compiler, kernel and driver were written before their tests; the reversions
+  are their red evidence. First adapter runs failed on fixture errors, kept in
+  the evidence folder. A child that stops with a recovery available is a hold, as
+  for any loop; only a terminal stop arrives disqualified.
+- The first full reversion run caught **38 of 40**. Two probes stayed green: the
+  tree-order selection's probe ran only a test whose survivors were already in
+  tree order, and the reader's recomputation was masked by the evidence-digest
+  check in a single-file forgery. A test of a dishonest adapter that restamps
+  every digest now reaches the recomputation. With that test and the branch-order
+  test in their patterns, both went red ([first run](evidence/phase-6/reversions.json),
+  [follow-up](evidence/phase-6/followup/reversions.json)). Effects across both:
+  a refusal vanished in 18, recorded state changed in 21 and a different guard
+  refused in 1. Six layered guards are listed with what masks them.
+- Full local validation's first run stopped when the native suite passed its own
+  1,200-second hang guard, with no failure recorded; the tournament tests had
+  pushed it over. With the guard at 2,400 seconds, the build and every stage from
+  the native suite on passed. All 40 stages passed across the two runs: 1,392
+  pass, one Linux-only skip, zero fail and 13,131 assertions
+  ([record](evidence/phase-6/local-validation.json)). Both packaged tournament
+  and earlier graph walkthroughs passed.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.

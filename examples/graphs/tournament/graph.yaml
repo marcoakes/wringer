@@ -1,0 +1,86 @@
+# A contained tournament: three independent attempts at one task run in private
+# branches. A prosecutor proposes executable challenges; each must pass on the
+# trusted reference before it counts; the frozen challenges then run on every
+# attempt's exact tree. Only survivors are selected, a tie goes to the smallest
+# tree id, and no survivor means no winner. A hidden evaluator assesses every
+# attempt after the selection is recorded and never changes it.
+#
+#   wringer-drive graph plan examples/graphs/tournament/graph.yaml
+#
+# Compile-only: the plans pin a placeholder commit and image, and the control
+# names a placeholder commit that must be in the graph's root source bundle.
+version: 3
+id: tournament
+repository:
+  url: https://github.com/OWNER/REPOSITORY.git
+  commit: '0000000000000000000000000000000000000000'
+entry: split
+required: [pick, review, ship]
+parallelism: 3                # at most three attempts at once
+budget:
+  maxRoleSessions: 25         # three attempts' sessions plus one prosecutor session
+  maxVerificationAttempts: 34 # attempts' verifiers + discovery, one control run, and a challenge run and an evaluation per attempt
+  wallClockSeconds: 7200
+nodes:
+  split:
+    kind: fork
+    input: root
+    branches: [first, second, third]
+    join: pick
+  first:
+    kind: loop
+    input: split
+    plan: attempt.yaml
+    then: pick
+  second:
+    kind: loop
+    input: split
+    plan: attempt.yaml
+    then: pick
+  third:
+    kind: loop
+    input: split
+    plan: attempt.yaml
+    then: pick
+  pick:
+    kind: tournament
+    fork: split
+    prosecutor:
+      plan: prosecutor.yaml
+      maxChallenges: 8
+    controls:
+      - id: reference
+        commit: '1111111111111111111111111111111111111111'
+    evaluator:
+      - id: hidden
+        argv: [sh, evaluator/hidden.sh]
+        cwd: .
+        timeout_seconds: 120
+        files:
+          - path: evaluator/hidden.sh
+            content: |
+              for a in -3 0 2 7; do for b in -2 0 3 5; do
+                test "$(sh src/total.sh $a $b)" = $(( a + b )) || exit 1
+              done; done
+    tie: tree-order
+    then: after
+  after:
+    kind: router
+    input: pick
+    routes:
+      - outcome: selected
+        to: review
+    otherwise: fail
+  review:
+    kind: human-hold
+    input: pick
+    prompt: Inspect the selected attempt, the challenges it survived and the evaluator's assessment.
+    then: ship
+  ship:
+    kind: delivery
+    input: review
+    publication:
+      remote: https://github.com/OWNER/REPOSITORY.git
+      sourceBranch: wringer/tournament
+      targetBranch: main
+    then: done

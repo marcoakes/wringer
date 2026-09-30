@@ -1,0 +1,35 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+154 |     expect(state.phase).toBe("failed");
+155 | }, 240000);
+156 | test("a branch that stops arrives disqualified and the graph still selects among the rest", async () => {
+157 |     const f = await fixture({ branches: { "build-a": "arith", "build-b": "wrong", "build-c": "hardcoded" }, sessions: { "build-b": 1 } }), state = await advanceContainedGraph(f.graphDir, f.driver);
+158 |     const t = await record(f.graphDir);
+159 |     expect(t.candidates.find((row: any) => row.branch === "build-b")).toMatchObject({ eligible: false, outcome: "stopped" });
+                                                                            ^
+error: expect(received).toMatchObject(expected)
+
+  {
+-   "eligible": false,
++   "branch": "build-b",
++   "commit": "2f5c9c311844c40076b478be2524ff053c9adeaa",
++   "eligible": true,
++   "label": "candidate-3",
++   "node": "build-b",
+    "outcome": "stopped",
++   "reason": null,
++   "tree": "fc000ad651333747271583f90ac27221ba8f1703",
+  }
+
+- Expected  - 1
++ Received  + 7
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:159:71)
+(fail) a branch that stops arrives disqualified and the graph still selects among the rest [18590.33ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [18.77s]

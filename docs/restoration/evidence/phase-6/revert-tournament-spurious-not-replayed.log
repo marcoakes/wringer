@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+146 | }, 240000);
+147 | test("a spurious challenge fails the trusted control and disqualifies nobody; a declared no-winner tie holds", async () => {
+148 |     const f = await fixture({ branches: { "build-a": "arith", "build-b": "hardcoded", "build-c": "awk" }, challenges: [wrongExpectation, grid], tie: "no-winner" }), state = await advanceContainedGraph(f.graphDir, f.driver);
+149 |     const t = await record(f.graphDir);
+150 |     expect(t.challenges.map((row: any) => [row.id, row.validation])).toEqual([["wrong-expectation", "spurious"], ["grid", "valid"]]);
+151 |     expect(t.runs.every((row: any) => row.results.every((result: any) => result.challenge === "grid"))).toBe(true);
+                                                                                                              ^
+error: expect(received).toBe(expected)
+
+Expected: true
+Received: false
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:151:105)
+(fail) a spurious challenge fails the trusted control and disqualifies nobody; a declared no-winner tie holds [18782.60ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [18.99s]

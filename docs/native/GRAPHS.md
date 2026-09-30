@@ -97,6 +97,60 @@ integrated candidate publishes an evidence commit on top of the exact merged cod
 that carries this graph's own portable export. A fresh clone checks it with
 `node .wringer/graph-deliveries/ID/read-bundle.mjs .wringer/graph-deliveries/ID`.
 
+## Tournaments
+
+A version 3 graph can close a fork with a `tournament` instead of a join. The
+branches are independent attempts at the same task. A tournament does not merge
+them. It tries to falsify every attempt and selects only among the survivors.
+
+```text
+split (fork) ─┬─ first  (loop) ─┐
+              ├─ second (loop) ─┼─ pick (tournament) → after → review (hold) → ship (delivery)
+              └─ third  (loop) ─┘
+```
+
+```sh
+wringer-drive graph plan examples/graphs/tournament/graph.yaml
+```
+
+1. **Eligibility.** An attempt is eligible only if its branch ended with a
+   candidate that passed its own checks. A branch that stops for good arrives
+   disqualified and does not end the graph. A branch whose child stopped with a
+   recovery available is a hold, as for any loop, and the tournament waits.
+2. **Prosecution.** One contained session runs the declared prosecutor plan,
+   which may write only `wringer/challenges.json`. It sees every eligible
+   attempt's change as a patch, labelled by tree id rather than branch order. It
+   proposes executable challenges; each cites a requirement the attempts declare,
+   and its files live under `wringer/challenges/`.
+3. **Validation.** Each challenge runs on every trusted control first. These are
+   known-correct commits named in the plan and carried by the graph's root
+   source bundle. A challenge that fails a control is `spurious` and is dropped.
+   Without a control, challenges are `advisory` and disqualify nobody.
+4. **Replay.** The frozen, valid challenges run on every eligible attempt's
+   exact tree in a contained verifier, with the challenge files overlaid. One
+   reproduced valid challenge disqualifies an attempt. A defect every attempt
+   shares is reproduced on each of them; nothing is decided by a vote.
+5. **Selection.** One survivor is `selected`. Several survivors tie: the
+   tournament returns `no-winner`, or, when `tie: tree-order` is declared, selects
+   the survivor with the smallest tree id. That choice is arbitrary, but it does
+   not depend on branch order. No survivor is `no-winner`. A prosecutor or run
+   that cannot complete makes the tournament `unavailable`.
+6. **Assessment.** The selection is written before the final evaluator runs.
+   The evaluator's gates are pinned in the plan, and no attempt or prosecutor
+   ever sees them. It assesses every eligible attempt for the record and never
+   changes the selection.
+
+Phase 6's measurement is why ties need a rule. With three attempts per task,
+correct alternatives survive together. Requiring a unique survivor never
+selected anything. The tree-id rule selected a correct survivor in every order of
+the two tasks that had one, and nothing in the two that did not.
+
+The allowance reserves every attempt's sessions, the prosecutor session, one
+validation run per control, and one challenge run and one evaluation per attempt.
+A delivery of the selected attempt publishes an evidence commit on its exact code
+that carries this graph's export. The Node reader recomputes the selection from
+the recorded runs and refuses a record that does not match them.
+
 ## What the graph guarantees
 
 - **Refused before any effect.** Cycles, unreachable nodes, undeclared outcomes,
@@ -158,6 +212,11 @@ names that path, so share exports of graphs that publish over HTTPS or SSH.
 ## Limits
 
 - No nested forks, no delivery inside a branch, and one repository per graph.
+- A tournament needs trusted controls for its challenges to count; it has no
+  way to judge a challenge without one. It runs one prosecutor session, and its
+  selection is only as good as the challenges that session writes.
+- No evidence yet that a tournament beats one attempt on real tasks; the
+  measurement is on constructed candidates.
 - A join verifies with each branch plan's pinned checks. It does not run a model
   judge of the integration; review it at a human hold or route it through a loop.
 - A `conflict` has no automatic repair: route it to a hold or `fail`.
@@ -172,13 +231,15 @@ names that path, so share exports of graphs that publish over HTTPS or SSH.
 - The packaged walkthroughs use deterministic worker and judge observations from a
   separately compiled fixture binary, a real Git source and a local bare origin;
   the parallel walkthrough's verifier really runs each pinned check on the exported
-  tree. They measure the mechanism, not live agent convergence, real containment,
-  independent human acceptance or any benefit of branches over a single job.
+  tree, and the tournament walkthrough's verifier runs every challenge and evaluator
+  gate the same way. They measure the mechanism, not live agent convergence, real
+  containment, independent human acceptance or any benefit over a single job.
 
-Contracts: [`contained-graph-plan-v1`](../../schema/contained-graph-plan-v1.schema.json) and
-[`v2`](../../schema/contained-graph-plan-v2.schema.json),
+Contracts: [`contained-graph-plan-v1`](../../schema/contained-graph-plan-v1.schema.json),
+[`v2`](../../schema/contained-graph-plan-v2.schema.json) and [`v3`](../../schema/contained-graph-plan-v3.schema.json),
 [`authority`](../../schema/contained-graph-authority-v1.schema.json),
-[`event`](../../schema/contained-graph-event-v1.schema.json) and [`v2`](../../schema/contained-graph-event-v2.schema.json),
-[`status`](../../schema/contained-graph-status-v1.schema.json) and [`v2`](../../schema/contained-graph-status-v2.schema.json),
-[`export`](../../schema/contained-graph-export-v1.schema.json) and [`v2`](../../schema/contained-graph-export-v2.schema.json).
+[`event`](../../schema/contained-graph-event-v1.schema.json), [`v2`](../../schema/contained-graph-event-v2.schema.json) and [`v3`](../../schema/contained-graph-event-v3.schema.json),
+[`status`](../../schema/contained-graph-status-v1.schema.json), [`v2`](../../schema/contained-graph-status-v2.schema.json) and [`v3`](../../schema/contained-graph-status-v3.schema.json),
+[`export`](../../schema/contained-graph-export-v1.schema.json), [`v2`](../../schema/contained-graph-export-v2.schema.json) and [`v3`](../../schema/contained-graph-export-v3.schema.json),
+[`tournament`](../../schema/contained-graph-tournament-v1.schema.json) and its [`assessment`](../../schema/contained-graph-tournament-assessment-v1.schema.json).
 The retired host graph format stays readable with `wring graph show|status|explain`.

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+126 |     const rewritten = `${output}-assessment`; await cp(output, rewritten, { recursive: true });
+127 |     const carried = join(rewritten, "nodes/pick/tournament.json"), changed = JSON.parse(await readFile(carried, "utf8"));
+128 |     changed.assessment.candidates.find((row: any) => row.branch === "build-a").outcome = "passed"; const { sha256: __, ...rest } = changed.assessment; changed.assessment.sha256 = hashValue(rest);
+129 |     await writeFile(carried, JSON.stringify(changed));
+130 |     const rewrittenIndex = JSON.parse(await readFile(join(rewritten, "graph.json"), "utf8")); rewrittenIndex.files["nodes/pick/tournament.json"] = new Bun.CryptoHasher("sha256").update(await readFile(carried)).digest("hex"); await writeFile(join(rewritten, "graph.json"), JSON.stringify(rewrittenIndex));
+131 |     await expect(inspectGraph(rewritten)).rejects.toThrow("evidence does not match its recorded result");
+                                                        ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:131:51)
+(fail) a persuasive but wrong candidate is disqualified by a validated challenge; the survivor tie is broken by tree id and delivered [30535.62ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 25 expect() calls
+Ran 1 test across 1 file. [30.75s]

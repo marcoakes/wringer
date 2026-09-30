@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+201 | }, 240000);
+202 | test("a trusted control missing from the root bundle is refused before the tournament dispatches", async () => {
+203 |     const f = await fixture({ branches: { "build-a": "arith", "build-b": "expr" }, controls: "missing" });
+204 |     await expect(advanceContainedGraph(f.graphDir, f.driver)).rejects.toThrow("is not in the graph's root source bundle");
+205 |     const state = await readContainedGraph(f.graphDir);
+206 |     expect(state.nodes.pick!.dispatched).toBe(false); expect(f.roles).not.toContain("prosecutor");
+                                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:206:42)
+(fail) a trusted control missing from the root bundle is refused before the tournament dispatches [7873.53ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [8.08s]

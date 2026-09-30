@@ -1,0 +1,32 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+165 |     const left = await advanceContainedGraph(first.graphDir, first.driver), right = await advanceContainedGraph(second.graphDir, second.driver);
+166 |     expect(left.nodes.pick!.result!.candidate!.tree).toBe(right.nodes.pick!.result!.candidate!.tree);
+167 |     const [x, y] = [await record(first.graphDir), await record(second.graphDir)];
+168 |     expect(x.selection.selected).toBe(y.selection.selected);
+169 |     const labels = (row: any) => Object.fromEntries(row.candidates.map((c: any) => [c.tree, c.label]));
+170 |     expect(labels(x)).toEqual(labels(y));
+                            ^
+error: expect(received).toEqual(expected)
+
+  {
+-   "78b47aa9738da7839b8ffc321c9747c53367947a": "candidate-3",
+-   "bc90c4fefec26579c6e13d034538be999fed1ae0": "candidate-2",
+-   "e8009ff18b940f8a89a2145bc3e8f1740bf45f04": "candidate-1",
++   "78b47aa9738da7839b8ffc321c9747c53367947a": "candidate-2",
++   "bc90c4fefec26579c6e13d034538be999fed1ae0": "candidate-1",
++   "e8009ff18b940f8a89a2145bc3e8f1740bf45f04": "candidate-3",
+  }
+
+- Expected  - 3
++ Received  + 3
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:170:23)
+(fail) the selection does not depend on branch order [36496.97ms]
+
+ 0 pass
+ 10 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [36.74s]

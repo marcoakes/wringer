@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-tournament.test.ts:
+147 |         const { sha256, ...body } = t; t.sha256 = hashValue(body); a.tournamentSha256 = t.sha256; const { sha256: _, ...rest } = a; a.sha256 = hashValue(rest);
+148 |         for (const [name, value] of [["tournament.json", t], ["assessment.json", a]] as const) { await rm(join(directory, name)); await writeFile(join(directory, name), JSON.stringify(value, null, 2) + "\n", { mode: 0o600 }); }
+149 |     };
+150 |     const held = await advanceContainedGraph(f.graphDir, f.driver);
+151 |     expect(held.nodes.pick!.result!.candidate!.tree).toBe((await record(f.graphDir)).candidates.find((row: any) => row.branch === "build-a").tree);
+152 |     const output = join(f.root, "export"); await expect(exportContainedGraph(f.graphDir, output)).rejects.toThrow("selection does not follow from its recorded runs");
+                                                                                                                ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-tournament.test.ts:152:107)
+(fail) a dishonest record whose selection does not follow from its own runs is refused by the Node reader [18837.98ms]
+
+ 0 pass
+ 11 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [19.09s]

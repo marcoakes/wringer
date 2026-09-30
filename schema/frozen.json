@@ -147,6 +147,12 @@
   "gate-oracle-v1.schema.json": "08f2ba36f2d93ff276f639521827cf21eee54b777314fc28b2adf663208c0b5f",
   "gate-experiment-v1.schema.json": "c1ed7aa7762b2c644cb0965cbc773e754d9d02e84cf67a73a4339e1207053c85",
   "gate-evaluation-v1.schema.json": "213282a2159633c2136b82d515f9946b71db9c10f7a3454024e9e27e1e4fb0d9",
-  "gate-adoption-v1.schema.json": "2772b394a106403686137f0df5296356e13e523e41ce4f9ec219e84b24967f6d"
+  "gate-adoption-v1.schema.json": "2772b394a106403686137f0df5296356e13e523e41ce4f9ec219e84b24967f6d",
+  "contained-graph-plan-v3.schema.json": "df92b58a0634558c2c8bcd0b608f65e2e24e5bb9393f5113959add1769618070",
+  "contained-graph-event-v3.schema.json": "70272b26130aa658743dd3c245335ac89d55ffbce33512caa824ada76dae5e76",
+  "contained-graph-status-v3.schema.json": "dab85b0e6464f777e389f7dca0e22e3c461640b02d1ce2329812da899d80b0dc",
+  "contained-graph-export-v3.schema.json": "181469825fabc1d54f707785e6f474106d457736f1066578f183ceca1aedbda7",
+  "contained-graph-tournament-v1.schema.json": "8263e7c88433090b0993078ef73662cb7fc6471706c26849d68adfa2bcc4dbb8",
+  "contained-graph-tournament-assessment-v1.schema.json": "c277b7e6c99857bcf3a98f42b9adc4eeeac9da58a1d2515f5caef6e69857f7ca"
  }
 }

@@ -29,3 +29,22 @@ export function parallelFixture() {
             review: { kind: "human-hold", input: "merge", prompt: "Inspect the integrated candidate.", then: "ship" },
             ship: { kind: "delivery", input: "review", publication: { remote: "https://example.test/repository.git", sourceBranch: "wringer/parallel", targetBranch: "main" }, then: "done" } } };
 }
+/** A prosecutor may write only its one challenge file. */
+export function prosecutorPlan(commit?: string) {
+    const parsed = compileExecutionPlan(template, { format: "yaml" });
+    const { schema_version, plan_sha256, acceptance_sha256, intent_sha256, ...raw } = parsed;
+    return compileDeclaration({ version: 3, ...raw, repository: { ...raw.repository, commit: commit ?? raw.repository.commit }, scope: { ...raw.scope, writable: ["wringer/challenges.json"] }, acceptance: { ...raw.acceptance, criteria: raw.acceptance.criteria.filter(row => row.kind === "check") } });
+}
+export function tournamentFixture() {
+    const plan = leaf(), sessions = plan.budget.max_sessions;
+    return { version: 3, id: "tournament-repair", repository: plan.repository, entry: "split", required: ["pick", "review", "ship"], parallelism: 3,
+        budget: { maxRoleSessions: 3 * sessions + 1, maxVerificationAttempts: 3 * (sessions + 1) + 1 + 2 * 3, wallClockSeconds: 600 },
+        nodes: { split: { kind: "fork", input: "root", branches: ["build-a", "build-b", "build-c"], join: "pick" },
+            "build-a": { kind: "loop", input: "split", plan, then: "pick" },
+            "build-b": { kind: "loop", input: "split", plan, then: "pick" },
+            "build-c": { kind: "loop", input: "split", plan, then: "pick" },
+            pick: { kind: "tournament", fork: "split", prosecutor: { plan: prosecutorPlan(), maxChallenges: 4 }, controls: [{ id: "reference", commit: "a".repeat(40) }],
+                evaluator: [{ id: "hidden", argv: ["sh", "evaluator/hidden.sh"], cwd: ".", timeout_seconds: 30, files: [{ path: "evaluator/hidden.sh", content: "exit 0\n" }] }], tie: "tree-order", then: "review" },
+            review: { kind: "human-hold", input: "pick", prompt: "Inspect the selected candidate and the tournament record.", then: "ship" },
+            ship: { kind: "delivery", input: "review", publication: { remote: "https://example.test/repository.git", sourceBranch: "wringer/tournament", targetBranch: "main" }, then: "done" } } };
+}
