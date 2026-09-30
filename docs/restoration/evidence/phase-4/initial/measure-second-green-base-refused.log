@@ -1,0 +1,13 @@
+79 | 
+80 | // 1. Serial versus concurrent independent branches, three repetitions each.
+81 | const serial = [], concurrent = [];
+82 | for (let round = 0; round < 3; round++) {
+83 |     const a = await branch(fixture, "branch-a", editA), b = await branch(fixture, "branch-b", editB);
+84 |     const expectHold = (state: { phase: string; cursor: string }) => { if (state.phase !== "human-hold" || state.cursor !== "review") throw new Error(`Branch did not reach its review hold: ${state.phase} at ${state.cursor}`); };
+                                                                                                                                                     ^
+error: Branch did not reach its review hold: failed at fail
+      at expectHold ([checkout]/scripts/restoration-phase4-measure.ts:84:145)
+      at <anonymous> ([checkout]/scripts/restoration-phase4-measure.ts:85:43)
+      at async timed ([checkout]/scripts/restoration-phase4-measure.ts:71:272)
+
+Bun v1.4.2 (macOS arm64)

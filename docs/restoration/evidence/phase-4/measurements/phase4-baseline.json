@@ -1,0 +1,82 @@
+{
+  "schema_version": "wringer.restoration-phase4-measurement.v1",
+  "kind": "deterministic fixtures: real Git, source transport and controller journals; synthetic ACP and check observations",
+  "git": "git version 2.50.1 (Apple Git-155)",
+  "bun": "1.4.2",
+  "platform": "darwin-arm64",
+  "throughput": {
+    "serial": {
+      "medianMs": 7189,
+      "cpuMs": 681,
+      "peakRssMiB": 171.2,
+      "runs": [
+        7221,
+        7189,
+        7112
+      ]
+    },
+    "concurrent": {
+      "medianMs": 3606,
+      "cpuMs": 511,
+      "peakRssMiB": 173.6,
+      "runs": [
+        3606,
+        3610,
+        3550
+      ]
+    },
+    "note": "Two single-loop graphs to their review hold, in one process. Role and check observations are synthetic, so this is harness overhead only: Git transport, journals, capture and verification envelopes."
+  },
+  "isolation": {
+    "aReferencesB": [],
+    "bReferencesA": [],
+    "aObjectStoreHasB": false,
+    "changedA": [
+      "src/a.js",
+      "src/items/a"
+    ],
+    "changedB": [
+      "src/b.js",
+      "src/items/b"
+    ],
+    "stateMiB": {
+      "a": 0.3,
+      "b": 0.3,
+      "rootBundleKiB": 1
+    }
+  },
+  "integration": {
+    "independentEdits": {
+      "clean": true,
+      "tree": "728c979abf7696752f7ceec00a40dfc4220e4764",
+      "conflicts": [],
+      "branchChecks": {
+        "a": "passed",
+        "b": "passed"
+      },
+      "mergedCheckExit": 1,
+      "reading": "A clean textual merge of two individually passing candidates fails the pinned check: integration needs its own fresh verification."
+    },
+    "overlappingEdits": {
+      "clean": false,
+      "conflicts": [
+        "src/a.js"
+      ],
+      "reading": "Two edits to the same line cannot be combined silently; merge-tree reports the conflicted path without touching any working tree."
+    }
+  },
+  "failureIsolation": {
+    "unaffectedBranch": "human-hold",
+    "failedBranchFirstAdvance": "rejected",
+    "failedBranchAfterResume": "human-hold",
+    "failedBranchChildSessions": 2,
+    "reading": "Branches in separate graphs fail independently; the failed branch reconciles its completed child without another run."
+  },
+  "serialContract": {
+    "refusals": {
+      "two-root-loops": "Graph has an unreachable node",
+      "join-by-two-inputs": "input must be bounded text"
+    },
+    "kernel": "Replay admits an event only for the single current cursor node, and each effect node has exactly one success edge. Fan-out needs several cursors; fan-in needs a node whose input names several candidates."
+  }
+}

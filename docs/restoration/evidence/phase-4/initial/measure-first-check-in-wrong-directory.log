@@ -1,0 +1,11 @@
+91 | // 2. Isolation between concurrent branches.
+92 | const { a: dirA, b: dirB } = record.branches as { a: string; b: string };
+93 | const scan = async (root: string, needle: string): Promise<string[]> => { const hits: string[] = []; const walk = async (path: string) => { for (const entry of await readdir(path, { withFileTypes: true })) { const full = join(path, entry.name); if (entry.isDirectory()) { if (!entry.name.endsWith(".git") && entry.name !== "objects") await walk(full); } else if (entry.isFile() && (await stat(full)).size < 4 * 1024 * 1024 && (await readFile(full, "utf8")).includes(needle)) hits.push(full.slice(root.length + 1)); } }; await walk(root); return hits; };
+94 | const candA = await candidate(dirA), candB = await candidate(dirB);
+95 | const changed = async (c: any) => (await git(["--git-dir", c.source.objectStore, "diff", "--name-only", fixture.commit, c.source.commit])).out.split("\n").filter(Boolean);
+96 | record.isolation = { aReferencesB: await scan(dirA, dirB), bReferencesA: await scan(dirB, dirA), aObjectStoreHasB: (await git(["--git-dir", candA.source.objectStore, "cat-file", "-e", `${candB.source.commit}^{commit}`], [0, 1, 128])).code === 0, changedA: await changed(candA), changedB: await changed(candB), stateMiB: { a: mib(await size(dirA)), b: mib(await size(dirB)), rootBundleKiB: Math.round((await stat(fixture.bundle)).size / 1024) } };
+                                                                                                                                                 ^
+TypeError: null is not an object (evaluating 'candA.source')
+      at [checkout]/scripts/restoration-phase4-measure.ts:96:141
+
+Bun v1.4.2 (macOS arm64)

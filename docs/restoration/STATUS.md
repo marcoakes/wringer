@@ -10,7 +10,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 1. Loops and portable evidence | Published and verified | [alpha.24](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.24), commit `40421292da044b91a7d8b072e64066f4d56d6aa4`; [release verification](evidence/phase-1/release.json) |
 | 2. Improvement workflow | Published and verified | [alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25), commit `599ea5f3694035822d214229f6e3bd212dabe455`; [release evidence](evidence/phase-2/release.json) |
 | 3. Serial graphs | Published and verified | [alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26), commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`; [release evidence](evidence/phase-3/release.json); [measurements](PHASE_3_MEASUREMENTS.md) |
-| 4. Parallel branches/integration | Pending | — |
+| 4. Parallel branches/integration | Baseline measured; contract not yet designed | [measurements](PHASE_4_MEASUREMENTS.md): branches isolate; a clean merge of two passing candidates failed the pinned check |
 | 5. Gate/workflow improvement | Pending | — |
 | 6. Tournament/prosecutor | Pending | — |
 | 7. Temporal durability | Pending | — |
