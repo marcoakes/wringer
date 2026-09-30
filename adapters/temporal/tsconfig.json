@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["bun"],
+    "typeRoots": ["../../node_modules/@types"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@wringer/scheduler/kernel": ["../../packages/scheduler/src/contained-kernel.ts"],
+      "@wringer/plan/graph-shape": ["../../packages/plan/src/graph-shape.ts"],
+      "@wringer/records/canonical": ["../../packages/records/src/canonical.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/fixtures/*.ts"]
+}

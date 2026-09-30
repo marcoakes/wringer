@@ -7400,12 +7400,12 @@ class EngineError extends Error {
     this.name = "EngineError";
   }
 }
-// packages/engine/src/io.ts
-var sha256 = (value) => createHash("sha256").update(value).digest("hex");
+
+// packages/engine/src/redactor.ts
 class Redactor {
-  shapes;
   values;
   fragments;
+  shapes;
   constructor(patterns = ["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"], env = process.env, extra = [], shapes = true) {
     this.shapes = shapes;
     const matchers = patterns.map((p) => new RegExp(`^${p.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*")}$`, "i"));
@@ -7441,6 +7441,8 @@ class Redactor {
     return value;
   }
 }
+// packages/engine/src/io.ts
+var sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 // packages/engine/src/adapters.ts
 var MAX_ASSERTIONS = 1024;

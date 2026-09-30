@@ -13,7 +13,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 4. Parallel branches/integration | Published and verified | [alpha.28](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.28), commit `b7e9827cc94ddcb3521556ea5b2192b5d750b80c`; [release evidence](evidence/phase-4/release.json); [measurements](PHASE_4_MEASUREMENTS.md). The `v1.0.0-alpha.27` tag's release build failed on macOS 14 and was never published |
 | 5. Gate/workflow improvement | Published and verified | [alpha.29](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.29), commit `f24a0ca83c09430ca5796142da4fa4283e310419`; [release evidence](evidence/phase-5/release.json); [measurements](PHASE_5_MEASUREMENTS.md). Two earlier remote runs stopped at CI hang guards; see the phase 5 section |
 | 6. Tournament/prosecutor | Published and verified | [alpha.30](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.30), commit `615a9308a1c21a03c10214c00f6bd64a2ab0cda9`; [release evidence](evidence/phase-6/release.json); [measurements](PHASE_6_MEASUREMENTS.md). One earlier remote run stopped at a flaky test timeout; see the phase 6 section |
-| 7. Temporal durability | Measured; no release. The Temporal prototype needs the Temporal CLI and SDK downloaded, which awaits the operator's approval | The graph kernel's decisions and effects mapped, replay determinism measured; [measurements](PHASE_7_MEASUREMENTS.md) |
+| 7. Temporal durability | alpha.33 local qualification passed; remote release pending | The operator approved the Temporal CLI and SDK downloads. A journal interface for the graph kernel, the local journal unchanged, and an optional Node adapter that runs the kernel as a Temporal workflow; fixture-tested against a local dev server only; [measurements](PHASE_7_MEASUREMENTS.md) |
 | 8. Platform interfaces | Published and verified | [alpha.31](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.31), commit `2d2884d7ff568b340cb584ba22ec0329e7ef7439`; [release evidence](evidence/phase-8/release.json); [measurements](PHASE_8_MEASUREMENTS.md). Fixture conformance against a local reference peer only |
 | 9. Comparative qualification | Published and verified | [alpha.32](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.32), commit `b183fdbf0e56f398fd5fd337be702e540daa9b6d`; [release evidence](evidence/phase-9/release.json); [record](PHASE_9_MEASUREMENTS.md). A checked capability ledger, a reproducible showcase and the pilot registered before any run; the pilot itself needs live model access, real tasks and independent reviewers |
 
@@ -321,6 +321,44 @@ GitHub access; anonymous-install qualification was not measured. The
   design commitment needs the Temporal CLI and SDK downloaded. Downloads need the
   operator's explicit approval, so nothing was downloaded, no Temporal behaviour
   is claimed, and phase 7 has no release. Phase 8 shipped before it.
+- Later on 30 September the operator approved the two named downloads: Temporal
+  CLI 1.9.1 (43 MB, its digest matched the published checksums) and the Temporal
+  TypeScript SDK 1.24.0. The prototype measured a lost worker during an effect
+  with one attempt (a timeout, observed once, never repeated) and three (the effect
+  ran twice). It found that the sandbox refused the unchanged kernel, which pulled
+  in 11 Node modules. It also found that replay consulted the reading host's
+  environment for credentials, so a valid history could become unreadable on
+  another machine. Red-first tests reproduced that before the fix. See the
+  [prototype record](evidence/phase-7/prototype.json).
+- The design follows it: the decisions moved unchanged into a module with no
+  host imports behind a `GraphJournal`; the local file journal keeps the same
+  public functions and record bytes; replay checks credential shapes only while
+  the writing host's credentials are still refused on write; `wringer-drive graph
+  init` admits a graph with no effect and `graph effect` runs one marker-bound
+  effect for an external controller; an optional Node adapter runs the kernel as
+  a Temporal workflow and mirrors every event into the state directory.
+- The same captured observations gave byte-identical event files on both journals
+  with the same clock, for six scenarios covering graph versions 1 to 4. The
+  failure-mode, versioning and unit suites and the compiled walkthrough passed
+  against a local dev server. See the [measurements](PHASE_7_MEASUREMENTS.md).
+- The first reversion run caught 24 of 26 probes, and every control and
+  restoration passed. Two probes were not red. Removing the plan's own admission
+  check changed nothing, because the grant's validator re-checks the plan against
+  the same credentials; that probe was dropped. A dispatch on a reserved node
+  without its marker had no test, so the test was added. The second run hung in
+  teardown after a reverted guard's test failed; it was a harness error, it was
+  stopped and [kept](evidence/phase-7/reversions-attempt2-interrupted/run.log), and
+  Node test runs are now bounded. The third run caught 24 of 25
+  ([record](evidence/phase-7/reversions/reversions.json)). Its miss was a
+  classification error: the reverted divergence guard made the workflow livelock,
+  and Node reports the resulting timeout as cancelled, which the harness did not
+  count. It now does, and the
+  [follow-up](evidence/phase-7/reversions-followup/reversions.json) was red and
+  restored green. All 25 probes of the final set were caught; the first run is
+  [kept](evidence/phase-7/reversions-attempt1/reversions.json).
+- Full local validation passed all 42 stages: 1,433 pass, one Linux-only skip, zero
+  fail and 13,341 assertions. The adapter suite passed 26 of 26 and the compiled
+  Temporal walkthrough passed ([record](evidence/phase-7/local-validation.json)).
 
 ## Phase 8 measurements
 

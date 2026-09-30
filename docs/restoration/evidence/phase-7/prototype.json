@@ -1,0 +1,33 @@
+{
+  "schema_version": "wringer.restoration-phase7-prototype.v1",
+  "measuredAt": "2026-09-30",
+  "kind": "Prototype measurements against a local Temporal dev server before the design was fixed; deterministic probes, no model, container or network beyond loopback",
+  "downloads": {
+    "approvedBy": "the operator, in chat, for the two items named",
+    "temporalCli": { "file": "temporal_cli_1.9.1_darwin_arm64.tar.gz", "source": "https://github.com/temporalio/cli/releases/download/v1.9.1/", "bytes": 43195714, "sha256": "41e0425378fcb4fb5766340b97435e20fe47bbff2d7bf644ec2d51f7662b7c56", "checksumMatchedPublishedChecksumsTxt": true, "reports": "temporal version 1.9.1 (Server 1.32.0, UI 2.54.1)" },
+    "sdk": { "packages": ["@temporalio/activity", "@temporalio/client", "@temporalio/common", "@temporalio/worker", "@temporalio/workflow"], "version": "1.24.0", "source": "registry.npmjs.org", "installedBytes": "253 MB with dependencies", "installScripts": "not run (npm allow-scripts); none was needed" }
+  },
+  "workerRuntimes": {
+    "node": { "version": "v24.19.0", "worker": "starts and runs workflows" },
+    "bun": { "version": "1.4.2", "worker": "starts with a warning that v8.promiseHooks.createHook is not available; not used, because the SDK documents Node workers only" }
+  },
+  "workerLossDuringAnEffect": {
+    "method": "an activity sleeping 3 s, its worker killed with SIGKILL 1.2 s in, a new worker started",
+    "oneAttempt": { "workflowLog": ["marker", "dispatch-failed:TimeoutFailure", "observe:starts=1,ends=0", "decision:continue", "done"], "effectStarts": 1 },
+    "threeAttempts": { "workflowLog": ["marker", "decision:continue", "dispatch:ok", "observe:starts=2,ends=1", "done"], "effectStarts": 2, "reading": "a retry repeats an external effect: retries must not be used for effects" },
+    "updates": "the same update id sent twice returned the same result once; an update after completion was refused"
+  },
+  "sandbox": {
+    "unchangedKernelBundle": { "result": "refused", "nodeModulesPulledIn": ["async_hooks", "child_process", "crypto", "dns/promises", "fs", "fs/promises", "https", "net", "os", "path", "zlib"] },
+    "globals": { "structuredClone": "absent", "Buffer": "absent", "TextEncoder": "present", "process": "absent", "crypto": "absent", "Date.now and Math.random": "present, deterministic in workflow code" },
+    "afterTheSplit": { "bundleBytes": 1897290, "contains": { "node:fs": false, "readdir": false, "child_process": false, "validateExecutionPlan": false, "durableCreate": false, "Ajv": false, "sandbox sha256 shim": true }, "processEnvReferences": 1, "processEnvReference": "the Redactor's default parameter, never evaluated: the kernel passes an empty environment; evaluating it in the sandbox would throw" }
+  },
+  "findings": [
+    "Replaying a retained graph history consulted the reading host's environment for credentials (decision and Send text, plan and grant), so a valid record could become unreadable on another machine; red-first tests reproduced it before the fix.",
+    "Temporal's disallowed-module check reads imports as written, so node:crypto is replaced at bundle time by a pure SHA-256 and listed as ignored; tests compare it with node:crypto.",
+    "npm placed protobufjs 7.6.6 (for @grpc/proto-loader) at the top level and three separate copies of 8.8.0 under the SDK packages; the SDK's JSON history reader failed with 'type must be a Type' until protobufjs 8.8.0 was pinned at the top level.",
+    "Bun's bundler left a module-level constant undefined in the compiled CLI when an async module initialiser was not awaited; the compiled walkthrough caught it and the constant became a function.",
+    "A Temporal dev server that suggests continue-as-new early exposed that a test-only fixed-clock workflow loses its clock across runs; production input carries no clock."
+  ],
+  "workflowInputSizes": { "serial": { "startKiB": 4.2, "allEventsKiB": 18.0 }, "parallel": { "startKiB": 6.2, "allEventsKiB": 22.1 }, "tournament": { "startKiB": 10.8, "allEventsKiB": 29.3 }, "delegate": { "startKiB": 4.3, "allEventsKiB": 15.6 }, "temporalDefaultPayloadLimit": "2 MB, not measured near Wringer's own bounds" }
+}

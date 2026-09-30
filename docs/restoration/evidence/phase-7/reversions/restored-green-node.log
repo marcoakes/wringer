@@ -1,0 +1,37 @@
+✔ the mirror writes the local byte format, repeats idempotently and refuses a divergent event (252.439375ms)
+✔ the mirror refuses another graph, a relative path and a symlinked event directory (217.222917ms)
+✔ the screen refuses credentials this host holds and credential shapes (1.38575ms)
+✔ serial: identical recorded inputs and clock give byte-identical records on both backends (3633.609583ms)
+✔ parallel: identical recorded inputs and clock give byte-identical records on both backends (2154.017208ms)
+✔ tournament: identical recorded inputs and clock give byte-identical records on both backends (2444.003459ms)
+✔ delegate: identical recorded inputs and clock give byte-identical records on both backends (1700.28175ms)
+✔ rejected: identical recorded inputs and clock give byte-identical records on both backends (1293.08675ms)
+✔ check-fails: identical recorded inputs and clock give byte-identical records on both backends (1078.260125ms)
+✔ serial: on Temporal's clock every decision, reservation and outcome matches the local backend (1926.206709ms)
+✔ tournament: on Temporal's clock every decision, reservation and outcome matches the local backend (2459.637375ms)
+✔ worker loss during a dispatch: never dispatched again; the late outcome is observed (23159.635459ms)
+✔ timeout: a dispatch that stops heartbeating is timed out, never retried, and its late outcome is observed (11427.799666ms)
+✔ cancellation stops the effect and leaves it uncertain; a new workflow from the directory only observes (8480.513833ms)
+✔ holds: duplicate, stale, forged and credential-bearing decisions record nothing extra (1355.390667ms)
+✔ a second controller on the same directory stops the workflow at the first divergent event (1596.329042ms)
+✔ a refused preflight through the real CLI leaves the node reserved, never dispatched (1725.982625ms)
+✔ a child hold reason carrying a credential this worker holds is refused, never reported (1400.275958ms)
+✔ a tampered plan or grant in the workflow input is refused before any effect (1100.845125ms)
+✔ equals node:crypto on boundary lengths, bytes and text (38.960667ms)
+✔ refuses anything but sha256 to hex (0.279583ms)
+✔ every retained history replays against the current workflow code (2303.974334ms)
+[2m2026-09-30T20:57:10.644252Z[0m [33m WARN[0m [2mtemporalio_sdk_core::worker::workflow[0m[2m:[0m Failing workflow task [3mrun_id[0m[2m=[0m01a0f3a3-f2da-7812-8fbf-0a9a2f96a880 [3mfailure[0m[2m=[0mFailure { failure: Some(Failure { message: "[TMPRL1100] Nondeterminism error: Activity machine does not handle this event: HistoryEvent(id: 152, TimerStarted)", source: "", stack_trace: "", encoded_attributes: None, cause: None, failure_info: Some(ApplicationFailureInfo(ApplicationFailureInfo { r#type: "", non_retryable: false, details: None, next_retry_delay: None, category: Unspecified })) }), force_cause: NonDeterministicError }
+[2m2026-09-30T20:57:10.762382Z[0m [33m WARN[0m [2mtemporalio_sdk_core::worker::workflow[0m[2m:[0m Failing workflow task [3mrun_id[0m[2m=[0m01a0f3a3-ed22-786c-b0c6-a093b82c012a [3mfailure[0m[2m=[0mFailure { failure: Some(Failure { message: "[TMPRL1100] Nondeterminism error: Activity machine does not handle this event: HistoryEvent(id: 11, TimerStarted)", source: "", stack_trace: "", encoded_attributes: None, cause: None, failure_info: Some(ApplicationFailureInfo(ApplicationFailureInfo { r#type: "", non_retryable: false, details: None, next_retry_delay: None, category: Unspecified })) }), force_cause: NonDeterministicError }
+[2m2026-09-30T20:57:10.856426Z[0m [33m WARN[0m [2mtemporalio_sdk_core::worker::workflow[0m[2m:[0m Failing workflow task [3mrun_id[0m[2m=[0m01a0f3a3-fb44-7ae5-8dd6-b2fce042df10 [3mfailure[0m[2m=[0mFailure { failure: Some(Failure { message: "[TMPRL1100] Nondeterminism error: Activity machine does not handle this event: HistoryEvent(id: 11, TimerStarted)", source: "", stack_trace: "", encoded_attributes: None, cause: None, failure_info: Some(ApplicationFailureInfo(ApplicationFailureInfo { r#type: "", non_retryable: false, details: None, next_retry_delay: None, category: Unspecified })) }), force_cause: NonDeterministicError }
+✔ an unguarded change to the workflow commands is caught by replay; the same change under patched() is not (660.929583ms)
+✔ a workflow held at a decision continues on upgraded, patched workflow code (2027.014708ms)
+✔ a history the local backend advanced to a hold continues on Temporal, byte-identical to a local run (1948.144875ms)
+✔ continue-as-new carries the retained history into a new run without repeating work (5050.039334ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 80374.767584

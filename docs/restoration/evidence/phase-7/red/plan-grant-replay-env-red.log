@@ -1,0 +1,21 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-durability.test.ts:
+ 5 | import type { ExecutionPlan, RepositoryRef } from './types';
+ 6 | 
+ 7 | export * from './graph-shape';
+ 8 | import { closesFork, graphCandidateOwner, graphEdges, graphInput, graphOutcomes, graphRegions, graphReservation, PROSECUTOR_ARTIFACT, type ContainedGraphNode, type ContainedGraphPlan, type GraphAuthority, type GraphBudget, type GraphGate, type GraphPeer, type GraphProsecutor, type GraphPublication } from './graph-shape';
+ 9 | const SINKS = ['done', 'fail'];
+10 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: Graph contains a detected credential
+      at fail ([checkout]/packages/plan/src/graph.ts:10:51)
+      at compileContainedGraph ([checkout]/packages/plan/src/graph.ts:267:46)
+      at load ([checkout]/packages/scheduler/src/contained-kernel.ts:368:57)
+      at async readJournaledGraph ([checkout]/packages/scheduler/src/contained-kernel.ts:442:26)
+(fail) a retained plan and grant read the same when the reading host holds a matching value [19.11ms]
+
+ 4 pass
+ 1 fail
+ 8 expect() calls
+Ran 5 tests across 1 file. [704.00ms]

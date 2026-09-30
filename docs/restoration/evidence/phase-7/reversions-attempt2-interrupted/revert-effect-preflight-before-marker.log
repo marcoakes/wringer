@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-effect.test.ts:
+48 | 
+49 | test("a preflight needs a reserved node without its marker", async () => {
+50 |     const f = await fixture();
+51 |     await expect(runGraphEffect(f.dir, "preflight-dispatch", "build", { driver: f.driver })).rejects.toThrow("build has no reservation");
+52 |     await expect(advanceContainedGraph(f.dir, markerOnly(f.driver))).rejects.toThrow("controller stopped after the marker");
+53 |     await expect(runGraphEffect(f.dir, "preflight-dispatch", "build", { driver: f.driver })).rejects.toThrow("already has a dispatch marker");
+                                                                                                          ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-effect.test.ts:53:102)
+(fail) a preflight needs a reserved node without its marker [22.56ms]
+
+ 0 pass
+ 3 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [183.00ms]

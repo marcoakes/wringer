@@ -235,6 +235,14 @@ it. If a child stops with a recovery available under its own authority, or waits
 for its own human review, the graph reports a hold that names the child's next
 command. A graph decision never satisfies a child's own human criteria.
 
+## Durable runtimes
+
+The history above is the local journal. The same kernel can instead run as a
+Temporal workflow through an optional Node adapter, after `wringer-drive graph
+init` admits the graph without any effect; each event is then mirrored into the
+same state directory, so every command on this page still reads it. See
+[durable runtimes](DURABILITY.md).
+
 ## Evidence
 
 `graph export` writes the exact plan, grant and events, a portable summary per

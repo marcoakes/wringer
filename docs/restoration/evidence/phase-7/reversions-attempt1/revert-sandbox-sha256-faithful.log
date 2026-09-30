@@ -1,0 +1,32 @@
+✖ equals node:crypto on boundary lengths, bytes and text (1.272375ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51.217208
+
+✖ failing tests:
+
+test at adapters/temporal/test/sandbox-crypto.test.mjs:8:1
+✖ equals node:crypto on boundary lengths, bytes and text (1.272375ms)
+  AssertionError [ERR_ASSERTION]: bytes of length 0
+  + actual - expected
+  
+  + '85fb6b7d3d968791a2e43411e4d7b419421378aff76ae1fa2bb5d0492079e118'
+  - 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+  
+      at TestContext.<anonymous> (file://[isolated-checkout]/adapters/temporal/test/sandbox-crypto.test.mjs:11:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '85fb6b7d3d968791a2e43411e4d7b419421378aff76ae1fa2bb5d0492079e118',
+    expected: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

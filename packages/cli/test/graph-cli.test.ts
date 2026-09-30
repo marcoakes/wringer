@@ -83,3 +83,26 @@ test("the external-task example compiles as a version 4 graph and states the del
     expect(validate(result.value)).toBe(true); expect(result.value.schema_version).toBe("wringer.contained-graph-plan.v4");
     expect(result.text).toContain("external A2A task to agents.example.com (skill repair"); expect(result.text).toContain("a check must verify it");
 });
+test("graph init admits the graph without any effect and resume continues from it", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wringer-graph-cli-")); directories.push(dir);
+    const authority = join(dir, "authority.json"), state = join(dir, "state");
+    await drive("authority", example, "--actor", "Scripted engineering fixture", "--expires", new Date(Date.now() + 3600000).toISOString(), "--output", authority);
+    const admitted: any = await drive("init", example, "--authority", authority, "--state", state);
+    expect(admitted.exit).toBe(0);
+    expect(admitted.text).toContain("No agent, container or repository command ran");
+    expect(admitted.value.phase).toBe("pending");
+    expect(await readdir(join(state, "events"))).toEqual(["0000.json"]);
+    const held: any = await drive("resume", "--state", state);
+    expect(held.value.phase).toBe("human-hold");
+    expect(await refused(drive("init", example, "--authority", authority, "--state", state))).toBeDefined();
+});
+test("graph effect runs nothing without its durable marker and names its operations", async () => {
+    const { state } = await started();
+    const unknown = await refused(drive("effect", "launch", "--state", state, "--node", "build"));
+    expect(unknown.exit_code).toBe(2); expect(String(unknown.message)).toContain("preflight-dispatch, preflight-send, dispatch, observe, send");
+    const unreserved = await refused(drive("effect", "dispatch", "--state", state, "--node", "build"));
+    expect(String(unreserved.message)).toContain("build has no reservation in this graph history; no effect ran");
+    const scope = await refused(drive("effect", "observe", "--state", state, "--node", "scope"));
+    expect(String(scope.message)).toContain("scope was never dispatched");
+    expect(await readdir(state)).not.toContain(".wringer/graph-effects");
+});

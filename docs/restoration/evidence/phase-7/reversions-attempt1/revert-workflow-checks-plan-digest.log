@@ -1,0 +1,32 @@
+✖ a tampered plan or grant in the workflow input is refused before any effect (32589.575708ms)
+ℹ Error: Test hook "before" at adapters/temporal/test/failure-modes.test.mjs:15:1 generated asynchronous activity after the test ended. This activity created the error "Error: Channel has been shut down" and would have caused the test to fail, but instead triggered an uncaughtException event.
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34002.167542
+
+✖ failing tests:
+
+test at adapters/temporal/test/failure-modes.test.mjs:172:1
+✖ a tampered plan or grant in the workflow input is refused before any effect (32589.575708ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  Error: the workflow did not end
+      at async TestContext.<anonymous> (file://[isolated-checkout]/adapters/temporal/test/failure-modes.test.mjs:180:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: the workflow did not end
+        at Timeout._onTimeout (file://[isolated-checkout]/adapters/temporal/test/failure-modes.test.mjs:23:131)
+        at listOnTimeout (node:internal/timers:635:17)
+        at process.processTimers (node:internal/timers:571:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }

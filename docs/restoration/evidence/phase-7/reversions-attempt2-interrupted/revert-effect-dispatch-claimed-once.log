@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-effect.test.ts:
+61 |     await expect(runGraphEffect(f.dir, "dispatch", "build", { driver: f.driver })).rejects.toThrow("no durable dispatch marker");
+62 |     expect(f.calls.filter(call => call.startsWith("dispatch:"))).toEqual([]);
+63 |     await expect(advanceContainedGraph(f.dir, markerOnly(f.driver))).rejects.toThrow("controller stopped after the marker");
+64 |     const outcome = await runGraphEffect(f.dir, "dispatch", "build", { driver: f.driver });
+65 |     expect(outcome.revision).toBe((await readContainedGraph(f.dir)).revision);
+66 |     await expect(runGraphEffect(f.dir, "dispatch", "build", { driver: f.driver })).rejects.toThrow("already started for this marker; it is never started twice");
+                                                                                                ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-effect.test.ts:66:92)
+(fail) a dispatch runs only for a durable marker, once, and never after a result [30.34ms]
+
+ 0 pass
+ 3 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [193.00ms]

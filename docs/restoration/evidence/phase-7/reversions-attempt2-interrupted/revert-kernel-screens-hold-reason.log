@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-durability.test.ts:
+60 | test('a child hold reason carrying a credential from the writing host is refused', async () => {
+61 |     const f = await fixture();
+62 |     secret('WRINGER_PHASE7_FIXTURE_TOKEN', 'wr-fixture-credential-7730');
+63 |     f.driver.dispatch = async () => undefined;
+64 |     f.driver.observe = async request => request.node === 'build' ? { kind: 'held', reason: 'Waiting on wr-fixture-credential-7730.' } : null;
+65 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('Child hold reason contains a detected credential');
+                                                                               ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-durability.test.ts:65:75)
+(fail) a child hold reason carrying a credential from the writing host is refused [17.35ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [169.00ms]

@@ -1,0 +1,38 @@
+kernel-replay-shapes-only: red
+journal-replays-plan-without-host-credentials: red
+journal-replays-grant-without-host-credentials: red
+journal-admits-plan-against-host-credentials: NOT RED
+journal-admits-grant-against-host-credentials: red
+local-writes-screen-host-credentials: red
+kernel-screens-hold-reason: red
+effect-preflight-before-marker: red
+effect-dispatch-needs-marker: NOT RED
+effect-dispatch-claimed-once: red
+effect-send-needs-marker: red
+effect-send-claimed-once: red
+workflow-effect-single-attempt: red
+workflow-heartbeat-bounds-lost-worker: red
+workflow-lost-dispatch-reconciled: red
+workflow-validator-binds-revision: red
+workflow-screens-decision-on-worker: red
+workflow-divergence-stops: red
+workflow-checks-plan-digest: red
+workflow-checks-grant: red
+workflow-continues-with-retained-events: red
+mirror-refuses-divergent-event: red
+mirror-writes-local-byte-format: red
+worker-screens-hold-reason: red
+sandbox-sha256-faithful: red
+sandbox-sha256-used-by-conformance: red
+59 |         }
+60 |     }
+61 |     const restored = await run("restored-green", tests);
+62 |     const restoredNode = options.nodeTests?.length ? await run("restored-green-node", options.nodeTests, "node") : null;
+63 |     await writeFile(join(evidence, "reversions.json"), JSON.stringify({ baseline: options.baseline ?? "7f4cc542fd1149c00a3be0ee8949c895b95ef0c3", kind: "Automated deterministic engineering fixtures; no live model or human judgment", control, ...(nodeControl ? { nodeControl } : {}), results, restored, ...(restoredNode ? { restoredNode } : {}) }, null, 2) + "\n");
+64 |     if (restored.exit || restoredNode?.exit || results.some(row => !row.caught)) throw new Error("The reversion gate did not pass; inspect retained results");
+                                                                                                ^
+error: The reversion gate did not pass; inspect retained results
+      at runReversions ([checkout]/scripts/rebuild-reversions.ts:64:92)
+
+Bun v1.4.2 (macOS arm64)
+exit=1

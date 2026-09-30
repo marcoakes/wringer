@@ -59,6 +59,9 @@ repository's own checks still require its declared toolchain.
 `bun run check` checks generated record types, strict TypeScript and executable
 tests. `bun run validate` also exercises compiled distribution and local delivery
 fixtures. Fixtures do not prove live agent convergence or real containment.
+The optional Temporal adapter has its own suite, run by its own CI job against a
+local dev server: `npm ci --ignore-scripts` in `adapters/temporal`, then
+`TEMPORAL_CLI=… npm test` there and `bun scripts/graph-temporal-distribution.ts`.
 Full validation uses a pinned Chromium test browser to operate the actual PM
 forms. Install it once as above; a missing browser must not become a silent skip.
 Scripted browser clicks are engineering evidence, never an independent person's
@@ -82,6 +85,9 @@ Keep live platform tests and their exact prerequisites visible as release gates.
 - `packages/application`: shared CLI/PM commands, controller queries and guarded effects.
 - `packages/mcp`: bounded assistant protocol tools; no approval, publication or agent reasoning loop.
 - `packages/cli`: thin command routing and the human pen.
+- `adapters/temporal`: an optional Node worker that runs the unchanged graph kernel
+  as Temporal workflows; effects go through `wringer-drive graph effect`. No harness
+  logic of its own, and not part of the native archives.
 
 ## Contracts and evidence
 

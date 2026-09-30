@@ -1,0 +1,52 @@
+2026-09-30T20:55:54.236Z [WARN] Workflow failed {
+  sdkComponent: 'worker',
+  taskQueue: 'conformance-serial-containedGraphAtFixedTime',
+  namespace: 'default',
+  workflowId: 'conformance-serial-containedGraphAtFixedTime-1790801754184',
+  runId: '01a0f41a-384e-74f5-a34a-0a713c2bfce8',
+  workflowType: 'containedGraphAtFixedTime',
+  error: ApplicationFailure: Compiled graph digest changed
+      at ApplicationFailure.nonRetryable ([checkout]/adapters/temporal/node_modules/@temporalio/common/src/failure.ts:254:11)
+      at nonRetryable ([isolated-checkout]/adapters/temporal/src/graph-workflow.ts:115:41)
+      at Script.runInContext (node:vm:149:12)
+      at Proxy.<anonymous> ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/workflow/reusable-vm.js:216:45)
+      at ReusableVMWorkflow.activate ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/workflow/vm-shared.js:403:37)
+      at handleRequest ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/workflow/workflow-worker-thread.js:73:47)
+      at MessagePort.<anonymous> ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/workflow/workflow-worker-thread.js:145:28)
+      at [nodejs.internal.kHybridDispatch] (node:internal/event_target:856:20)
+      at MessagePort.<anonymous> (node:internal/per_context/messageport:23:28)
+      at containedGraph ([isolated-checkout]/adapters/temporal/src/graph-workflow.ts:143:19) {
+    [cause]: undefined
+  }
+}
+✖ serial: identical recorded inputs and clock give byte-identical records on both backends (2587.925458ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2807.767875
+
+✖ failing tests:
+
+test at adapters/temporal/test/conformance.test.mjs:34:5
+✖ serial: identical recorded inputs and clock give byte-identical records on both backends (2587.925458ms)
+  Error [WorkflowFailedError]: Workflow execution failed
+      at WorkflowClient.result ([checkout]/adapters/temporal/node_modules/@temporalio/client/lib/workflow-client.js:403:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async [checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/worker.js:1578:32 {
+    cause: ApplicationFailure: Compiled graph digest changed
+        at ApplicationFailure.nonRetryable ([checkout]/adapters/temporal/node_modules/@temporalio/common/src/failure.ts:254:11)
+        at nonRetryable ([isolated-checkout]/adapters/temporal/src/graph-workflow.ts:115:41) {
+      cause: undefined,
+      failure: { message: 'Compiled graph digest changed', source: 'TypeScriptSDK', stackTrace: 'ApplicationFailure: Compiled graph digest changed\n    at ApplicationFailure.nonRetryable ([checkout]/adapters/temporal/node_modules/@temporalio/common/src/failure.ts:254:11)\n    at nonRetryable ([isolated-checkout]/adapters/temporal/src/graph-workflow.ts:115:41)', applicationFailureInfo: [Object], encodedAttributes: undefined, cause: null, timeoutFailureInfo: undefined, canceledFailureInfo: undefined, resetWorkflowFailureInfo: undefined },
+      type: 'GraphRefused',
+      nonRetryable: true,
+      details: [],
+      nextRetryDelay: undefined,
+      category: undefined
+    },
+    retryState: 'RETRY_POLICY_NOT_SET'
+  }

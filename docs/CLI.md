@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.32
+Wringer · Bun/TypeScript · 1.0.0-alpha.33
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -295,7 +295,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.32
+Wringer assistant entry point — 1.0.0-alpha.33
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.
@@ -699,11 +699,17 @@ wringer-drive graph · serial graphs of contained loops
   wringer-drive graph plan GRAPH.yaml            Validate, pin every leaf plan and show the allowance; no spend
   wringer-drive graph authority GRAPH.yaml --actor NAME --expires ISO --output AUTH.json
   wringer-drive graph run GRAPH.yaml --authority AUTH.json --state DIR [--source-bundle FILE]
+  wringer-drive graph init GRAPH.yaml --authority AUTH.json --state DIR [--source-bundle FILE]
+                                                 Admit the graph and start its history; no effect runs
   wringer-drive graph resume --state DIR          Advance or reconcile; never a new grant or a repeated effect
   wringer-drive graph status --state DIR          Nodes, candidates, allowance and the exact next action
   wringer-drive graph decide --state DIR --node ID --revision SHA --input SHA (--continue | --reject) --by NAME --note TEXT
   wringer-drive graph send --state DIR --node ID --revision SHA --prepared SHA --by NAME --note TEXT
   wringer-drive graph export --state DIR --output DIR
+  wringer-drive graph effect OPERATION --state DIR --node ID
+                                                 For an external controller: one driver operation
+                                                 (preflight-dispatch, preflight-send, dispatch, observe,
+                                                 send) bound to this history's durable marker
 
 Version 2 graphs add fork and join: a fork opens 2–8 private branches, up to
 the declared parallelism at once; the join waits for every branch, merges their
@@ -716,6 +722,9 @@ its own status, review and resume commands. Allowance for every declared leaf is
 reserved before any effect. A human hold binds the exact revision and input; it
 does not satisfy a child's own human criteria. Delivery is prepared, then needs
 a separate Send. Graph authority never grants Send.
+An external controller (the Temporal adapter) decides with the same kernel and
+asks graph effect to run each effect: a dispatch or Send needs its durable marker
+in this history and runs at most once per marker; an observation only reads.
 Exit: 0 complete, 1 failed, 3 waiting (hold, Send, uncertain, expired), 2 refused.
 Legacy host graphs stay readable with wring graph show|status|explain.
 ```

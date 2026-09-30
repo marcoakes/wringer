@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-effect.test.ts:
+74 |     await expect(runGraphEffect(f.dir, "send", "ship", { driver: f.driver })).rejects.toThrow("no durable Send marker");
+75 |     expect(await runGraphEffect(f.dir, "preflight-send", "ship", { driver: f.driver })).toMatchObject({ operation: "preflight-send" });
+76 |     const send = { node: "ship", expectedRevision: ready.revision, preparedSha256: hashValue(ready.nodes.ship!.prepared), actor: "Scripted engineering fixture", note: "Explicit fixture Send." };
+77 |     await expect(sendContainedGraph(f.dir, send, markerOnly(f.driver))).rejects.toThrow("controller stopped after the Send marker");
+78 |     await runGraphEffect(f.dir, "send", "ship", { driver: f.driver });
+79 |     await expect(runGraphEffect(f.dir, "send", "ship", { driver: f.driver })).rejects.toThrow("already started for this marker");
+                                                                                           ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-effect.test.ts:79:87)
+(fail) a Send runs only for its durable Send marker, once [55.23ms]
+
+ 0 pass
+ 3 filtered out
+ 1 fail
+ 5 expect() calls
+Ran 1 test across 1 file. [218.00ms]

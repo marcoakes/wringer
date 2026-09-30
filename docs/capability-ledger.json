@@ -212,25 +212,35 @@
     },
     {
       "id": "temporal-durability",
-      "name": "A second durable runtime (Temporal)",
+      "name": "Durable runtimes: the local journal and Temporal",
       "implemented": {
-        "status": "no",
+        "status": "yes",
+        "evidence": [
+          "docs/native/DURABILITY.md",
+          "packages/scheduler/src/contained-kernel.ts",
+          "scripts/graph-temporal-distribution.ts"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-7/reversions/reversions.json",
+          "docs/restoration/evidence/phase-7/adapter-tests.log",
+          "docs/restoration/evidence/phase-7/walkthrough.json"
+        ],
+        "note": "Against a local Temporal dev server with deterministic fixtures: byte-identical records with the local journal on the same recorded inputs and clock, and worker loss, timeout, cancellation, stale and duplicate decisions, divergence and versioned replay."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No production cluster, Temporal Cloud, live agent or real containment run."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
         "evidence": [
           "docs/restoration/PHASE_7_MEASUREMENTS.md"
         ],
-        "note": "Measured; the prototype needs the Temporal CLI and SDK downloaded, which awaits approval."
-      },
-      "fixtureTested": {
-        "status": "no",
-        "evidence": []
-      },
-      "liveQualified": {
-        "status": "no",
-        "evidence": []
-      },
-      "comparativelyBeneficial": {
-        "status": "not-applicable",
-        "evidence": []
+        "note": "Whether a Temporal controller is more reliable than the local journal is unmeasured."
       }
     },
     {

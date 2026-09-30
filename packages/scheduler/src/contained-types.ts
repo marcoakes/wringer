@@ -58,6 +58,10 @@ export interface ContainedGraphOptions {
     now?: () => Date;
     /** Crash probes run after a durable boundary, before the next operation. */
     checkpoint?: (event: GraphEvent) => Promise<void>;
+    /** Write-time screen for text a transition records or reports: a decision's or
+     * Send's actor and note and a child hold reason. The local backend refuses
+     * credentials held in the writing host's environment. Replay never screens. */
+    screen?: (text: string, label: string) => void;
 }
 export interface GraphDecision { node: string; expectedRevision: string; inputSha256: string; choice: 'continue' | 'reject'; actor: string; note: string; }
 export interface GraphSend { node: string; expectedRevision: string; preparedSha256: string; actor: string; note: string; }

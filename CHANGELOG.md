@@ -4,6 +4,27 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.33 — a second durable runtime: Temporal
+
+- The contained-graph kernel's decisions sit behind a `GraphJournal`, in a module
+  with no host imports. The local file journal is unchanged in behaviour and
+  record bytes.
+- An optional Node adapter, [`adapters/temporal`](adapters/temporal/README.md),
+  runs the unchanged kernel as a Temporal workflow. It mirrors every event
+  create-once into the state directory, runs each effect once through
+  `wringer-drive graph effect`, takes decisions and Sends as bound updates, and
+  stops at the first event a second controller wrote. See
+  [durable runtimes](docs/native/DURABILITY.md).
+- `wringer-drive graph init` admits a graph without any effect.
+  `wringer-drive graph effect` runs one driver operation for an external
+  controller, only for its durable marker, at most once per marker.
+- Replaying a retained graph history no longer consults the reading host's
+  environment for credentials. Replay checks shapes only; the writing host's
+  credentials are still refused when a record is written.
+- A Temporal CI job runs the adapter's conformance, failure-mode and versioning
+  suites and a compiled walkthrough against a local dev server. No Temporal Cloud,
+  live agent or real containment run is claimed.
+
 ## 1.0.0-alpha.32 — what is proven, at which level
 
 - A [capability ledger](docs/CAPABILITY_LEDGER.md) judges every capability

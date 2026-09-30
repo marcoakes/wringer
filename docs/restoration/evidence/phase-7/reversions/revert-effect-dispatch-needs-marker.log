@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-effect.test.ts:
+56 | test("a dispatch runs only for a durable marker, once, and never after a result", async () => {
+57 |     const f = await fixture();
+58 |     // A refused preflight leaves the node reserved without its marker: no dispatch may run.
+59 |     await expect(advanceContainedGraph(f.dir, { ...f.driver, preflight: async () => { throw new Error("runtime absent"); } })).rejects.toThrow("runtime absent");
+60 |     expect((await readContainedGraph(f.dir)).nodes.build!.dispatched).toBe(false);
+61 |     await expect(runGraphEffect(f.dir, "dispatch", "build", { driver: f.driver })).rejects.toThrow("no durable dispatch marker");
+                                                                                                ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-effect.test.ts:61:92)
+(fail) a dispatch runs only for a durable marker, once, and never after a result [22.82ms]
+
+ 0 pass
+ 3 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [181.00ms]

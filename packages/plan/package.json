@@ -1,9 +1,10 @@
 {
   "name": "@wringer/plan",
-  "version": "1.0.0-alpha.32",
+  "version": "1.0.0-alpha.33",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
+  "exports": { ".": "./src/index.ts", "./graph-shape": "./src/graph-shape.ts" },
   "dependencies": {
     "@wringer/acp": "workspace:*",
     "@wringer/design": "workspace:*",

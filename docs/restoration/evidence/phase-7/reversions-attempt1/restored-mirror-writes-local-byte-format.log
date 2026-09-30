@@ -1,0 +1,9 @@
+✔ serial: identical recorded inputs and clock give byte-identical records on both backends (3608.372125ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4890.765542

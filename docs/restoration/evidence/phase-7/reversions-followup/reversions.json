@@ -1,0 +1,38 @@
+{
+  "baseline": "c99eb62da7a522d7f3ab127288d4d705aa12c8f2",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "nodeControl": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "workflow-divergence-stops",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "restoredNode": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

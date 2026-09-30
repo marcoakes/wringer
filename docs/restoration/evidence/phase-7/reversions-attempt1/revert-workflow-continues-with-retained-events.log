@@ -1,0 +1,85 @@
+2026-09-30T20:13:23.719Z [WARN] Activity failed {
+  sdkComponent: 'worker',
+  taskQueue: 'continue-as-new',
+  isLocal: false,
+  attempt: 1,
+  namespace: 'default',
+  taskToken: 'CiQwMWEwZjNmMy0zZWQxLTdjNmYtYjViMy04OWE3MDhiMGVjOGQSHWNvbnRpbnVlLWFzLW5ldy0xNzkwNzk5MjAxNjQ2GiQzNjU0OTg0Zi1hZTNlLTQ3MDEtOTgxZS0yYWRlMDk2ZDQxYWYgBSgBMgExQgZyZWNvcmRKCAgBEJSDQBgB',
+  activityId: '1',
+  activityType: 'record',
+  workflowId: 'continue-as-new-1790799201646',
+  workflowRunId: '3654984f-ae3e-4701-981e-2ade096d41af',
+  workflowType: 'containedGraph',
+  error: ApplicationFailure: events/0001.json already holds a different event: another controller advanced this graph. Nothing was overwritten.
+      at ApplicationFailure.nonRetryable ([checkout]/adapters/temporal/node_modules/@temporalio/common/lib/failure.js:209:16)
+      at refuse (file://[isolated-checkout]/adapters/temporal/src/activities.mjs:16:85)
+      at createOnce (file://[isolated-checkout]/adapters/temporal/src/activities.mjs:42:72)
+      at async record (file://[isolated-checkout]/adapters/temporal/src/activities.mjs:87:13)
+      at async Activity.execute ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/activity.js:104:20)
+      at async NativeConnection.withAbortSignal ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/connection.js:172:16)
+      at async Client.withAbortSignal ([checkout]/adapters/temporal/node_modules/@temporalio/client/lib/base-client.js:65:16)
+      at async [checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/activity.js:164:32
+      at async [checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/worker.js:813:30 {
+    cause: undefined,
+    failure: undefined,
+    type: 'GraphDiverged',
+    nonRetryable: true,
+    details: [],
+    nextRetryDelay: undefined,
+    category: undefined
+  },
+  durationMs: 7
+}
+2026-09-30T20:13:23.741Z [WARN] Workflow failed {
+  sdkComponent: 'worker',
+  taskQueue: 'continue-as-new',
+  namespace: 'default',
+  workflowId: 'continue-as-new-1790799201646',
+  runId: '3654984f-ae3e-4701-981e-2ade096d41af',
+  workflowType: 'containedGraph',
+  error: ApplicationFailure: record: events/0001.json already holds a different event: another controller advanced this graph. Nothing was overwritten.
+      at ApplicationFailure.nonRetryable ([checkout]/adapters/temporal/node_modules/@temporalio/common/src/failure.ts:254:11)
+      at nonRetryable ([isolated-checkout]/adapters/temporal/src/graph-workflow.ts:115:41)
+      at Script.runInContext (node:vm:149:12)
+      at Proxy.<anonymous> ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/workflow/reusable-vm.js:216:45)
+      at ReusableVMWorkflow.activate ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/workflow/vm-shared.js:403:37)
+      at handleRequest ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/workflow/workflow-worker-thread.js:73:47)
+      at MessagePort.<anonymous> ([checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/workflow/workflow-worker-thread.js:145:28)
+      at [nodejs.internal.kHybridDispatch] (node:internal/event_target:856:20)
+      at MessagePort.<anonymous> (node:internal/per_context/messageport:23:28)
+      at containedGraph ([isolated-checkout]/adapters/temporal/src/graph-workflow.ts:143:19) {
+    [cause]: undefined
+  }
+}
+✖ continue-as-new carries the retained history into a new run without repeating work (5576.81025ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6871.231042
+
+✖ failing tests:
+
+test at adapters/temporal/test/versioning.test.mjs:79:1
+✖ continue-as-new carries the retained history into a new run without repeating work (5576.81025ms)
+  Error [WorkflowFailedError]: Workflow execution failed
+      at WorkflowClient.result ([checkout]/adapters/temporal/node_modules/@temporalio/client/lib/workflow-client.js:403:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file://[isolated-checkout]/adapters/temporal/test/versioning.test.mjs:88:27
+      at async [checkout]/adapters/temporal/node_modules/@temporalio/worker/lib/worker.js:1578:32 {
+    cause: ApplicationFailure: record: events/0001.json already holds a different event: another controller advanced this graph. Nothing was overwritten.
+        at ApplicationFailure.nonRetryable ([checkout]/adapters/temporal/node_modules/@temporalio/common/src/failure.ts:254:11)
+        at nonRetryable ([isolated-checkout]/adapters/temporal/src/graph-workflow.ts:115:41) {
+      cause: undefined,
+      failure: { message: 'record: events/0001.json already holds a different event: another controller advanced this graph. Nothing was overwritten.', source: 'TypeScriptSDK', stackTrace: 'ApplicationFailure: record: events/0001.json already holds a different event: another controller advanced this graph. Nothing was overwritten.\n    at ApplicationFailure.nonRetryable ([checkout]/adapters/temporal/node_modules/@temporalio/common/src/failure.ts:254:11)\n    at nonRetryable ([isolated-checkout]/adapters/temporal/src/graph-workflow.ts:115:41)', applicationFailureInfo: [Object], encodedAttributes: undefined, cause: null, timeoutFailureInfo: undefined, canceledFailureInfo: undefined, resetWorkflowFailureInfo: undefined },
+      type: 'GraphDiverged',
+      nonRetryable: true,
+      details: [],
+      nextRetryDelay: undefined,
+      category: undefined
+    },
+    retryState: 'RETRY_POLICY_NOT_SET'
+  }

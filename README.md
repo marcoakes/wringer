@@ -53,9 +53,10 @@ Serial graphs of contained loops shipped in 1.0.0-alpha.26; parallel branches wi
 verified integration in 1.0.0-alpha.28; gate and workflow proposals judged by a
 frozen oracle in 1.0.0-alpha.29; tournaments that try to falsify every attempt in
 1.0.0-alpha.30; external A2A tasks in 1.0.0-alpha.31; the capability ledger,
-showcase and registered pilot in 1.0.0-alpha.32. All are proven with deterministic
-fixtures and not yet with live agents or a real A2A peer. A Temporal runtime
-awaits its prototype, and the registered pilot awaits live runs; see
+showcase and registered pilot in 1.0.0-alpha.32; a second durable runtime,
+Temporal, through an optional adapter in 1.0.0-alpha.33. All are proven with
+deterministic fixtures and not yet with live agents, a real A2A peer or a
+production Temporal cluster. The registered pilot awaits live runs; see
 the [restoration plan](docs/SOTA_RESTORATION_PLAN.md). Their exact current status
 is listed in [capabilities](docs/CAPABILITIES.md); planned features are not
 release claims.

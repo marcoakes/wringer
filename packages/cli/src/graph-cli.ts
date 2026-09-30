@@ -5,7 +5,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { closesFork, createGraphAuthority, graphReservation, validateGraphAuthority, type ContainedGraphNode, type GraphAuthority } from "@wringer/plan";
 import { advanceContainedGraph, decideContainedGraph, initializeContainedGraph, readContainedGraph, sendContainedGraph, type GraphState } from "@wringer/scheduler";
-import { attachGraphRootSource, containedGraphDriver, exportContainedGraph, graphStatusView, loadContainedGraphFile, readControllerFile, renderGraphStatus } from "@wringer/application";
+import { attachGraphRootSource, containedGraphDriver, exportContainedGraph, graphEffectOperations, graphStatusView, loadContainedGraphFile, readControllerFile, renderGraphStatus, runGraphEffect, type GraphEffectOperation } from "@wringer/application";
 import { EngineError } from "@wringer/engine";
 import { allowed, flag, positionals, quote, required, type Args } from "./args";
 import type { Answer, DispatchContext } from "./app";
@@ -15,11 +15,17 @@ export const GRAPH_HELP = `wringer-drive graph · serial graphs of contained loo
   wringer-drive graph plan GRAPH.yaml            Validate, pin every leaf plan and show the allowance; no spend
   wringer-drive graph authority GRAPH.yaml --actor NAME --expires ISO --output AUTH.json
   wringer-drive graph run GRAPH.yaml --authority AUTH.json --state DIR [--source-bundle FILE]
+  wringer-drive graph init GRAPH.yaml --authority AUTH.json --state DIR [--source-bundle FILE]
+                                                 Admit the graph and start its history; no effect runs
   wringer-drive graph resume --state DIR          Advance or reconcile; never a new grant or a repeated effect
   wringer-drive graph status --state DIR          Nodes, candidates, allowance and the exact next action
   wringer-drive graph decide --state DIR --node ID --revision SHA --input SHA (--continue | --reject) --by NAME --note TEXT
   wringer-drive graph send --state DIR --node ID --revision SHA --prepared SHA --by NAME --note TEXT
   wringer-drive graph export --state DIR --output DIR
+  wringer-drive graph effect OPERATION --state DIR --node ID
+                                                 For an external controller: one driver operation
+                                                 (preflight-dispatch, preflight-send, dispatch, observe,
+                                                 send) bound to this history's durable marker
 
 Version 2 graphs add fork and join: a fork opens 2–8 private branches, up to
 the declared parallelism at once; the join waits for every branch, merges their
@@ -32,6 +38,9 @@ its own status, review and resume commands. Allowance for every declared leaf is
 reserved before any effect. A human hold binds the exact revision and input; it
 does not satisfy a child's own human criteria. Delivery is prepared, then needs
 a separate Send. Graph authority never grants Send.
+An external controller (the Temporal adapter) decides with the same kernel and
+asks graph effect to run each effect: a dispatch or Send needs its durable marker
+in this history and runs at most once per marker; an observation only reads.
 Exit: 0 complete, 1 failed, 3 waiting (hold, Send, uncertain, expired), 2 refused.
 Legacy host graphs stay readable with wring graph show|status|explain.`;
 
@@ -68,14 +77,15 @@ export async function graphDrive(a: Args, repo: string, context: DispatchContext
         await writeFile(output, JSON.stringify(authority, null, 2) + "\n", { flag: "wx", mode: 0o600 });
         return { value: { path: output, authority }, text: `Graph authority saved: ${output}\nGraph ${plan.sha256}; expires ${authority.expiresAt}.\nIt grants the declared allowance only. No human verdict, Send or sandbox bypass was granted.\nNext: wringer-drive graph run ${quote(path)} --authority ${quote(output)} --state GRAPH-STATE-DIRECTORY` };
     }
-    if (verb === "run") {
+    if (verb === "run" || verb === "init") {
         positionals(a, 2); allowed(a, ["authority", "state", "source-bundle"]);
         const path = resolve(repo, a.words[1]!), plan = await loadContainedGraphFile(path), directory = statePath(repo, a);
         let authority: GraphAuthority;
         try { authority = validateGraphAuthority(await readControllerFile(resolve(repo, required(a, "authority"))), plan); }
         catch (error) { throw new EngineError(`Graph authority refused: ${(error as Error).message}`, 2, `wringer-drive graph authority ${quote(path)} --help`); }
-        await initializeContainedGraph(directory, plan, authority);
+        const started = await initializeContainedGraph(directory, plan, authority);
         if (a.flags.has("source-bundle")) await attachGraphRootSource(directory, resolve(repo, required(a, "source-bundle")));
+        if (verb === "init") return { ...answer(directory, started, `Graph admitted at ${directory}. No agent, container or repository command ran.\nAdvance it here with wringer-drive graph resume --state ${quote(directory)}, or hand it to one external controller such as the Temporal adapter; never both at once.`), exit: 0 };
         const state = await guarded(directory, () => advanceContainedGraph(directory, containedGraphDriver({ signal: context.signal }), { signal: context.signal }), context);
         return answer(directory, state, `Graph started at ${directory}.`);
     }
@@ -106,6 +116,16 @@ export async function graphDrive(a: Args, repo: string, context: DispatchContext
         positionals(a, 1); allowed(a, ["state", "output"]);
         const directory = statePath(repo, a), output = resolve(repo, required(a, "output")), value = await exportContainedGraph(directory, output);
         return { value, text: `Graph evidence exported: ${output}\n${Object.keys(value.files).length} files carried with digests, ${value.nodes.filter(node => node.delivery).length} delivery envelope(s), ${value.omissions.length} named omissions.\nCheck it anywhere with Node alone: node ${quote(output + "/read-bundle.mjs")} ${quote(output)}` };
+    }
+    if (verb === "effect") {
+        positionals(a, 2); allowed(a, ["state", "node"]);
+        const operation = a.words[1] as GraphEffectOperation;
+        if (!graphEffectOperations().includes(operation)) throw new EngineError(`Unknown graph effect operation ${a.words[1]}; use ${graphEffectOperations().join(", ")}`, 2);
+        const directory = statePath(repo, a), node = required(a, "node");
+        let value;
+        try { value = await runGraphEffect(directory, operation, node, { signal: context.signal }); }
+        catch (error) { throw new EngineError(`Graph effect refused or failed: ${(error as Error).message}`, context.signal?.aborted ? 4 : 3, `wringer-drive graph status --state ${quote(directory)}`); }
+        return { value, text: `${operation} of ${node} at revision ${value.revision.slice(0, 12)}${value.observation === undefined ? "" : value.observation === null ? ": no retained outcome yet" : `: ${value.observation.kind}${"outcome" in value.observation ? ` ${value.observation.outcome}` : ""}`}.` };
     }
     throw new EngineError(`Unknown graph verb ${verb}. See wringer-drive graph --help.`, 2);
 }

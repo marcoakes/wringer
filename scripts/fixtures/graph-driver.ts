@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { hashBytes } from "../../packages/plan/src";
 import { createLocalSourceBundle, processDriver, runtimeProvenanceVersion, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../../packages/runtime/src";
-import { containedGraphDriver, graphStatusView } from "../../packages/application/src";
+import { containedGraphDriver, graphStatusView, runGraphEffect, type GraphEffectOperation } from "../../packages/application/src";
 import { advanceContainedGraph } from "../../packages/scheduler/src";
 import { startReferencePeer } from "../../packages/application/fixtures/a2a-peer";
 
@@ -163,7 +163,7 @@ if (action === "prepare") {
     await writeFile(join(directory, "graph.yaml"), JSON.stringify(graph(cardSha256), null, 2));
     await writeFile(join(directory, "graph-changed-card.yaml"), JSON.stringify({ ...graph("0".repeat(64)), id: "delegation-changed-card" }, null, 2));
     console.log(JSON.stringify({ fixture: true, origin, baseCommit: commit, graph: join(directory, "graph.yaml"), changedCard: join(directory, "graph-changed-card.yaml"), bundle: join(directory, "source.bundle") }));
-} else if (action === "advance") {
+} else if (action === "advance" || action === "effect-for") {
     const state = resolve(stateArgument!), crash = process.env.WRINGER_GRAPH_FIXTURE_CRASH;
     const patchFor = async (prompt: string) => {
         if (prompt.includes("You are the prosecutor")) return readFile(join(directory, "prosecutor.patch"), "utf8");
@@ -184,10 +184,18 @@ if (action === "prepare") {
     };
     const executeRole = async (request: RoleExecutionRequest): Promise<RoleExecutionResult> => { const patch = await patchFor(request.prompt); return ({ status: "completed", text: request.role === "worker" ? "PRIVATE_FIXTURE_WORKER_NARRATIVE" : JSON.stringify({ criteria: [{ id: /Finish the (reader|writer) module\./.test(request.prompt) ? "done" : /Return the sum of two integers/.test(request.prompt) ? "sum" : "expected", met: true, reason: "Synthetic independent fixture finding" }], note: "Fixture only, not live model review" }), sessionId: crypto.randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "synthetic-graph-fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "PRIVATE_FIXTURE_CONSOLE", provenance: provenance(request.role as "worker" | "judge", request.repo, request.runtime), ...(request.role === "worker" ? { change: { baseCommit: request.repo.commit, patch, sha256: hashBytes(patch) } } : {}) }) as RoleExecutionResult; };
     const driver = containedGraphDriver({ executeRole, runCommands }), dispatch = driver.dispatch.bind(driver);
+    if (action === "effect-for") {
+        // An external controller's effect command: effect-for FIXTURE graph effect OPERATION --state DIR --node ID --json
+        const argv = process.argv.slice(4), flag = (name: string) => argv[argv.indexOf(`--${name}`) + 1]!;
+        if (argv[0] !== "graph" || argv[1] !== "effect") throw new Error("effect-for expects: graph effect OPERATION --state DIR --node ID");
+        try { console.log(JSON.stringify(await runGraphEffect(resolve(flag("state")), argv[2] as GraphEffectOperation, flag("node"), { driver }))); }
+        catch (error) { console.log(JSON.stringify({ status: "refused", message: (error as Error).message })); process.exit(3); }
+        process.exit(0);
+    }
     // Crash probes simulate a killed process at an exact durable boundary.
     driver.dispatch = async request => { await dispatch(request); if (crash === "after-child" && request.node === "build") process.exit(9); };
     // after-first-result: every branch child has finished, and the process dies before the second result is recorded.
     let results = 0;
     const result = await advanceContainedGraph(state, driver, { checkpoint: async event => { if (crash === "after-marker" && event.kind === "dispatch") process.exit(9); if (crash === "after-first-result" && event.kind === "result" && ++results === 1) process.exit(9); } });
     console.log(JSON.stringify(graphStatusView(state, result)));
-} else throw new Error("Fixture actions are prepare, prepare-parallel, prepare-tournament, serve-peer, prepare-delegate and advance only");
+} else throw new Error("Fixture actions are prepare, prepare-parallel, prepare-tournament, serve-peer, prepare-delegate, advance and effect-for only");

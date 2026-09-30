@@ -1,0 +1,17 @@
+kernel-replay-shapes-only: red
+journal-replays-plan-without-host-credentials: red
+journal-replays-grant-without-host-credentials: red
+journal-admits-grant-against-host-credentials: red
+local-writes-screen-host-credentials: red
+kernel-screens-hold-reason: red
+effect-preflight-before-marker: red
+effect-dispatch-needs-marker: red
+effect-dispatch-claimed-once: red
+effect-send-needs-marker: red
+effect-send-claimed-once: red
+workflow-effect-single-attempt: red
+workflow-heartbeat-bounds-lost-worker: red
+workflow-lost-dispatch-reconciled: red
+workflow-validator-binds-revision: red
+workflow-screens-decision-on-worker: red
+exit=143

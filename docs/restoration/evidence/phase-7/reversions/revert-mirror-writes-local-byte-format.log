@@ -1,0 +1,509 @@
+✖ serial: identical recorded inputs and clock give byte-identical records on both backends (3455.500292ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3668.219208
+
+✖ failing tests:
+
+test at adapters/temporal/test/conformance.test.mjs:34:5
+✖ serial: identical recorded inputs and clock give byte-identical records on both backends (3455.500292ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    [
+      '{\n' +
+        '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+        '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+        '  "sequence": 0,\n' +
+  ...
+        '}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":1,"previousSha256":"9110f34ec34d13e5bc0b7bfda389449a5517c08f0fbe7bc6d44b82800fecba76","at":"2026-09-30T20:55:09.000Z","node":"scope","kind":"reserve","data":{"reservation":{"roleSessions":0,"verificationAttempts":0,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"root","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"0000000000000000000000000000000000000000"},"candidate":null,"evidenceSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17"}}},"sha256":"da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":2,"previousSha256":"da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23","at":"2026-09-30T20:55:09.000Z","node":"scope","kind":"decision","data":{"node":"scope","expectedRevision":"da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23","inputSha256":"439f22b4417ea3f6833a273104b03050296b717f7e8383f05b2036f5a605a4b6","choice":"continue","actor":"Scripted engineering fixture","note":"Fixture checkpoint at scope; not independent human acceptance."},"sha256":"6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":3,"previousSha256":"6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4","at":"2026-09-30T20:55:09.000Z","node":"scope","kind":"result","data":{"kind":"complete","outcome":"continued","candidate":null,"evidenceSha256":"6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4"},"sha256":"8b2128ac1dbf9611ec096a7f492d32762379e7a1b2451511506e40aaf8ab9f52"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":4,"previousSha256":"8b2128ac1dbf9611ec096a7f492d32762379e7a1b2451511506e40aaf8ab9f52","at":"2026-09-30T20:55:09.000Z","node":"scope","kind":"route","data":{"outcome":"continued","to":"build","via":[],"reason":null},"sha256":"e21aa0e9713c465b9bda27bd78d2896068b131ba87771748215133ab7799d8c9"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":5,"previousSha256":"e21aa0e9713c465b9bda27bd78d2896068b131ba87771748215133ab7799d8c9","at":"2026-09-30T20:55:09.000Z","node":"build","kind":"reserve","data":{"reservation":{"roleSessions":8,"verificationAttempts":9,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"root","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"0000000000000000000000000000000000000000"},"candidate":null,"evidenceSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17"}}},"sha256":"a9788d145143d28139afa5b81cb18afa2d4b9a1e18ec5fce8cb34e1311839a79"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":6,"previousSha256":"a9788d145143d28139afa5b81cb18afa2d4b9a1e18ec5fce8cb34e1311839a79","at":"2026-09-30T20:55:09.000Z","node":"build","kind":"dispatch","data":{},"sha256":"b5cb0860502b5c9feb51f4b2a793565ed9aa5770de709bbe8fe12c3dc068c58e"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":7,"previousSha256":"b5cb0860502b5c9feb51f4b2a793565ed9aa5770de709bbe8fe12c3dc068c58e","at":"2026-09-30T20:55:09.000Z","node":"build","kind":"result","data":{"kind":"complete","outcome":"ready","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"9b355480047a978501a0134cd7670157eafe4df4c30d4d3d11c4cf9143b9479c"},"sha256":"62cba58ab6565122618a78dd0119f54de77f7d11351d77f818ff7a5f19809835"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":8,"previousSha256":"62cba58ab6565122618a78dd0119f54de77f7d11351d77f818ff7a5f19809835","at":"2026-09-30T20:55:09.000Z","node":"build","kind":"route","data":{"outcome":"ready","to":"verify","via":[],"reason":null},"sha256":"d15e8aee2928d769dd10bbd63d811d023d1e0dd7cc7ced67a72979c871eccac4"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":9,"previousSha256":"d15e8aee2928d769dd10bbd63d811d023d1e0dd7cc7ced67a72979c871eccac4","at":"2026-09-30T20:55:09.000Z","node":"verify","kind":"reserve","data":{"reservation":{"roleSessions":0,"verificationAttempts":1,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"build","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"9b355480047a978501a0134cd7670157eafe4df4c30d4d3d11c4cf9143b9479c"}}},"sha256":"f229829ad605d9e4963cc2b1ae24e2d38b51b3c8abe3630aa0cc66920e47c8b6"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":10,"previousSha256":"f229829ad605d9e4963cc2b1ae24e2d38b51b3c8abe3630aa0cc66920e47c8b6","at":"2026-09-30T20:55:09.000Z","node":"verify","kind":"dispatch","data":{},"sha256":"499258c78774dd9a2688fdaa6c395763cf7b68f384695960e28edec3ea59331b"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":11,"previousSha256":"499258c78774dd9a2688fdaa6c395763cf7b68f384695960e28edec3ea59331b","at":"2026-09-30T20:55:09.000Z","node":"verify","kind":"result","data":{"kind":"complete","outcome":"passed","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"b4461ef5420f8069990bbf40eee387a164c46f36c017da89f4f7bd97339065e6"},"sha256":"c34f0ca9d93f08db79153a1b3c087a5a4b31b85ec5f143a21ff5ac24f04ac3b2"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":12,"previousSha256":"c34f0ca9d93f08db79153a1b3c087a5a4b31b85ec5f143a21ff5ac24f04ac3b2","at":"2026-09-30T20:55:09.000Z","node":"verify","kind":"route","data":{"outcome":"passed","to":"review","via":["route"],"reason":null},"sha256":"86a6ce1b0b5aa8e2110f217b63f83e884819804ed4f0140ee4fa151f51fc7f5f"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":13,"previousSha256":"86a6ce1b0b5aa8e2110f217b63f83e884819804ed4f0140ee4fa151f51fc7f5f","at":"2026-09-30T20:55:09.000Z","node":"review","kind":"reserve","data":{"reservation":{"roleSessions":0,"verificationAttempts":0,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"verify","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"b4461ef5420f8069990bbf40eee387a164c46f36c017da89f4f7bd97339065e6"}}},"sha256":"d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":14,"previousSha256":"d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7","at":"2026-09-30T20:55:09.000Z","node":"review","kind":"decision","data":{"node":"review","expectedRevision":"d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7","inputSha256":"4c5f9a8e6b779575deef59ddf48f760a82ff67e44c0ca2a4de3b86ce8ce1ed23","choice":"continue","actor":"Scripted engineering fixture","note":"Fixture checkpoint at review; not independent human acceptance."},"sha256":"dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":15,"previousSha256":"dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66","at":"2026-09-30T20:55:09.000Z","node":"review","kind":"result","data":{"kind":"complete","outcome":"continued","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"},"sha256":"7efe7bbae84b4b1b9e2731737fa0d827dff015eb0d82d1d4d0bac6b9b279b88f"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":16,"previousSha256":"7efe7bbae84b4b1b9e2731737fa0d827dff015eb0d82d1d4d0bac6b9b279b88f","at":"2026-09-30T20:55:09.000Z","node":"review","kind":"route","data":{"outcome":"continued","to":"ship","via":[],"reason":null},"sha256":"267a952d8340e4eb71ef8380aeed2a908b2f320094c48ab11eebaa9f513b6460"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":17,"previousSha256":"267a952d8340e4eb71ef8380aeed2a908b2f320094c48ab11eebaa9f513b6460","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"reserve","data":{"reservation":{"roleSessions":0,"verificationAttempts":0,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"review","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"}}},"sha256":"406fd64c3447a58f884e2fa82732d25e3a6447156095e1ed636c0a2d831638cc"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":18,"previousSha256":"406fd64c3447a58f884e2fa82732d25e3a6447156095e1ed636c0a2d831638cc","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"dispatch","data":{},"sha256":"acbc9b94555b1b1c49153a3864b376382ed54b6b7dd420e05eee53d1c61a77ca"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":19,"previousSha256":"acbc9b94555b1b1c49153a3864b376382ed54b6b7dd420e05eee53d1c61a77ca","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"prepared","data":{"kind":"prepared","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"f1a656b607a7c2bfa9de5e6dec08a182534d9bb94c78733dc801471cd1065bac"},"sha256":"65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":20,"previousSha256":"65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"send","data":{"node":"ship","expectedRevision":"65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58","preparedSha256":"8bdaacf638dd178bdb9e0ad0ddf364e9069055c84d72c1049dc400045a815225","actor":"Scripted engineering fixture","note":"Fixture Send of ship to a test origin."},"sha256":"0a77734e68f597d418be2365e9ef0d1fc3fbc63b0721394e8ad2aaec4748f677"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":21,"previousSha256":"0a77734e68f597d418be2365e9ef0d1fc3fbc63b0721394e8ad2aaec4748f677","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"result","data":{"kind":"complete","outcome":"delivered","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"34c3d9d6b337743370c2877291d3370bced5a31845571573c32d5ff623d7bb13"},"sha256":"06f6891cae2f83d92c3e4f10fbbbe507eece663fd06b6c8eb0e506599be5ae08"}\n',
+  +   '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":22,"previousSha256":"06f6891cae2f83d92c3e4f10fbbbe507eece663fd06b6c8eb0e506599be5ae08","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"route","data":{"outcome":"delivered","to":"done","via":[],"reason":null},"sha256":"974f6244701e09329c349c059a54b7f2c20e24415c40779100543c5e340fece8"}\n'
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 1,\n' +
+  -     '  "previousSha256": "9110f34ec34d13e5bc0b7bfda389449a5517c08f0fbe7bc6d44b82800fecba76",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "scope",\n' +
+  -     '  "kind": "reserve",\n' +
+  -     '  "data": {\n' +
+  -     '    "reservation": {\n' +
+  -     '      "roleSessions": 0,\n' +
+  -     '      "verificationAttempts": 0,\n' +
+  -     '      "deadline": "2026-09-30T21:55:09.000Z",\n' +
+  -     '      "input": {\n' +
+  -     '        "node": "root",\n' +
+  -     '        "source": {\n' +
+  -     '          "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '          "commit": "0000000000000000000000000000000000000000"\n' +
+  -     '        },\n' +
+  -     '        "candidate": null,\n' +
+  -     '        "evidenceSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17"\n' +
+  -     '      }\n' +
+  -     '    }\n' +
+  -     '  },\n' +
+  -     '  "sha256": "da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 2,\n' +
+  -     '  "previousSha256": "da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "scope",\n' +
+  -     '  "kind": "decision",\n' +
+  -     '  "data": {\n' +
+  -     '    "node": "scope",\n' +
+  -     '    "expectedRevision": "da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23",\n' +
+  -     '    "inputSha256": "439f22b4417ea3f6833a273104b03050296b717f7e8383f05b2036f5a605a4b6",\n' +
+  -     '    "choice": "continue",\n' +
+  -     '    "actor": "Scripted engineering fixture",\n' +
+  -     '    "note": "Fixture checkpoint at scope; not independent human acceptance."\n' +
+  -     '  },\n' +
+  -     '  "sha256": "6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 3,\n' +
+  -     '  "previousSha256": "6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "scope",\n' +
+  -     '  "kind": "result",\n' +
+  -     '  "data": {\n' +
+  -     '    "kind": "complete",\n' +
+  -     '    "outcome": "continued",\n' +
+  -     '    "candidate": null,\n' +
+  -     '    "evidenceSha256": "6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4"\n' +
+  -     '  },\n' +
+  -     '  "sha256": "8b2128ac1dbf9611ec096a7f492d32762379e7a1b2451511506e40aaf8ab9f52"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 4,\n' +
+  -     '  "previousSha256": "8b2128ac1dbf9611ec096a7f492d32762379e7a1b2451511506e40aaf8ab9f52",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "scope",\n' +
+  -     '  "kind": "route",\n' +
+  -     '  "data": {\n' +
+  -     '    "outcome": "continued",\n' +
+  -     '    "to": "build",\n' +
+  -     '    "via": [],\n' +
+  -     '    "reason": null\n' +
+  -     '  },\n' +
+  -     '  "sha256": "e21aa0e9713c465b9bda27bd78d2896068b131ba87771748215133ab7799d8c9"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 5,\n' +
+  -     '  "previousSha256": "e21aa0e9713c465b9bda27bd78d2896068b131ba87771748215133ab7799d8c9",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "build",\n' +
+  -     '  "kind": "reserve",\n' +
+  -     '  "data": {\n' +
+  -     '    "reservation": {\n' +
+  -     '      "roleSessions": 8,\n' +
+  -     '      "verificationAttempts": 9,\n' +
+  -     '      "deadline": "2026-09-30T21:55:09.000Z",\n' +
+  -     '      "input": {\n' +
+  -     '        "node": "root",\n' +
+  -     '        "source": {\n' +
+  -     '          "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '          "commit": "0000000000000000000000000000000000000000"\n' +
+  -     '        },\n' +
+  -     '        "candidate": null,\n' +
+  -     '        "evidenceSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17"\n' +
+  -     '      }\n' +
+  -     '    }\n' +
+  -     '  },\n' +
+  -     '  "sha256": "a9788d145143d28139afa5b81cb18afa2d4b9a1e18ec5fce8cb34e1311839a79"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 6,\n' +
+  -     '  "previousSha256": "a9788d145143d28139afa5b81cb18afa2d4b9a1e18ec5fce8cb34e1311839a79",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "build",\n' +
+  -     '  "kind": "dispatch",\n' +
+  -     '  "data": {},\n' +
+  -     '  "sha256": "b5cb0860502b5c9feb51f4b2a793565ed9aa5770de709bbe8fe12c3dc068c58e"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 7,\n' +
+  -     '  "previousSha256": "b5cb0860502b5c9feb51f4b2a793565ed9aa5770de709bbe8fe12c3dc068c58e",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "build",\n' +
+  -     '  "kind": "result",\n' +
+  -     '  "data": {\n' +
+  -     '    "kind": "complete",\n' +
+  -     '    "outcome": "ready",\n' +
+  -     '    "candidate": {\n' +
+  -     '      "source": {\n' +
+  -     '        "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '      },\n' +
+  -     '      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n' +
+  -     '      "owner": "build"\n' +
+  -     '    },\n' +
+  -     '    "evidenceSha256": "9b355480047a978501a0134cd7670157eafe4df4c30d4d3d11c4cf9143b9479c"\n' +
+  -     '  },\n' +
+  -     '  "sha256": "62cba58ab6565122618a78dd0119f54de77f7d11351d77f818ff7a5f19809835"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 8,\n' +
+  -     '  "previousSha256": "62cba58ab6565122618a78dd0119f54de77f7d11351d77f818ff7a5f19809835",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "build",\n' +
+  -     '  "kind": "route",\n' +
+  -     '  "data": {\n' +
+  -     '    "outcome": "ready",\n' +
+  -     '    "to": "verify",\n' +
+  -     '    "via": [],\n' +
+  -     '    "reason": null\n' +
+  -     '  },\n' +
+  -     '  "sha256": "d15e8aee2928d769dd10bbd63d811d023d1e0dd7cc7ced67a72979c871eccac4"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 9,\n' +
+  -     '  "previousSha256": "d15e8aee2928d769dd10bbd63d811d023d1e0dd7cc7ced67a72979c871eccac4",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "verify",\n' +
+  -     '  "kind": "reserve",\n' +
+  -     '  "data": {\n' +
+  -     '    "reservation": {\n' +
+  -     '      "roleSessions": 0,\n' +
+  -     '      "verificationAttempts": 1,\n' +
+  -     '      "deadline": "2026-09-30T21:55:09.000Z",\n' +
+  -     '      "input": {\n' +
+  -     '        "node": "build",\n' +
+  -     '        "source": {\n' +
+  -     '          "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '          "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '        },\n' +
+  -     '        "candidate": {\n' +
+  -     '          "source": {\n' +
+  -     '            "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '            "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '          },\n' +
+  -     '          "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n' +
+  -     '          "owner": "build"\n' +
+  -     '        },\n' +
+  -     '        "evidenceSha256": "9b355480047a978501a0134cd7670157eafe4df4c30d4d3d11c4cf9143b9479c"\n' +
+  -     '      }\n' +
+  -     '    }\n' +
+  -     '  },\n' +
+  -     '  "sha256": "f229829ad605d9e4963cc2b1ae24e2d38b51b3c8abe3630aa0cc66920e47c8b6"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 10,\n' +
+  -     '  "previousSha256": "f229829ad605d9e4963cc2b1ae24e2d38b51b3c8abe3630aa0cc66920e47c8b6",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "verify",\n' +
+  -     '  "kind": "dispatch",\n' +
+  -     '  "data": {},\n' +
+  -     '  "sha256": "499258c78774dd9a2688fdaa6c395763cf7b68f384695960e28edec3ea59331b"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 11,\n' +
+  -     '  "previousSha256": "499258c78774dd9a2688fdaa6c395763cf7b68f384695960e28edec3ea59331b",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "verify",\n' +
+  -     '  "kind": "result",\n' +
+  -     '  "data": {\n' +
+  -     '    "kind": "complete",\n' +
+  -     '    "outcome": "passed",\n' +
+  -     '    "candidate": {\n' +
+  -     '      "source": {\n' +
+  -     '        "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '      },\n' +
+  -     '      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n' +
+  -     '      "owner": "build"\n' +
+  -     '    },\n' +
+  -     '    "evidenceSha256": "b4461ef5420f8069990bbf40eee387a164c46f36c017da89f4f7bd97339065e6"\n' +
+  -     '  },\n' +
+  -     '  "sha256": "c34f0ca9d93f08db79153a1b3c087a5a4b31b85ec5f143a21ff5ac24f04ac3b2"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 12,\n' +
+  -     '  "previousSha256": "c34f0ca9d93f08db79153a1b3c087a5a4b31b85ec5f143a21ff5ac24f04ac3b2",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "verify",\n' +
+  -     '  "kind": "route",\n' +
+  -     '  "data": {\n' +
+  -     '    "outcome": "passed",\n' +
+  -     '    "to": "review",\n' +
+  -     '    "via": [\n' +
+  -     '      "route"\n' +
+  -     '    ],\n' +
+  -     '    "reason": null\n' +
+  -     '  },\n' +
+  -     '  "sha256": "86a6ce1b0b5aa8e2110f217b63f83e884819804ed4f0140ee4fa151f51fc7f5f"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 13,\n' +
+  -     '  "previousSha256": "86a6ce1b0b5aa8e2110f217b63f83e884819804ed4f0140ee4fa151f51fc7f5f",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "review",\n' +
+  -     '  "kind": "reserve",\n' +
+  -     '  "data": {\n' +
+  -     '    "reservation": {\n' +
+  -     '      "roleSessions": 0,\n' +
+  -     '      "verificationAttempts": 0,\n' +
+  -     '      "deadline": "2026-09-30T21:55:09.000Z",\n' +
+  -     '      "input": {\n' +
+  -     '        "node": "verify",\n' +
+  -     '        "source": {\n' +
+  -     '          "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '          "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '        },\n' +
+  -     '        "candidate": {\n' +
+  -     '          "source": {\n' +
+  -     '            "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '            "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '          },\n' +
+  -     '          "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n' +
+  -     '          "owner": "build"\n' +
+  -     '        },\n' +
+  -     '        "evidenceSha256": "b4461ef5420f8069990bbf40eee387a164c46f36c017da89f4f7bd97339065e6"\n' +
+  -     '      }\n' +
+  -     '    }\n' +
+  -     '  },\n' +
+  -     '  "sha256": "d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 14,\n' +
+  -     '  "previousSha256": "d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "review",\n' +
+  -     '  "kind": "decision",\n' +
+  -     '  "data": {\n' +
+  -     '    "node": "review",\n' +
+  -     '    "expectedRevision": "d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7",\n' +
+  -     '    "inputSha256": "4c5f9a8e6b779575deef59ddf48f760a82ff67e44c0ca2a4de3b86ce8ce1ed23",\n' +
+  -     '    "choice": "continue",\n' +
+  -     '    "actor": "Scripted engineering fixture",\n' +
+  -     '    "note": "Fixture checkpoint at review; not independent human acceptance."\n' +
+  -     '  },\n' +
+  -     '  "sha256": "dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 15,\n' +
+  -     '  "previousSha256": "dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "review",\n' +
+  -     '  "kind": "result",\n' +
+  -     '  "data": {\n' +
+  -     '    "kind": "complete",\n' +
+  -     '    "outcome": "continued",\n' +
+  -     '    "candidate": {\n' +
+  -     '      "source": {\n' +
+  -     '        "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '      },\n' +
+  -     '      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n' +
+  -     '      "owner": "build"\n' +
+  -     '    },\n' +
+  -     '    "evidenceSha256": "dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"\n' +
+  -     '  },\n' +
+  -     '  "sha256": "7efe7bbae84b4b1b9e2731737fa0d827dff015eb0d82d1d4d0bac6b9b279b88f"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 16,\n' +
+  -     '  "previousSha256": "7efe7bbae84b4b1b9e2731737fa0d827dff015eb0d82d1d4d0bac6b9b279b88f",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "review",\n' +
+  -     '  "kind": "route",\n' +
+  -     '  "data": {\n' +
+  -     '    "outcome": "continued",\n' +
+  -     '    "to": "ship",\n' +
+  -     '    "via": [],\n' +
+  -     '    "reason": null\n' +
+  -     '  },\n' +
+  -     '  "sha256": "267a952d8340e4eb71ef8380aeed2a908b2f320094c48ab11eebaa9f513b6460"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 17,\n' +
+  -     '  "previousSha256": "267a952d8340e4eb71ef8380aeed2a908b2f320094c48ab11eebaa9f513b6460",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "ship",\n' +
+  -     '  "kind": "reserve",\n' +
+  -     '  "data": {\n' +
+  -     '    "reservation": {\n' +
+  -     '      "roleSessions": 0,\n' +
+  -     '      "verificationAttempts": 0,\n' +
+  -     '      "deadline": "2026-09-30T21:55:09.000Z",\n' +
+  -     '      "input": {\n' +
+  -     '        "node": "review",\n' +
+  -     '        "source": {\n' +
+  -     '          "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '          "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '        },\n' +
+  -     '        "candidate": {\n' +
+  -     '          "source": {\n' +
+  -     '            "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '            "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '          },\n' +
+  -     '          "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n' +
+  -     '          "owner": "build"\n' +
+  -     '        },\n' +
+  -     '        "evidenceSha256": "dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"\n' +
+  -     '      }\n' +
+  -     '    }\n' +
+  -     '  },\n' +
+  -     '  "sha256": "406fd64c3447a58f884e2fa82732d25e3a6447156095e1ed636c0a2d831638cc"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 18,\n' +
+  -     '  "previousSha256": "406fd64c3447a58f884e2fa82732d25e3a6447156095e1ed636c0a2d831638cc",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "ship",\n' +
+  -     '  "kind": "dispatch",\n' +
+  -     '  "data": {},\n' +
+  -     '  "sha256": "acbc9b94555b1b1c49153a3864b376382ed54b6b7dd420e05eee53d1c61a77ca"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 19,\n' +
+  -     '  "previousSha256": "acbc9b94555b1b1c49153a3864b376382ed54b6b7dd420e05eee53d1c61a77ca",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "ship",\n' +
+  -     '  "kind": "prepared",\n' +
+  -     '  "data": {\n' +
+  -     '    "kind": "prepared",\n' +
+  -     '    "candidate": {\n' +
+  -     '      "source": {\n' +
+  -     '        "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '      },\n' +
+  -     '      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n' +
+  -     '      "owner": "build"\n' +
+  -     '    },\n' +
+  -     '    "evidenceSha256": "f1a656b607a7c2bfa9de5e6dec08a182534d9bb94c78733dc801471cd1065bac"\n' +
+  -     '  },\n' +
+  -     '  "sha256": "65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 20,\n' +
+  -     '  "previousSha256": "65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "ship",\n' +
+  -     '  "kind": "send",\n' +
+  -     '  "data": {\n' +
+  -     '    "node": "ship",\n' +
+  -     '    "expectedRevision": "65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58",\n' +
+  -     '    "preparedSha256": "8bdaacf638dd178bdb9e0ad0ddf364e9069055c84d72c1049dc400045a815225",\n' +
+  -     '    "actor": "Scripted engineering fixture",\n' +
+  -     '    "note": "Fixture Send of ship to a test origin."\n' +
+  -     '  },\n' +
+  -     '  "sha256": "0a77734e68f597d418be2365e9ef0d1fc3fbc63b0721394e8ad2aaec4748f677"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 21,\n' +
+  -     '  "previousSha256": "0a77734e68f597d418be2365e9ef0d1fc3fbc63b0721394e8ad2aaec4748f677",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "ship",\n' +
+  -     '  "kind": "result",\n' +
+  -     '  "data": {\n' +
+  -     '    "kind": "complete",\n' +
+  -     '    "outcome": "delivered",\n' +
+  -     '    "candidate": {\n' +
+  -     '      "source": {\n' +
+  -     '        "url": "https://github.com/OWNER/REPOSITORY.git",\n' +
+  -     '        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n' +
+  -     '      },\n' +
+  -     '      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n' +
+  -     '      "owner": "build"\n' +
+  -     '    },\n' +
+  -     '    "evidenceSha256": "34c3d9d6b337743370c2877291d3370bced5a31845571573c32d5ff623d7bb13"\n' +
+  -     '  },\n' +
+  -     '  "sha256": "06f6891cae2f83d92c3e4f10fbbbe507eece663fd06b6c8eb0e506599be5ae08"\n' +
+  -     '}\n',
+  -   '{\n' +
+  -     '  "schema_version": "wringer.contained-graph-event.v1",\n' +
+  -     '  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n' +
+  -     '  "sequence": 22,\n' +
+  -     '  "previousSha256": "06f6891cae2f83d92c3e4f10fbbbe507eece663fd06b6c8eb0e506599be5ae08",\n' +
+  -     '  "at": "2026-09-30T20:55:09.000Z",\n' +
+  -     '  "node": "ship",\n' +
+  -     '  "kind": "route",\n' +
+  -     '  "data": {\n' +
+  -     '    "outcome": "delivered",\n' +
+  -     '    "to": "done",\n' +
+  -     '    "via": [],\n' +
+  -     '    "reason": null\n' +
+  -     '  },\n' +
+  -     '  "sha256": "974f6244701e09329c349c059a54b7f2c20e24415c40779100543c5e340fece8"\n' +
+  -     '}\n'
+    ]
+  
+      at TestContext.<anonymous> (file://[isolated-checkout]/adapters/temporal/test/conformance.test.mjs:39:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 0,\n  "previousSha256": null,\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": null,\n  "kind": "start",\n  "data": {\n    "startedAt": "2026-09-30T20:55:09.000Z",\n    "deadline": "2026-09-30T21:55:09.000Z"\n  },\n  "sha256": "9110f34ec34d13e5bc0b7bfda389449a5517c08f0fbe7bc6d44b82800fecba76"\n}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":1,"previousSha256":"9110f34ec34d13e5bc0b7bfda389449a5517c08f0fbe7bc6d44b82800fecba76","at":"2026-09-30T20:55:09.000Z","node":"scope","kind":"reserve","data":{"reservation":{"roleSessions":0,"verificationAttempts":0,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"root","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"0000000000000000000000000000000000000000"},"candidate":null,"evidenceSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17"}}},"sha256":"da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":2,"previousSha256":"da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23","at":"2026-09-30T20:55:09.000Z","node":"scope","kind":"decision","data":{"node":"scope","expectedRevision":"da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23","inputSha256":"439f22b4417ea3f6833a273104b03050296b717f7e8383f05b2036f5a605a4b6","choice":"continue","actor":"Scripted engineering fixture","note":"Fixture checkpoint at scope; not independent human acceptance."},"sha256":"6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":3,"previousSha256":"6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4","at":"2026-09-30T20:55:09.000Z","node":"scope","kind":"result","data":{"kind":"complete","outcome":"continued","candidate":null,"evidenceSha256":"6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4"},"sha256":"8b2128ac1dbf9611ec096a7f492d32762379e7a1b2451511506e40aaf8ab9f52"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":4,"previousSha256":"8b2128ac1dbf9611ec096a7f492d32762379e7a1b2451511506e40aaf8ab9f52","at":"2026-09-30T20:55:09.000Z","node":"scope","kind":"route","data":{"outcome":"continued","to":"build","via":[],"reason":null},"sha256":"e21aa0e9713c465b9bda27bd78d2896068b131ba87771748215133ab7799d8c9"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":5,"previousSha256":"e21aa0e9713c465b9bda27bd78d2896068b131ba87771748215133ab7799d8c9","at":"2026-09-30T20:55:09.000Z","node":"build","kind":"reserve","data":{"reservation":{"roleSessions":8,"verificationAttempts":9,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"root","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"0000000000000000000000000000000000000000"},"candidate":null,"evidenceSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17"}}},"sha256":"a9788d145143d28139afa5b81cb18afa2d4b9a1e18ec5fce8cb34e1311839a79"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":6,"previousSha256":"a9788d145143d28139afa5b81cb18afa2d4b9a1e18ec5fce8cb34e1311839a79","at":"2026-09-30T20:55:09.000Z","node":"build","kind":"dispatch","data":{},"sha256":"b5cb0860502b5c9feb51f4b2a793565ed9aa5770de709bbe8fe12c3dc068c58e"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":7,"previousSha256":"b5cb0860502b5c9feb51f4b2a793565ed9aa5770de709bbe8fe12c3dc068c58e","at":"2026-09-30T20:55:09.000Z","node":"build","kind":"result","data":{"kind":"complete","outcome":"ready","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"9b355480047a978501a0134cd7670157eafe4df4c30d4d3d11c4cf9143b9479c"},"sha256":"62cba58ab6565122618a78dd0119f54de77f7d11351d77f818ff7a5f19809835"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":8,"previousSha256":"62cba58ab6565122618a78dd0119f54de77f7d11351d77f818ff7a5f19809835","at":"2026-09-30T20:55:09.000Z","node":"build","kind":"route","data":{"outcome":"ready","to":"verify","via":[],"reason":null},"sha256":"d15e8aee2928d769dd10bbd63d811d023d1e0dd7cc7ced67a72979c871eccac4"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":9,"previousSha256":"d15e8aee2928d769dd10bbd63d811d023d1e0dd7cc7ced67a72979c871eccac4","at":"2026-09-30T20:55:09.000Z","node":"verify","kind":"reserve","data":{"reservation":{"roleSessions":0,"verificationAttempts":1,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"build","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"9b355480047a978501a0134cd7670157eafe4df4c30d4d3d11c4cf9143b9479c"}}},"sha256":"f229829ad605d9e4963cc2b1ae24e2d38b51b3c8abe3630aa0cc66920e47c8b6"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":10,"previousSha256":"f229829ad605d9e4963cc2b1ae24e2d38b51b3c8abe3630aa0cc66920e47c8b6","at":"2026-09-30T20:55:09.000Z","node":"verify","kind":"dispatch","data":{},"sha256":"499258c78774dd9a2688fdaa6c395763cf7b68f384695960e28edec3ea59331b"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":11,"previousSha256":"499258c78774dd9a2688fdaa6c395763cf7b68f384695960e28edec3ea59331b","at":"2026-09-30T20:55:09.000Z","node":"verify","kind":"result","data":{"kind":"complete","outcome":"passed","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"b4461ef5420f8069990bbf40eee387a164c46f36c017da89f4f7bd97339065e6"},"sha256":"c34f0ca9d93f08db79153a1b3c087a5a4b31b85ec5f143a21ff5ac24f04ac3b2"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":12,"previousSha256":"c34f0ca9d93f08db79153a1b3c087a5a4b31b85ec5f143a21ff5ac24f04ac3b2","at":"2026-09-30T20:55:09.000Z","node":"verify","kind":"route","data":{"outcome":"passed","to":"review","via":["route"],"reason":null},"sha256":"86a6ce1b0b5aa8e2110f217b63f83e884819804ed4f0140ee4fa151f51fc7f5f"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":13,"previousSha256":"86a6ce1b0b5aa8e2110f217b63f83e884819804ed4f0140ee4fa151f51fc7f5f","at":"2026-09-30T20:55:09.000Z","node":"review","kind":"reserve","data":{"reservation":{"roleSessions":0,"verificationAttempts":0,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"verify","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"b4461ef5420f8069990bbf40eee387a164c46f36c017da89f4f7bd97339065e6"}}},"sha256":"d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":14,"previousSha256":"d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7","at":"2026-09-30T20:55:09.000Z","node":"review","kind":"decision","data":{"node":"review","expectedRevision":"d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7","inputSha256":"4c5f9a8e6b779575deef59ddf48f760a82ff67e44c0ca2a4de3b86ce8ce1ed23","choice":"continue","actor":"Scripted engineering fixture","note":"Fixture checkpoint at review; not independent human acceptance."},"sha256":"dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":15,"previousSha256":"dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66","at":"2026-09-30T20:55:09.000Z","node":"review","kind":"result","data":{"kind":"complete","outcome":"continued","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"},"sha256":"7efe7bbae84b4b1b9e2731737fa0d827dff015eb0d82d1d4d0bac6b9b279b88f"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":16,"previousSha256":"7efe7bbae84b4b1b9e2731737fa0d827dff015eb0d82d1d4d0bac6b9b279b88f","at":"2026-09-30T20:55:09.000Z","node":"review","kind":"route","data":{"outcome":"continued","to":"ship","via":[],"reason":null},"sha256":"267a952d8340e4eb71ef8380aeed2a908b2f320094c48ab11eebaa9f513b6460"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":17,"previousSha256":"267a952d8340e4eb71ef8380aeed2a908b2f320094c48ab11eebaa9f513b6460","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"reserve","data":{"reservation":{"roleSessions":0,"verificationAttempts":0,"deadline":"2026-09-30T21:55:09.000Z","input":{"node":"review","source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"}}},"sha256":"406fd64c3447a58f884e2fa82732d25e3a6447156095e1ed636c0a2d831638cc"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":18,"previousSha256":"406fd64c3447a58f884e2fa82732d25e3a6447156095e1ed636c0a2d831638cc","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"dispatch","data":{},"sha256":"acbc9b94555b1b1c49153a3864b376382ed54b6b7dd420e05eee53d1c61a77ca"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":19,"previousSha256":"acbc9b94555b1b1c49153a3864b376382ed54b6b7dd420e05eee53d1c61a77ca","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"prepared","data":{"kind":"prepared","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"f1a656b607a7c2bfa9de5e6dec08a182534d9bb94c78733dc801471cd1065bac"},"sha256":"65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":20,"previousSha256":"65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"send","data":{"node":"ship","expectedRevision":"65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58","preparedSha256":"8bdaacf638dd178bdb9e0ad0ddf364e9069055c84d72c1049dc400045a815225","actor":"Scripted engineering fixture","note":"Fixture Send of ship to a test origin."},"sha256":"0a77734e68f597d418be2365e9ef0d1fc3fbc63b0721394e8ad2aaec4748f677"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":21,"previousSha256":"0a77734e68f597d418be2365e9ef0d1fc3fbc63b0721394e8ad2aaec4748f677","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"result","data":{"kind":"complete","outcome":"delivered","candidate":{"source":{"url":"https://github.com/OWNER/REPOSITORY.git","commit":"e99adbe058517220ccf009fde7ac217b5e4d41a2"},"tree":"be1aedf2825f963c586d971f8c6e4aa0c7d718b2","owner":"build"},"evidenceSha256":"34c3d9d6b337743370c2877291d3370bced5a31845571573c32d5ff623d7bb13"},"sha256":"06f6891cae2f83d92c3e4f10fbbbe507eece663fd06b6c8eb0e506599be5ae08"}\n', '{"schema_version":"wringer.contained-graph-event.v1","graphSha256":"cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17","sequence":22,"previousSha256":"06f6891cae2f83d92c3e4f10fbbbe507eece663fd06b6c8eb0e506599be5ae08","at":"2026-09-30T20:55:09.000Z","node":"ship","kind":"route","data":{"outcome":"delivered","to":"done","via":[],"reason":null},"sha256":"974f6244701e09329c349c059a54b7f2c20e24415c40779100543c5e340fece8"}\n' ],
+    expected: [ '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 0,\n  "previousSha256": null,\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": null,\n  "kind": "start",\n  "data": {\n    "startedAt": "2026-09-30T20:55:09.000Z",\n    "deadline": "2026-09-30T21:55:09.000Z"\n  },\n  "sha256": "9110f34ec34d13e5bc0b7bfda389449a5517c08f0fbe7bc6d44b82800fecba76"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 1,\n  "previousSha256": "9110f34ec34d13e5bc0b7bfda389449a5517c08f0fbe7bc6d44b82800fecba76",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "scope",\n  "kind": "reserve",\n  "data": {\n    "reservation": {\n      "roleSessions": 0,\n      "verificationAttempts": 0,\n      "deadline": "2026-09-30T21:55:09.000Z",\n      "input": {\n        "node": "root",\n        "source": {\n          "url": "https://github.com/OWNER/REPOSITORY.git",\n          "commit": "0000000000000000000000000000000000000000"\n        },\n        "candidate": null,\n        "evidenceSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17"\n      }\n    }\n  },\n  "sha256": "da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 2,\n  "previousSha256": "da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "scope",\n  "kind": "decision",\n  "data": {\n    "node": "scope",\n    "expectedRevision": "da6f918ec725eddd80d78b997342a6541a95a57146020d65c74be6223040cb23",\n    "inputSha256": "439f22b4417ea3f6833a273104b03050296b717f7e8383f05b2036f5a605a4b6",\n    "choice": "continue",\n    "actor": "Scripted engineering fixture",\n    "note": "Fixture checkpoint at scope; not independent human acceptance."\n  },\n  "sha256": "6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 3,\n  "previousSha256": "6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "scope",\n  "kind": "result",\n  "data": {\n    "kind": "complete",\n    "outcome": "continued",\n    "candidate": null,\n    "evidenceSha256": "6caddf7d9ebbb4163288cad953e3b8268a75d607496ebdc71e961e05b33783a4"\n  },\n  "sha256": "8b2128ac1dbf9611ec096a7f492d32762379e7a1b2451511506e40aaf8ab9f52"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 4,\n  "previousSha256": "8b2128ac1dbf9611ec096a7f492d32762379e7a1b2451511506e40aaf8ab9f52",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "scope",\n  "kind": "route",\n  "data": {\n    "outcome": "continued",\n    "to": "build",\n    "via": [],\n    "reason": null\n  },\n  "sha256": "e21aa0e9713c465b9bda27bd78d2896068b131ba87771748215133ab7799d8c9"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 5,\n  "previousSha256": "e21aa0e9713c465b9bda27bd78d2896068b131ba87771748215133ab7799d8c9",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "build",\n  "kind": "reserve",\n  "data": {\n    "reservation": {\n      "roleSessions": 8,\n      "verificationAttempts": 9,\n      "deadline": "2026-09-30T21:55:09.000Z",\n      "input": {\n        "node": "root",\n        "source": {\n          "url": "https://github.com/OWNER/REPOSITORY.git",\n          "commit": "0000000000000000000000000000000000000000"\n        },\n        "candidate": null,\n        "evidenceSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17"\n      }\n    }\n  },\n  "sha256": "a9788d145143d28139afa5b81cb18afa2d4b9a1e18ec5fce8cb34e1311839a79"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 6,\n  "previousSha256": "a9788d145143d28139afa5b81cb18afa2d4b9a1e18ec5fce8cb34e1311839a79",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "build",\n  "kind": "dispatch",\n  "data": {},\n  "sha256": "b5cb0860502b5c9feb51f4b2a793565ed9aa5770de709bbe8fe12c3dc068c58e"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 7,\n  "previousSha256": "b5cb0860502b5c9feb51f4b2a793565ed9aa5770de709bbe8fe12c3dc068c58e",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "build",\n  "kind": "result",\n  "data": {\n    "kind": "complete",\n    "outcome": "ready",\n    "candidate": {\n      "source": {\n        "url": "https://github.com/OWNER/REPOSITORY.git",\n        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n      },\n      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n      "owner": "build"\n    },\n    "evidenceSha256": "9b355480047a978501a0134cd7670157eafe4df4c30d4d3d11c4cf9143b9479c"\n  },\n  "sha256": "62cba58ab6565122618a78dd0119f54de77f7d11351d77f818ff7a5f19809835"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 8,\n  "previousSha256": "62cba58ab6565122618a78dd0119f54de77f7d11351d77f818ff7a5f19809835",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "build",\n  "kind": "route",\n  "data": {\n    "outcome": "ready",\n    "to": "verify",\n    "via": [],\n    "reason": null\n  },\n  "sha256": "d15e8aee2928d769dd10bbd63d811d023d1e0dd7cc7ced67a72979c871eccac4"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 9,\n  "previousSha256": "d15e8aee2928d769dd10bbd63d811d023d1e0dd7cc7ced67a72979c871eccac4",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "verify",\n  "kind": "reserve",\n  "data": {\n    "reservation": {\n      "roleSessions": 0,\n      "verificationAttempts": 1,\n      "deadline": "2026-09-30T21:55:09.000Z",\n      "input": {\n        "node": "build",\n        "source": {\n          "url": "https://github.com/OWNER/REPOSITORY.git",\n          "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n        },\n        "candidate": {\n          "source": {\n            "url": "https://github.com/OWNER/REPOSITORY.git",\n            "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n          },\n          "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n          "owner": "build"\n        },\n        "evidenceSha256": "9b355480047a978501a0134cd7670157eafe4df4c30d4d3d11c4cf9143b9479c"\n      }\n    }\n  },\n  "sha256": "f229829ad605d9e4963cc2b1ae24e2d38b51b3c8abe3630aa0cc66920e47c8b6"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 10,\n  "previousSha256": "f229829ad605d9e4963cc2b1ae24e2d38b51b3c8abe3630aa0cc66920e47c8b6",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "verify",\n  "kind": "dispatch",\n  "data": {},\n  "sha256": "499258c78774dd9a2688fdaa6c395763cf7b68f384695960e28edec3ea59331b"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 11,\n  "previousSha256": "499258c78774dd9a2688fdaa6c395763cf7b68f384695960e28edec3ea59331b",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "verify",\n  "kind": "result",\n  "data": {\n    "kind": "complete",\n    "outcome": "passed",\n    "candidate": {\n      "source": {\n        "url": "https://github.com/OWNER/REPOSITORY.git",\n        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n      },\n      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n      "owner": "build"\n    },\n    "evidenceSha256": "b4461ef5420f8069990bbf40eee387a164c46f36c017da89f4f7bd97339065e6"\n  },\n  "sha256": "c34f0ca9d93f08db79153a1b3c087a5a4b31b85ec5f143a21ff5ac24f04ac3b2"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 12,\n  "previousSha256": "c34f0ca9d93f08db79153a1b3c087a5a4b31b85ec5f143a21ff5ac24f04ac3b2",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "verify",\n  "kind": "route",\n  "data": {\n    "outcome": "passed",\n    "to": "review",\n    "via": [\n      "route"\n    ],\n    "reason": null\n  },\n  "sha256": "86a6ce1b0b5aa8e2110f217b63f83e884819804ed4f0140ee4fa151f51fc7f5f"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 13,\n  "previousSha256": "86a6ce1b0b5aa8e2110f217b63f83e884819804ed4f0140ee4fa151f51fc7f5f",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "review",\n  "kind": "reserve",\n  "data": {\n    "reservation": {\n      "roleSessions": 0,\n      "verificationAttempts": 0,\n      "deadline": "2026-09-30T21:55:09.000Z",\n      "input": {\n        "node": "verify",\n        "source": {\n          "url": "https://github.com/OWNER/REPOSITORY.git",\n          "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n        },\n        "candidate": {\n          "source": {\n            "url": "https://github.com/OWNER/REPOSITORY.git",\n            "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n          },\n          "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n          "owner": "build"\n        },\n        "evidenceSha256": "b4461ef5420f8069990bbf40eee387a164c46f36c017da89f4f7bd97339065e6"\n      }\n    }\n  },\n  "sha256": "d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 14,\n  "previousSha256": "d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "review",\n  "kind": "decision",\n  "data": {\n    "node": "review",\n    "expectedRevision": "d6465e0ef9b3a64fea5e766c8425d90132186941d4a9c9a90dd36bf13c9d68a7",\n    "inputSha256": "4c5f9a8e6b779575deef59ddf48f760a82ff67e44c0ca2a4de3b86ce8ce1ed23",\n    "choice": "continue",\n    "actor": "Scripted engineering fixture",\n    "note": "Fixture checkpoint at review; not independent human acceptance."\n  },\n  "sha256": "dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 15,\n  "previousSha256": "dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "review",\n  "kind": "result",\n  "data": {\n    "kind": "complete",\n    "outcome": "continued",\n    "candidate": {\n      "source": {\n        "url": "https://github.com/OWNER/REPOSITORY.git",\n        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n      },\n      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n      "owner": "build"\n    },\n    "evidenceSha256": "dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"\n  },\n  "sha256": "7efe7bbae84b4b1b9e2731737fa0d827dff015eb0d82d1d4d0bac6b9b279b88f"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 16,\n  "previousSha256": "7efe7bbae84b4b1b9e2731737fa0d827dff015eb0d82d1d4d0bac6b9b279b88f",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "review",\n  "kind": "route",\n  "data": {\n    "outcome": "continued",\n    "to": "ship",\n    "via": [],\n    "reason": null\n  },\n  "sha256": "267a952d8340e4eb71ef8380aeed2a908b2f320094c48ab11eebaa9f513b6460"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 17,\n  "previousSha256": "267a952d8340e4eb71ef8380aeed2a908b2f320094c48ab11eebaa9f513b6460",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "ship",\n  "kind": "reserve",\n  "data": {\n    "reservation": {\n      "roleSessions": 0,\n      "verificationAttempts": 0,\n      "deadline": "2026-09-30T21:55:09.000Z",\n      "input": {\n        "node": "review",\n        "source": {\n          "url": "https://github.com/OWNER/REPOSITORY.git",\n          "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n        },\n        "candidate": {\n          "source": {\n            "url": "https://github.com/OWNER/REPOSITORY.git",\n            "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n          },\n          "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n          "owner": "build"\n        },\n        "evidenceSha256": "dfe43b36791232de2b69c0670477aa8a6508ef30b425f65fefe826b01df2cf66"\n      }\n    }\n  },\n  "sha256": "406fd64c3447a58f884e2fa82732d25e3a6447156095e1ed636c0a2d831638cc"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 18,\n  "previousSha256": "406fd64c3447a58f884e2fa82732d25e3a6447156095e1ed636c0a2d831638cc",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "ship",\n  "kind": "dispatch",\n  "data": {},\n  "sha256": "acbc9b94555b1b1c49153a3864b376382ed54b6b7dd420e05eee53d1c61a77ca"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 19,\n  "previousSha256": "acbc9b94555b1b1c49153a3864b376382ed54b6b7dd420e05eee53d1c61a77ca",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "ship",\n  "kind": "prepared",\n  "data": {\n    "kind": "prepared",\n    "candidate": {\n      "source": {\n        "url": "https://github.com/OWNER/REPOSITORY.git",\n        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n      },\n      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n      "owner": "build"\n    },\n    "evidenceSha256": "f1a656b607a7c2bfa9de5e6dec08a182534d9bb94c78733dc801471cd1065bac"\n  },\n  "sha256": "65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 20,\n  "previousSha256": "65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "ship",\n  "kind": "send",\n  "data": {\n    "node": "ship",\n    "expectedRevision": "65b3683312ed514d97419cd1f8f6678c3d0518f409ede7757e578f9e5d0b2a58",\n    "preparedSha256": "8bdaacf638dd178bdb9e0ad0ddf364e9069055c84d72c1049dc400045a815225",\n    "actor": "Scripted engineering fixture",\n    "note": "Fixture Send of ship to a test origin."\n  },\n  "sha256": "0a77734e68f597d418be2365e9ef0d1fc3fbc63b0721394e8ad2aaec4748f677"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 21,\n  "previousSha256": "0a77734e68f597d418be2365e9ef0d1fc3fbc63b0721394e8ad2aaec4748f677",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "ship",\n  "kind": "result",\n  "data": {\n    "kind": "complete",\n    "outcome": "delivered",\n    "candidate": {\n      "source": {\n        "url": "https://github.com/OWNER/REPOSITORY.git",\n        "commit": "e99adbe058517220ccf009fde7ac217b5e4d41a2"\n      },\n      "tree": "be1aedf2825f963c586d971f8c6e4aa0c7d718b2",\n      "owner": "build"\n    },\n    "evidenceSha256": "34c3d9d6b337743370c2877291d3370bced5a31845571573c32d5ff623d7bb13"\n  },\n  "sha256": "06f6891cae2f83d92c3e4f10fbbbe507eece663fd06b6c8eb0e506599be5ae08"\n}\n', '{\n  "schema_version": "wringer.contained-graph-event.v1",\n  "graphSha256": "cb6d26c7a9ad06baafebb2963d7cee14eb96334c76efa5c95bae4703f50bea17",\n  "sequence": 22,\n  "previousSha256": "06f6891cae2f83d92c3e4f10fbbbe507eece663fd06b6c8eb0e506599be5ae08",\n  "at": "2026-09-30T20:55:09.000Z",\n  "node": "ship",\n  "kind": "route",\n  "data": {\n    "outcome": "delivered",\n    "to": "done",\n    "via": [],\n    "reason": null\n  },\n  "sha256": "974f6244701e09329c349c059a54b7f2c20e24415c40779100543c5e340fece8"\n}\n' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

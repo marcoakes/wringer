@@ -1,0 +1,401 @@
+{
+  "schema_version": "wringer.restoration-phase7-walkthrough.v1",
+  "script": "scripts/graph-temporal-distribution.ts",
+  "result": {
+    "status": "passed",
+    "startedAt": "2026-09-30T21:07:23.329Z",
+    "finishedAt": "2026-09-30T21:08:10.266Z",
+    "publicCommandStages": 8,
+    "adapterStages": 10,
+    "graph": "5ac16500b5c612d77dcb0e9f65838bc7f1655760af5d7df4003fd9025ada25a9",
+    "revision": "530d33a3cbd6c698936fc688bbd32d87f5199ff16e598c0d0cbd056d070e4d87",
+    "events": null,
+    "deliveryId": "contained-2637650c734d708ef8e2d0dc",
+    "evidenceCommit": "75a55ebb04ae48777ca0e91861c614eec19211be",
+    "exportFinished": "done",
+    "synthetic": [
+      "worker ACP reply",
+      "judge ACP reply",
+      "check execution observations"
+    ],
+    "liveProviderMeasured": false,
+    "realContainmentMeasured": false,
+    "humanAcceptanceMeasured": false,
+    "temporalCloudMeasured": false,
+    "limits": [
+      "Deterministic contract fixture: role replies and check observations are synthetic, injected through the effect command by a separate fixture binary.",
+      "A local Temporal dev server on loopback; no Temporal Cloud or production cluster.",
+      "Publication used only a new local bare fixture origin.",
+      "Scripted decisions are engineering checkpoints, not independent human acceptance."
+    ]
+  },
+  "transcript": [
+    {
+      "label": "compile-fixture-only-driver",
+      "command": [
+        "[host-path]",
+        "build",
+        "--compile",
+        "--no-compile-autoload-dotenv",
+        "--no-compile-autoload-bunfig",
+        "--asset",
+        "schema",
+        "scripts/fixtures/graph-driver.ts",
+        "--outfile",
+        "[fixture]/bin/graph-fixture-driver"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "synthetic-fixture-repository",
+      "command": [
+        "[fixture]/bin/graph-fixture-driver",
+        "prepare",
+        "[fixture]"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "public-graph-plan",
+      "command": [
+        "[fixture]/bin/wringer-drive",
+        "graph",
+        "plan",
+        "[fixture]/graph.yaml"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "public-graph-authority",
+      "command": [
+        "[fixture]/bin/wringer-drive",
+        "graph",
+        "authority",
+        "[fixture]/graph.yaml",
+        "--actor",
+        "Temporal walkthrough fixture operator",
+        "--expires",
+        "2026-09-30T22:07:26.848Z",
+        "--output",
+        "[fixture]/graph-authority.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "public-graph-init-no-effect",
+      "command": [
+        "[fixture]/bin/wringer-drive",
+        "graph",
+        "init",
+        "[fixture]/graph.yaml",
+        "--authority",
+        "[fixture]/graph-authority.json",
+        "--state",
+        "[fixture]/state",
+        "--source-bundle",
+        "[fixture]/source.bundle",
+        "--json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "public-effect-without-marker-refused",
+      "command": [
+        "[fixture]/bin/wringer-drive",
+        "graph",
+        "effect",
+        "dispatch",
+        "--state",
+        "[fixture]/state",
+        "--node",
+        "build",
+        "--json"
+      ],
+      "exit": 3
+    },
+    {
+      "label": "temporal-dev-server",
+      "command": [
+        "temporal",
+        "server",
+        "start-dev",
+        "--headless",
+        "--port",
+        "[free port]"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "adapter-worker",
+      "command": [
+        "node",
+        "[checkout]/adapters/temporal/src/cli.mjs",
+        "worker",
+        "--task-queue",
+        "wringer-walkthrough",
+        "--effect-command",
+        "[\"[fixture]/bin/graph-fixture-driver\",\"effect-for\",\"[fixture]\"]"
+      ],
+      "exit": null
+    },
+    {
+      "label": "adapter-start",
+      "command": [
+        "[host-path]",
+        "[checkout]/adapters/temporal/src/cli.mjs",
+        "start",
+        "--state",
+        "[fixture]/state",
+        "--task-queue",
+        "wringer-walkthrough",
+        "--workflow-id",
+        "walkthrough-c1f4189c-8b67-4020-9155-038dc5a749ae",
+        "--address",
+        "127.0.0.1:58802"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "adapter-status-holds-at-scope",
+      "command": [
+        "node",
+        "cli.mjs",
+        "status",
+        "--workflow-id",
+        "[workflow]"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "adapter-stale-decision-refused",
+      "command": [
+        "[host-path]",
+        "[checkout]/adapters/temporal/src/cli.mjs",
+        "decide",
+        "--workflow-id",
+        "walkthrough-c1f4189c-8b67-4020-9155-038dc5a749ae",
+        "--node",
+        "scope",
+        "--revision",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--input",
+        "3e87ad01461e52c9134dce5fe470cb5bfad25650813ae75351d4bf97adad7911",
+        "--continue",
+        "--by",
+        "Temporal walkthrough fixture operator",
+        "--note",
+        "Deterministic fixture checkpoint; not independent human acceptance.",
+        "--address",
+        "127.0.0.1:58802"
+      ],
+      "exit": 3
+    },
+    {
+      "label": "adapter-scope-decision",
+      "command": [
+        "[host-path]",
+        "[checkout]/adapters/temporal/src/cli.mjs",
+        "decide",
+        "--workflow-id",
+        "walkthrough-c1f4189c-8b67-4020-9155-038dc5a749ae",
+        "--node",
+        "scope",
+        "--revision",
+        "60b5d25b42605ad8e103e3e9a587aed04ec5c3c32669bae15a7ef5484ef78b0f",
+        "--input",
+        "3e87ad01461e52c9134dce5fe470cb5bfad25650813ae75351d4bf97adad7911",
+        "--continue",
+        "--by",
+        "Temporal walkthrough fixture operator",
+        "--note",
+        "Deterministic fixture checkpoint; not independent human acceptance.",
+        "--address",
+        "127.0.0.1:58802"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "adapter-status-holds-at-review",
+      "command": [
+        "node",
+        "cli.mjs",
+        "status",
+        "--workflow-id",
+        "[workflow]"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "public-status-reads-mirrored-directory",
+      "command": [
+        "[fixture]/bin/wringer-drive",
+        "graph",
+        "status",
+        "--state",
+        "[fixture]/state",
+        "--json"
+      ],
+      "exit": 3
+    },
+    {
+      "label": "adapter-review-decision",
+      "command": [
+        "[host-path]",
+        "[checkout]/adapters/temporal/src/cli.mjs",
+        "decide",
+        "--workflow-id",
+        "walkthrough-c1f4189c-8b67-4020-9155-038dc5a749ae",
+        "--node",
+        "review",
+        "--revision",
+        "fcb3021e62c8361fa01e1babd1a27ef59849c3de38aa7374b359f4b561de5b26",
+        "--input",
+        "b40eb9cd7a6a62586e4d6fd775fe3299b78378aba574db826452f05f33f0316f",
+        "--continue",
+        "--by",
+        "Temporal walkthrough fixture operator",
+        "--note",
+        "Deterministic fixture checkpoint; not independent human acceptance.",
+        "--address",
+        "127.0.0.1:58802"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "adapter-status-send-hold",
+      "command": [
+        "node",
+        "cli.mjs",
+        "status",
+        "--workflow-id",
+        "[workflow]"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "adapter-send-wrong-preparation-refused",
+      "command": [
+        "[host-path]",
+        "[checkout]/adapters/temporal/src/cli.mjs",
+        "send",
+        "--workflow-id",
+        "walkthrough-c1f4189c-8b67-4020-9155-038dc5a749ae",
+        "--node",
+        "ship",
+        "--revision",
+        "9baafee68a1e63f7249ae77238f717cf47b23c87ff208b57f0168cefa4607451",
+        "--prepared",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "--by",
+        "Temporal walkthrough fixture operator",
+        "--note",
+        "Explicit fixture Send to a new local bare origin.",
+        "--address",
+        "127.0.0.1:58802"
+      ],
+      "exit": 3
+    },
+    {
+      "label": "adapter-explicit-send",
+      "command": [
+        "[host-path]",
+        "[checkout]/adapters/temporal/src/cli.mjs",
+        "send",
+        "--workflow-id",
+        "walkthrough-c1f4189c-8b67-4020-9155-038dc5a749ae",
+        "--node",
+        "ship",
+        "--revision",
+        "9baafee68a1e63f7249ae77238f717cf47b23c87ff208b57f0168cefa4607451",
+        "--prepared",
+        "c25df73395d3efcab87ec01ec3a4a168ccaf95476a5bb27f01bb7980fe97dedc",
+        "--by",
+        "Temporal walkthrough fixture operator",
+        "--note",
+        "Explicit fixture Send to a new local bare origin.",
+        "--address",
+        "127.0.0.1:58802"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "public-status-complete",
+      "command": [
+        "[fixture]/bin/wringer-drive",
+        "graph",
+        "status",
+        "--state",
+        "[fixture]/state",
+        "--json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "public-resume-runs-nothing",
+      "command": [
+        "[fixture]/bin/wringer-drive",
+        "graph",
+        "resume",
+        "--state",
+        "[fixture]/state",
+        "--json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "unchanged-default-branch",
+      "command": [
+        "git",
+        "--git-dir",
+        "[fixture]/origin.git",
+        "rev-parse",
+        "main"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "public-graph-export",
+      "command": [
+        "[fixture]/bin/wringer-drive",
+        "graph",
+        "export",
+        "--state",
+        "[fixture]/state",
+        "--output",
+        "[fixture]/export"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "node-only-independent-reader",
+      "command": [
+        "[host-path]",
+        "[fixture]/export/read-bundle.mjs",
+        "[fixture]/export"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "fresh-review-branch-clone",
+      "command": [
+        "git",
+        "clone",
+        "--no-local",
+        "--branch",
+        "wringer/graph-fixture",
+        "[fixture]/origin.git",
+        "[fixture]/fresh-clone"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "literal-delivery-audit-command",
+      "command": [
+        "/bin/sh",
+        "-c",
+        "wringer-drive audit --bundle .wringer/deliveries/contained-2637650c734d708ef8e2d0dc"
+      ],
+      "exit": 0
+    }
+  ]
+}

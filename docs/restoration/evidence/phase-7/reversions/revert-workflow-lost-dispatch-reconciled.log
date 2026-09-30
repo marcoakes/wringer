@@ -1,0 +1,19 @@
+✖ worker loss during a dispatch: never dispatched again; the late outcome is observed (34014.834208ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34201.499708
+
+✖ failing tests:
+
+test at adapters/temporal/test/failure-modes.test.mjs:31:1
+✖ worker loss during a dispatch: never dispatched again; the late outcome is observed (34014.834208ms)
+  Error: Timed out waiting for the lost dispatch to be uncertain
+      at waitFor (file://[isolated-checkout]/adapters/temporal/test/harness.mjs:70:11)
+      at async TestContext.<anonymous> (file://[isolated-checkout]/adapters/temporal/test/failure-modes.test.mjs:42:27)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)

@@ -102,6 +102,48 @@ jobs:
             build/rebuild-browser/*/*.png
           if-no-files-found: error
           include-hidden-files: true
+  temporal:
+    name: Temporal / ubuntu-latest
+    runs-on: ubuntu-latest
+    # The adapter suite and its walkthrough against a local Temporal dev server on
+    # loopback; never Temporal Cloud. Measured at about 3 minutes on a developer Mac.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: bun install --frozen-lockfile
+      - name: Install the pinned Temporal CLI, verified against its published digest
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/temporal.tar.gz" https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz
+          echo "09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5  $RUNNER_TEMP/temporal.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/temporal.tar.gz" -C "$RUNNER_TEMP" temporal
+          echo "TEMPORAL_CLI=$RUNNER_TEMP/temporal" >> "$GITHUB_ENV"
+      - name: Install the adapter's pinned SDK without install scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: adapters/temporal
+      - name: Type-check the adapter
+        run: node_modules/.bin/tsc -p adapters/temporal
+      - name: Adapter conformance, failure modes and versioning
+        run: npm test
+        working-directory: adapters/temporal
+      - name: Build the distribution the walkthrough drives
+        run: bun run build
+      - run: bun scripts/graph-temporal-distribution.ts
+      - name: Preserve the walkthrough record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: temporal-evidence
+          path: |
+            .wringer/graph-temporal-distribution-*/result.json
+            .wringer/graph-temporal-distribution-*/transcript.json
+          if-no-files-found: error
+          include-hidden-files: true
   action:
     runs-on: ubuntu-latest
     # A hang guard for the full declared suite: measured 12.7, 13.8 and 14.1 minutes for alpha.26–.28;

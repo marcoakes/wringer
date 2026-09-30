@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-durability.test.ts:
+59 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+60 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+61 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed', fork: 'forked', join: 'integrated', tournament: 'selected', delegate: 'returned' };
+62 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+63 | 
+64 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: Decision note contains a detected credential
+      at fail ([isolated-checkout]/packages/scheduler/src/contained-kernel.ts:64:51)
+      at bounded ([isolated-checkout]/packages/scheduler/src/contained-kernel.ts:75:58)
+      at decisionRecord ([isolated-checkout]/packages/scheduler/src/contained-kernel.ts:239:176)
+      at apply ([isolated-checkout]/packages/scheduler/src/contained-kernel.ts:304:30)
+      at load ([isolated-checkout]/packages/scheduler/src/contained-kernel.ts:378:9)
+      at async readJournaledGraph ([isolated-checkout]/packages/scheduler/src/contained-kernel.ts:446:26)
+(fail) replaying a retained history does not depend on the reading host environment [38.49ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+Ran 1 test across 1 file. [179.00ms]
