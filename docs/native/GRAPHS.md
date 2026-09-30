@@ -72,7 +72,9 @@ wringer-drive graph plan examples/graphs/parallel-repair/graph.yaml
 
 The join fetches each branch's exact candidate and merges them in declared order
 against the fork's source. It uses a fixed identity and time, so the same branches
-always integrate to the same commit. It then runs a fresh contained verification
+always integrate to the same commit. Merging writes Git objects only and needs Git
+2.38 or later; with Git 2.38 or 2.39 the join accepts Git's own merge base only
+when it is exactly the fork's source. It then runs a fresh contained verification
 of the merged candidate against **every** branch plan. Its outcome is typed:
 
 | Join outcome | Meaning |

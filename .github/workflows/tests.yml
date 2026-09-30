@@ -11,7 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # macos-14 is the release build platform; its Apple Git is 2.39.
+        os: [ubuntu-latest, macos-latest, macos-14]
     runs-on: ${{ matrix.os }}
     # Ratified at 703de14, where the whole envelope took 1,727 s on macOS; its core stages were 892 s of that.
     timeout-minutes: 40

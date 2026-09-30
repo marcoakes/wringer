@@ -1,0 +1,89 @@
+build (macos-14, darwin-arm64)	Run bun run validate --group core	﻿2026-09-30T08:19:49.7555510Z ##[group]Run bun run validate --group core
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:49.7555810Z ^[[36;1mbun run validate --group core^[[0m
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:49.7608970Z shell: /bin/bash -e {0}
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:49.7609200Z ##[endgroup]
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:49.8075620Z $ bun scripts/validate.ts --group core
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:49.8273440Z Checking workspace-links…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:49.9286390Z workspace-links: PASS (15 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:49.9388630Z Checking standalone-build…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:51.7864550Z standalone-build: PASS (1854 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:19:51.7967340Z Checking native-confirmation-build…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:20:04.1694480Z native-confirmation-build: PASS (12372 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:20:04.1697190Z Checking native-confirmation-probe…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:20:04.4807860Z native-confirmation-probe: PASS (304 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:20:04.4849260Z Checking assistant-check…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:21:06.9231710Z assistant-check: PASS (62410 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:21:06.9233910Z Checking native-check…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:38:33.9755200Z native-check: PASS (1046461 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:38:33.9761530Z Checking design-contract…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:39:01.7339320Z design-contract: PASS (27738 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:39:01.7343980Z Checking figma-api-contract…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:39:20.6372930Z figma-api-contract: PASS (18890 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:39:20.6379570Z Checking meta-loop-contract…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:40:19.4668630Z meta-loop-contract: PASS (58796 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:40:19.4677040Z Checking meta-portable-handover…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:40:39.6143810Z meta-portable-handover: PASS (20133 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:40:39.6149150Z Checking portable-python-corpus…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:40:45.2680940Z portable-python-corpus: PASS (5647 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:40:45.2690350Z Checking standalone-contract…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:40:48.5866370Z standalone-contract: PASS (3318 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:40:48.5867630Z Checking compiled-contained-contract…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:41:23.2286190Z compiled-contained-contract: PASS (34622 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:41:23.2289330Z Checking compiled-graph-contract…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:01.7550290Z compiled-graph-contract: PASS (38505 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:01.7554780Z Checking compiled-parallel-graph-contract…
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8330490Z compiled-parallel-graph-contract: FAIL (8072 ms)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8332660Z 18 | async function execute(label: string, argv: string[], options: { expected?: number | "nonzero"; cwd?: string; build?: boolean; env?: Record<string, string> } = {}) {
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8335860Z 19 |     const result = await runProcess(argv, { cwd: options.cwd ?? directory, env: options.build ? process.env : { ...environment, ...options.env }, timeout: options.build ? 180 : 180, maxBytes: 8 * 1024 * 1024 });
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8337170Z 20 |     transcript.push({ label, command: argv.map(arg => arg.replaceAll(directory, "[fixture]")), exit: result.exit_code });
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8338280Z 21 |     await writeFile(join(directory, "transcript.json"), JSON.stringify(transcript, null, 2) + "\n");
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8339200Z 22 |     const expected = options.expected ?? 0;
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8340500Z 23 |     if (result.timed_out || (expected === "nonzero" ? result.exit_code === 0 : result.exit_code !== expected)) throw new Error(`${label}: unexpected exit ${result.exit_code}\n${result.stdout}\n${result.stderr}`);
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8341620Z                                                                                                                               ^
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8347430Z error: fixture-reconcile-and-integrate: unexpected exit 1
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8347690Z 
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8347910Z 192916 | init_src4();
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8348320Z 192917 | var ROOT_SOURCE = "root-source/source.bundle";
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8349150Z 192918 | var RECOVERY_ACTIONS = ["resume", "retry-verification", "retry-judge", "retry-stopped", "retry-uncertain", "request-revision"];
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8351840Z 192919 | var GIT_ENV = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0" };
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8356250Z 192920 | var INTEGRATION_ENV = { ...GIT_ENV, GIT_AUTHOR_NAME: "Wringer integration", GIT_AUTHOR_EMAIL: "wringer@localhost", GIT_COMMITTER_NAME: "Wringer integration", GIT_COMMITTER_EMAIL: "wringer@localhost", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8362070Z 192921 |   throw new Error(message);
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8362440Z                  ^
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8362940Z error: Merging branch candidates failed; nothing was changed
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8363530Z       at fail4 (/$bunfs/root/graph-fixture-driver:192921:9)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8364980Z       at git7 (/$bunfs/root/graph-fixture-driver:192949:10)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8366480Z       at async integrate (/$bunfs/root/graph-fixture-driver:193051:47)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8367730Z       at async dispatch (/$bunfs/root/graph-fixture-driver:193177:103)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8369010Z       at async <anonymous> (/$bunfs/root/graph-fixture-driver:193574:19)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8370270Z       at async advanceLocked (/$bunfs/root/graph-fixture-driver:192541:49)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8371480Z       at async locked (/$bunfs/root/graph-fixture-driver:187453:22)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8371780Z 
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8371880Z Bun v1.4.2 (macOS arm64)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8372060Z 
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8372430Z       at execute (/Users/runner/work/wringer/wringer/scripts/graph-parallel-distribution.ts:23:122)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8372830Z 
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8440160Z ##[error]192916 | init_src4();
+build (macos-14, darwin-arm64)	Run bun run validate --group core	192917 | var ROOT_SOURCE = "root-source/source.bundle";
+build (macos-14, darwin-arm64)	Run bun run validate --group core	192918 | var RECOVERY_ACTIONS = ["resume", "retry-verification", "retry-judge", "retry-stopped", "retry-uncertain", "request-revision"];
+build (macos-14, darwin-arm64)	Run bun run validate --group core	192919 | var GIT_ENV = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0" };
+build (macos-14, darwin-arm64)	Run bun run validate --group core	192920 | var INTEGRATION_ENV = { ...GIT_ENV, GIT_AUTHOR_NAME: "Wringer integration", GIT_AUTHOR_EMAIL: "wringer@localhost", GIT_COMMITTER_NAME: "Wringer integration", GIT_COMMITTER_EMAIL: "wringer@localhost", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
+build (macos-14, darwin-arm64)	Run bun run validate --group core	192921 |   throw new Error(message);
+build (macos-14, darwin-arm64)	Run bun run validate --group core	                 ^
+build (macos-14, darwin-arm64)	Run bun run validate --group core	error: Merging branch candidates failed; nothing was changed
+build (macos-14, darwin-arm64)	Run bun run validate --group core	      at fail4 (/$bunfs/root/graph-fixture-driver:192921:9)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	      at git7 (/$bunfs/root/graph-fixture-driver:192949:10)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	      at async integrate (/$bunfs/root/graph-fixture-driver:193051:47)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	      at async dispatch (/$bunfs/root/graph-fixture-driver:193177:103)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	      at async <anonymous> (/$bunfs/root/graph-fixture-driver:193574:19)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	      at async advanceLocked (/$bunfs/root/graph-fixture-driver:192541:49)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	      at async locked (/$bunfs/root/graph-fixture-driver:187453:22)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	
+build (macos-14, darwin-arm64)	Run bun run validate --group core	Bun v1.4.2 (macOS arm64)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	
+build (macos-14, darwin-arm64)	Run bun run validate --group core	      at execute (/Users/runner/work/wringer/wringer/scripts/graph-parallel-distribution.ts:23:122)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8465250Z 
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8465540Z Bun v1.4.2 (macOS arm64)
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8465730Z 
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8466160Z Validation record: /Users/runner/work/wringer/wringer/.wringer/native-validation-2026-09-30T08-19-49-825Z
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8467130Z error: script "validate" exited with code 1
+build (macos-14, darwin-arm64)	Run bun run validate --group core	2026-09-30T08:42:09.8480090Z ##[error]Process completed with exit code 1.

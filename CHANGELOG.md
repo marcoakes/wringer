@@ -4,7 +4,19 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## 1.0.0-alpha.27 — parallel branches with verified integration
+## 1.0.0-alpha.28 — parallel branches with verified integration
+
+- A join now integrates with Git 2.38 and 2.39, where Git computes the merge base
+  itself. That route is taken only when the computed base is exactly the fork's
+  source, so it writes the same tree as the Git 2.40 route. Older Git is refused
+  before dispatch, and the join stays reserved.
+- The `v1.0.0-alpha.27` tag names the same parallel-branch work. Its release build
+  failed on macOS 14, whose Apple Git 2.39 lacks `merge-tree --merge-base`, and it
+  was never published. The tests workflow now also runs on macOS 14, the release
+  build platform.
+
+The rest of this entry was written for that tag:
+
 
 - Version 2 graphs add `fork` and `join`. A fork opens 2–8 private branches, run
   at once up to a declared `parallelism`; each branch reads only the fork's input

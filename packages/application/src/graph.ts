@@ -139,6 +139,30 @@ async function remoteBranch(remote: string, branch: string) {
     const output = await git(["ls-remote", "--", remote, `refs/heads/${branch}`], "Reading the publication remote");
     return output.split("\n").map(line => line.split("\t")).find(([, ref]) => ref === `refs/heads/${branch}`)?.[0] ?? null;
 }
+/** Git 2.40 added `merge-tree --merge-base`; 2.38 added `merge-tree --write-tree`.
+ * Older Git cannot merge without a working tree, so a join refuses it before dispatch. */
+export type GitMergeMode = "explicit-base" | "computed-base";
+export function gitMergeMode(version: string): GitMergeMode | null {
+    const match = /^git version (\d+)\.(\d+)/.exec(version.trim());
+    if (!match) return null;
+    const major = Number(match[1]), minor = Number(match[2]);
+    if (major > 2 || major === 2 && minor >= 40) return "explicit-base";
+    if (major === 2 && minor >= 38) return "computed-base";
+    return null;
+}
+async function installedMergeMode() { return gitMergeMode(await git(["--version"], "Reading the Git version")); }
+/** Three-way merge of `current` and `next` against the fork's source, writing objects only.
+ * With Git 2.38–2.39 Git computes the merge base itself; that is accepted only when it is
+ * exactly the fork's source, so both modes produce the same tree. */
+export async function mergeBranchCandidates(store: string, base: string, current: string, next: string, mode: GitMergeMode) {
+    if (mode === "computed-base") {
+        const bases = (await git(["--git-dir", store, "merge-base", "--all", current, next], "Reading the merge base")).split("\n").filter(Boolean);
+        if (bases.length !== 1 || bases[0] !== base) fail("This Git (2.38 or 2.39) computes the merge base itself, and these candidates do not meet exactly at the fork's source. Integrating them needs Git 2.40 or later; nothing was integrated");
+    }
+    const args = mode === "explicit-base" ? ["--merge-base", base, current, next] : [current, next];
+    const [code, tree, ...paths] = (await git(["--git-dir", store, "merge-tree", "--write-tree", "--name-only", "--no-messages", ...args], "Merging branch candidates", { allowed: [0, 1] })).split("\n").filter(Boolean);
+    return code === "0" ? { tree: tree!, conflicts: [] as string[] } : { tree: null, conflicts: [...new Set(paths)].sort() };
+}
 /** Integrate branch candidates in declared order against the fork's source.
  * Git writes objects only; no working tree is touched. */
 async function integrate(request: GraphEffectRequest, directory: string): Promise<GraphIntegration> {
@@ -152,11 +176,12 @@ async function integrate(request: GraphEffectRequest, directory: string): Promis
         const [code] = (await git(["--git-dir", store, "merge-base", "--is-ancestor", base, branch.candidate.source.commit], "Checking branch ancestry", { allowed: [0, 1] })).split("\n");
         if (code !== "0") fail(`Branch ${branch.branch} does not descend from the fork's source; nothing was integrated`);
     }
+    const mode = await installedMergeMode() ?? fail("Joins need Git 2.38 or later to integrate without a working tree; nothing was integrated");
     let current = branches[0]!.candidate.source.commit, conflicts: string[] = [];
     for (const branch of branches.slice(1)) {
-        const [code, tree, ...paths] = (await git(["--git-dir", store, "merge-tree", "--write-tree", "--name-only", "--no-messages", "--merge-base", base, current, branch.candidate.source.commit], "Merging branch candidates", { allowed: [0, 1] })).split("\n").filter(Boolean);
-        if (code !== "0") { conflicts = [...new Set(paths)].sort(); break; }
-        current = (await git(["--git-dir", store, "commit-tree", tree!, "-p", current, "-p", branch.candidate.source.commit, "-m", `Integrate ${branches.map(row => row.branch).join(", ")} for graph ${request.plan.id}`], "Recording the integration", { env: INTEGRATION_ENV })).trim();
+        const merged = await mergeBranchCandidates(store, base, current, branch.candidate.source.commit, mode);
+        if (!merged.tree) { conflicts = merged.conflicts; break; }
+        current = (await git(["--git-dir", store, "commit-tree", merged.tree, "-p", current, "-p", branch.candidate.source.commit, "-m", `Integrate ${branches.map(row => row.branch).join(", ")} for graph ${request.plan.id}`], "Recording the integration", { env: INTEGRATION_ENV })).trim();
     }
     const record: GraphIntegration = { schema_version: "wringer.contained-graph-integration.v1", graphSha256: request.plan.sha256, join: request.node, base, branches: branches.map(row => ({ branch: row.branch, node: row.node, commit: row.candidate.source.commit, tree: row.candidate.tree })), status: conflicts.length ? "conflict" : "merged", ...(conflicts.length ? { conflicts } : {}) };
     if (!conflicts.length) {
@@ -245,6 +270,7 @@ export function containedGraphDriver(options: ApplicationOptions = {}): GraphDri
             else if (node.kind === "join") {
                 const branches = request.reservation.input.branches ?? fail(`${request.node} has no branch candidates`);
                 const owners = await Promise.all(branches.map(row => loopOwner(request.directory, row.candidate)));
+                if (!await installedMergeMode()) fail(`Joins need Git 2.38 or later to integrate without a working tree. Nothing was dispatched and ${request.node} stays reserved.\nNext: install a newer Git, then wringer-drive graph resume --state ${quote(request.directory)}`);
                 if (!injectedCommands) requireRuntime(owners[0]!.history.plan, request.node, request.directory);
             }
             else if (node.kind === "check") { const { from } = await checkRequest(request, false); if (!injectedCommands) requireRuntime(from.history.plan, request.node, request.directory); }

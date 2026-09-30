@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-git-compat.test.ts:
+38 |     expect(conflict).toEqual({ tree: null, conflicts: ["a.txt"] }); expect(await mergeBranchCandidates(h.store, h.base, h.left, h.clash, "computed-base")).toEqual(conflict);
+39 | });
+40 | test("older Git refuses candidates that do not meet exactly at the fork's source", async () => {
+41 |     const h = await history();
+42 |     expect((await mergeBranchCandidates(h.store, h.base, h.left, h.stacked, "explicit-base")).tree).toMatch(/^[a-f0-9]{40}$/);
+43 |     await expect(mergeBranchCandidates(h.store, h.base, h.left, h.stacked, "computed-base")).rejects.toThrow("needs Git 2.40 or later");
+                                                                                                          ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-git-compat.test.ts:43:102)
+(fail) older Git refuses candidates that do not meet exactly at the fork's source [626.53ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [777.00ms]

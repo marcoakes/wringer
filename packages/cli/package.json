@@ -1,6 +1,6 @@
 {
   "name": "@wringer/cli",
-  "version": "1.0.0-alpha.27",
+  "version": "1.0.0-alpha.28",
   "type": "module",
   "private": true,
   "bin": {

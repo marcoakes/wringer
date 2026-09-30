@@ -119,6 +119,18 @@ test("overlapping edits are a conflict with no merged candidate", async () => {
     expect(integration.status).toBe("conflict"); expect(integration.conflicts).toEqual(["src/a.js"]); expect(integration.commit).toBeUndefined();
     expect(state.nodes.merge!.result).toMatchObject({ outcome: "conflict", candidate: null }); expect(state.active).toEqual(["resolve"]);
 }, 240000);
+test("a join refuses Git older than 2.38 before dispatch and stays reserved", async () => {
+    const f = await fixture(), shim = join(f.root, "old-git"), real = Bun.which("git")!;
+    await mkdir(shim); await writeFile(join(shim, "git"), `#!/bin/sh\nfor a in "$@"; do [ "$a" = --version ] && { echo "git version 2.37.0"; exit 0; }; done\nexec '${real}' "$@"\n`, { mode: 0o755 });
+    const path = process.env.PATH; process.env.PATH = `${shim}:${path}`;
+    let refusal: any; try { await advanceContainedGraph(f.graphDir, f.driver).catch(error => { refusal = error; }); } finally { process.env.PATH = path; }
+    expect(refusal?.message).toContain("Joins need Git 2.38 or later");
+    const state = await readContainedGraph(f.graphDir);
+    expect(state.nodes.merge!.reservation).toBeDefined(); expect(state.nodes.merge!.dispatched).toBe(false);
+    expect(await Bun.file(join(f.graphDir, "children/merge/integration.json")).exists()).toBe(false);
+    const resumed = await advanceContainedGraph(f.graphDir, f.driver);
+    expect(resumed.nodes.merge!.result!.outcome).toBe("integrated");
+}, 240000);
 test("integration is deterministic whatever the branch ceiling", async () => {
     const f = await fixture("independent", { parallelism: 2 });
     const { schema_version, sha256, ...declaration } = f.graph;

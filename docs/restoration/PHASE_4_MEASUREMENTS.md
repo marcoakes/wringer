@@ -162,3 +162,32 @@ in the [reversion record](evidence/phase-4/reversions.json) and
 
 Live agents, real containers, parallel model spend and any benefit of branches
 over one loop doing both changes. The join runs no model judge of the integration.
+
+# Release attempt — 30 September 2026
+
+Commit `e039720` passed every tests-workflow job and was tagged `v1.0.0-alpha.27`.
+Its release build then failed on macOS 14: the compiled parallel walkthrough
+stopped at "Merging branch candidates failed". The tests workflow had run on a
+macOS 26 image, and the release builds on macOS 14. The walkthrough's PATH uses
+the system Git, which is Apple Git 2.39 there, and `git merge-tree --merge-base`
+arrived in Git 2.40. The tag was never published. Tags are immutable, so the fix
+ships as alpha.28. The [release run](evidence/phase-4/release-attempt-alpha27/ci-release.json)
+and its [failure log](evidence/phase-4/release-attempt-alpha27/macos-14-build-failure.log)
+are retained.
+
+This was a product defect, not a runner quirk: any Mac on Git 2.39 would fail the
+same way. The join now reads the Git version once:
+
+- **Git 2.40 or later** merges against the fork's source explicitly, as before.
+- **Git 2.38 or 2.39** lets Git compute the merge base. The join accepts that
+  only when the base is exactly the fork's source, so both routes write the same
+  tree. Tests on real repositories check both routes on a clean merge and a
+  conflict.
+- **Older Git** is refused in the join's preflight, before the dispatch marker.
+  The join stays reserved and resumes once Git is upgraded. A test puts a `git`
+  that reports 2.37 first on PATH.
+
+Four [isolated reversions](evidence/phase-4/git-compat/reversions.json) each went
+red and were restored. The tests workflow now also runs on macOS 14, so the
+release platform is exercised before a tag exists. Only a run on that image can
+show the Git 2.39 route working; local Git here is 2.50.

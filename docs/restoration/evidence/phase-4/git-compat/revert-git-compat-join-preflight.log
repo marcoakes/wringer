@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-parallel.test.ts:
+124 |     await mkdir(shim); await writeFile(join(shim, "git"), `#!/bin/sh\nfor a in "$@"; do [ "$a" = --version ] && { echo "git version 2.37.0"; exit 0; }; done\nexec '${real}' "$@"\n`, { mode: 0o755 });
+125 |     const path = process.env.PATH; process.env.PATH = `${shim}:${path}`;
+126 |     let refusal: any; try { await advanceContainedGraph(f.graphDir, f.driver).catch(error => { refusal = error; }); } finally { process.env.PATH = path; }
+127 |     expect(refusal?.message).toContain("Joins need Git 2.38 or later");
+128 |     const state = await readContainedGraph(f.graphDir);
+129 |     expect(state.nodes.merge!.reservation).toBeDefined(); expect(state.nodes.merge!.dispatched).toBe(false);
+                                                                                                      ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-parallel.test.ts:129:97)
+(fail) a join refuses Git older than 2.38 before dispatch and stays reserved [7185.17ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [7.36s]

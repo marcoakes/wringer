@@ -43,7 +43,7 @@ Explore [graphs and parallel branches](docs/native/GRAPHS.md),
 
 **The platform direction is composable workflows that improve through evidence.**
 Serial graphs of contained loops shipped in 1.0.0-alpha.26; parallel branches with
-verified integration ship in 1.0.0-alpha.27. Both are proven with deterministic
+verified integration ship in 1.0.0-alpha.28. Both are proven with deterministic
 fixtures and not yet with live agents. Gate/workflow proposals, candidate
 tournaments, Temporal and A2A are the ordered next steps in
 the [restoration plan](docs/SOTA_RESTORATION_PLAN.md). Their exact current status

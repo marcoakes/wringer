@@ -1,4 +1,4 @@
-Wringer 1.0.0-alpha.27 runs independent work in parallel branches and integrates
+Wringer 1.0.0-alpha.28 runs independent work in parallel branches and integrates
 it with its own verification. A fork opens private branches of contained loops;
 a join merges their exact candidates and re-checks the result against every
 branch plan before anything moves on.
@@ -46,14 +46,21 @@ check on the exported tree. Scripted decisions are engineering checkpoints. Live
 agents, real containment and any benefit of branches over a single job remain
 unmeasured.
 
+Joins need Git 2.38 or later. Git 2.38 and 2.39, including Apple Git on macOS
+14, compute the merge base themselves; Wringer accepts that only when the base is
+exactly the fork's source, so the result is the same tree as with Git 2.40 or
+later. Older Git is refused before any dispatch. The `v1.0.0-alpha.27` tag names
+the same work; its release build failed on macOS 14 for this reason and it was
+never published.
+
 Native macOS arm64 and Linux x64 archives retain checksums, inventories, signed
 provenance and exact-artifact claim reports. The required release jobs verify
 those archives and their installer/package routes before staging publication.
 GitHub publication does not itself publish an npm package, Homebrew tap or MCP
 registry listing. The documented cooperative-local operator boundary remains.
 
-[Graphs and parallel branches](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.27/docs/native/GRAPHS.md)
-· [Capabilities and limits](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.27/docs/CAPABILITIES.md)
+[Graphs and parallel branches](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.28/docs/native/GRAPHS.md)
+· [Capabilities and limits](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.28/docs/CAPABILITIES.md)
 · [Previous release: serial graphs](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26)
 
 Gate and workflow improvement proposals, tournaments, Temporal and A2A remain

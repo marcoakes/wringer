@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-git-compat.test.ts:
+23 | 
+24 | test("the installed Git version selects how a join merges", () => {
+25 |     expect(gitMergeMode("git version 2.50.1 (Apple Git-155)")).toBe("explicit-base");
+26 |     expect(gitMergeMode("git version 2.40.0")).toBe("explicit-base");
+27 |     expect(gitMergeMode("git version 3.0.0")).toBe("explicit-base");
+28 |     expect(gitMergeMode("git version 2.39.5 (Apple Git-154)")).toBe("computed-base");
+                                                                    ^
+error: expect(received).toBe(expected)
+
+Expected: "computed-base"
+Received: "explicit-base"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-git-compat.test.ts:28:64)
+(fail) the installed Git version selects how a join merges [1.34ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [198.00ms]

@@ -10,7 +10,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 1. Loops and portable evidence | Published and verified | [alpha.24](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.24), commit `40421292da044b91a7d8b072e64066f4d56d6aa4`; [release verification](evidence/phase-1/release.json) |
 | 2. Improvement workflow | Published and verified | [alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25), commit `599ea5f3694035822d214229f6e3bd212dabe455`; [release evidence](evidence/phase-2/release.json) |
 | 3. Serial graphs | Published and verified | [alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26), commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`; [release evidence](evidence/phase-3/release.json); [measurements](PHASE_3_MEASUREMENTS.md) |
-| 4. Parallel branches/integration | alpha.27 local qualification passed; remote release pending | Fork/join compiler, multi-cursor kernel, deterministic integration with fresh verification against every branch plan, graph-evidence delivery, four sibling schemas; [measurements](PHASE_4_MEASUREMENTS.md) |
+| 4. Parallel branches/integration | The `v1.0.0-alpha.27` release build failed on macOS 14 (Git 2.39) and was never published; fixed as alpha.28; local qualification passed; remote release pending | Fork/join compiler, multi-cursor kernel, deterministic integration with fresh verification against every branch plan, graph-evidence delivery, four sibling schemas; [measurements](PHASE_4_MEASUREMENTS.md) |
 | 5. Gate/workflow improvement | Pending | — |
 | 6. Tournament/prosecutor | Pending | — |
 | 7. Temporal durability | Pending | — |
@@ -209,6 +209,16 @@ GitHub access; anonymous-install qualification was not measured. The
   packaged graph walkthroughs. The native suite recorded 1,321 pass, one Linux-only
   DAC skip, zero fail and 12,852 assertions. Existing published schema bytes are
   unchanged; four siblings were added.
+
+- The `v1.0.0-alpha.27` tag passed every tests-workflow job, then its release build
+  failed on macOS 14: Apple Git 2.39 there lacks `merge-tree --merge-base`
+  (Git 2.40). It was never published. The join now integrates with Git 2.38 and
+  2.39 when Git's own merge base is exactly the fork's source, and refuses older
+  Git before dispatch. Four isolated reversions went red and were restored. The
+  tests workflow now also runs on macOS 14. The fix ships as alpha.28; see the
+  [phase 4 record](PHASE_4_MEASUREMENTS.md). Full local validation of the fix
+  passed all 38 stages: 1,325 pass, one Linux-only skip, zero fail and 12,870
+  assertions ([record](evidence/phase-4/local-validation-alpha28.json)).
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.
