@@ -1,0 +1,235 @@
+{
+  "phase": 7,
+  "release": {
+    "tag": "v1.0.0-alpha.33",
+    "url": "https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.33",
+    "publishedAt": "2026-09-30T23:04:01Z",
+    "isDraft": false
+  },
+  "source": {
+    "commit": "870dee4185fcf314d5991715a6834ce16d0c08e1",
+    "dirty": false,
+    "contentSha256": "7e26c572a4603864dc98cb8ddb60c90d567c997382222ed377aa049d47a713fe"
+  },
+  "assets": [
+    {
+      "name": "wringer-1.0.0-alpha.33-darwin-arm64.tar.gz",
+      "sha256": "22ee6a6cb64d33db18c319f69a1346ce2d2c6f9f646667f32f7999299a5b37c8",
+      "bytes": 29673727
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-darwin-arm64.tar.gz.sha256",
+      "sha256": "bf18e1899b15e2f80795a7a67be8aadcdb05f742194adb5d046ab0e5eadf1a1a",
+      "bytes": 109
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-darwin-arm64.tar.gz.manifest.json",
+      "sha256": "dbb75e5898e5ac28c01f98d87f86e7f13488df8bdc1261be68239cf9096c1b04",
+      "bytes": 128158
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-darwin-arm64.tar.gz.inventory.json",
+      "sha256": "bf39ad93cea96643054e0fabfda3dfbad523847bc67a2e6afcac578fc8165f4c",
+      "bytes": 64725
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-darwin-arm64.tar.gz.claims.json",
+      "sha256": "fb23cc3c6f98bfbc33e7eea81d6c964c50eae31ff1d1b99aa0e0d61e09f1cc50",
+      "bytes": 1185
+    },
+    {
+      "name": "wring-1.0.0-alpha.33-darwin-arm64",
+      "sha256": "4c14efd4fcc0f6c6357eb30b2a51328bb5f19690f9594de5e1a915e3dbe36797",
+      "bytes": 75882354
+    },
+    {
+      "name": "wring-1.0.0-alpha.33-darwin-arm64.sha256",
+      "sha256": "e0f53fee92f09ae85a224a085ef41cdc7dc97494a9675558d5aa614c2344d0d0",
+      "bytes": 100
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-linux-x64.tar.gz",
+      "sha256": "fe49efd44e658546b1c17689bb5edaca36e27ed56d32cef68230ba2b9d0b988d",
+      "bytes": 40443298
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-linux-x64.tar.gz.sha256",
+      "sha256": "c02c83c7dd54acd4118140335981c01745e93a03289dafad831d78e206780f7f",
+      "bytes": 106
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-linux-x64.tar.gz.manifest.json",
+      "sha256": "dcf38d49b773003266d9f83d68de7d6f773c3e6bc587f77a0b4e6b855745c24b",
+      "bytes": 128155
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-linux-x64.tar.gz.inventory.json",
+      "sha256": "174f65c6a896eedec668e27d67edab791baeef40edfc4c8ab6bfb31a490581fc",
+      "bytes": 64719
+    },
+    {
+      "name": "wringer-1.0.0-alpha.33-linux-x64.tar.gz.claims.json",
+      "sha256": "ec3c08ec7adfd698dae27d799997a9e62394bfb0c308ccfda08bb4622e71572f",
+      "bytes": 1179
+    },
+    {
+      "name": "wring-1.0.0-alpha.33-linux-x64",
+      "sha256": "4a300a4f9e4e4be52e8c3e0fe156dede160577594deb59df9abb108f85beabde",
+      "bytes": 94873056
+    },
+    {
+      "name": "wring-1.0.0-alpha.33-linux-x64.sha256",
+      "sha256": "1daa941b4e99862d416f9358f3ef303c1af130fe0200dd24dbd022399f4fe47e",
+      "bytes": 97
+    }
+  ],
+  "runs": [
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36782253345",
+      "source": "870dee4185fcf314d5991715a6834ce16d0c08e1",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Temporal / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36782253345/job/110115109345",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36782253345/job/110115109624",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36782253345/job/110115109637",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36782253345/job/110115109691",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36782253345/job/110115109696",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "action",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36782253345/job/110115109718",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-14",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36782253345/job/110115109760",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36782253389",
+      "source": "870dee4185fcf314d5991715a6834ce16d0c08e1",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36782253389/job/110115110495",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36785751528",
+      "source": "870dee4185fcf314d5991715a6834ce16d0c08e1",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "build (macos-14, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36785751528/job/110126632529",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (macos-14, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36785751528/job/110126632872",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36785751528/job/110126632943",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36785751528/job/110126632965",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "permission-adversary / permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36785751528/job/110126633028",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "publish-draft",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36785751528/job/110137005287",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "ciHistory": null,
+  "attestations": [
+    {
+      "platform": "darwin-arm64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "870dee4185fcf314d5991715a6834ce16d0c08e1",
+        "sourceRef": "refs/tags/v1.0.0-alpha.33"
+      }
+    },
+    {
+      "platform": "linux-x64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "870dee4185fcf314d5991715a6834ce16d0c08e1",
+        "sourceRef": "refs/tags/v1.0.0-alpha.33"
+      }
+    }
+  ],
+  "publicVerification": {
+    "download": "Authenticated GitHub release download after publication; anonymous installation not measured",
+    "darwinArm64": {
+      "extractedChecks": 17,
+      "installerChecks": 13
+    },
+    "linuxX64": "Native Linux CI; archive bytes, manifests and signed provenance verified locally"
+  },
+  "limits": [
+    "Engineering fixtures establish mechanisms, not live benefit, live containment or independent human acceptance.",
+    "No live model calls or fleets were used.",
+    "Successful native CI artifacts were not downloaded; job records and local measurements were used."
+  ]
+}

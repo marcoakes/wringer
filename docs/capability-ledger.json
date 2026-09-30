@@ -218,7 +218,8 @@
         "evidence": [
           "docs/native/DURABILITY.md",
           "packages/scheduler/src/contained-kernel.ts",
-          "scripts/graph-temporal-distribution.ts"
+          "scripts/graph-temporal-distribution.ts",
+          "docs/restoration/evidence/phase-7/release.json"
         ]
       },
       "fixtureTested": {

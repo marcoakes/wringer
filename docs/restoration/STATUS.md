@@ -13,7 +13,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 4. Parallel branches/integration | Published and verified | [alpha.28](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.28), commit `b7e9827cc94ddcb3521556ea5b2192b5d750b80c`; [release evidence](evidence/phase-4/release.json); [measurements](PHASE_4_MEASUREMENTS.md). The `v1.0.0-alpha.27` tag's release build failed on macOS 14 and was never published |
 | 5. Gate/workflow improvement | Published and verified | [alpha.29](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.29), commit `f24a0ca83c09430ca5796142da4fa4283e310419`; [release evidence](evidence/phase-5/release.json); [measurements](PHASE_5_MEASUREMENTS.md). Two earlier remote runs stopped at CI hang guards; see the phase 5 section |
 | 6. Tournament/prosecutor | Published and verified | [alpha.30](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.30), commit `615a9308a1c21a03c10214c00f6bd64a2ab0cda9`; [release evidence](evidence/phase-6/release.json); [measurements](PHASE_6_MEASUREMENTS.md). One earlier remote run stopped at a flaky test timeout; see the phase 6 section |
-| 7. Temporal durability | alpha.33 local qualification passed; remote release pending | The operator approved the Temporal CLI and SDK downloads. A journal interface for the graph kernel, the local journal unchanged, and an optional Node adapter that runs the kernel as a Temporal workflow; fixture-tested against a local dev server only; [measurements](PHASE_7_MEASUREMENTS.md) |
+| 7. Temporal durability | Published and verified | [alpha.33](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.33), commit `870dee4185fcf314d5991715a6834ce16d0c08e1`; [release evidence](evidence/phase-7/release.json); [measurements](PHASE_7_MEASUREMENTS.md). The operator approved the Temporal CLI and SDK downloads; fixture-tested against a local dev server only |
 | 8. Platform interfaces | Published and verified | [alpha.31](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.31), commit `2d2884d7ff568b340cb584ba22ec0329e7ef7439`; [release evidence](evidence/phase-8/release.json); [measurements](PHASE_8_MEASUREMENTS.md). Fixture conformance against a local reference peer only |
 | 9. Comparative qualification | Published and verified | [alpha.32](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.32), commit `b183fdbf0e56f398fd5fd337be702e540daa9b6d`; [release evidence](evidence/phase-9/release.json); [record](PHASE_9_MEASUREMENTS.md). A checked capability ledger, a reproducible showcase and the pilot registered before any run; the pilot itself needs live model access, real tasks and independent reviewers |
 
@@ -359,6 +359,11 @@ GitHub access; anonymous-install qualification was not measured. The
 - Full local validation passed all 42 stages: 1,433 pass, one Linux-only skip, zero
   fail and 13,341 assertions. The adapter suite passed 26 of 26 and the compiled
   Temporal walkthrough passed ([record](evidence/phase-7/local-validation.json)).
+- alpha.33's seven test jobs, including the new Temporal job on Linux, the Linux
+  DAC job and all six release jobs passed on the first attempt. All 14 public
+  assets matched the clean source, both archives' signed provenance verified, and
+  public macOS extraction/installation passed 17/13 checks
+  ([release evidence](evidence/phase-7/release.json)).
 
 ## Phase 8 measurements
 
