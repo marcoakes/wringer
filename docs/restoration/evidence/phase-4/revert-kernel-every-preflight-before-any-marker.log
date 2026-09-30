@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-parallel.test.ts:
+138 | test('one refused branch preflight leaves every branch reserved and no marker written', async () => {
+139 |     const f = await fixture(); let ready = false;
+140 |     f.driver.preflight = async (request, operation) => { if (!ready && operation === 'dispatch' && request.node === 'build-b') throw new Error('Containment unavailable for build-b'); };
+141 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('Containment unavailable');
+142 |     const state = await readContainedGraph(f.dir, { now });
+143 |     expect(state.events.filter(e => e.kind === 'dispatch')).toHaveLength(0); expect(state.nodes['build-a']!.dispatched).toBe(false); expect(f.calls).toEqual([]);
+                                                                  ^
+error: expect(received).toHaveLength(expected)
+
+Expected length: 0
+Received length: 1
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-parallel.test.ts:143:61)
+(fail) one refused branch preflight leaves every branch reserved and no marker written [39.80ms]
+
+ 0 pass
+ 15 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [182.00ms]

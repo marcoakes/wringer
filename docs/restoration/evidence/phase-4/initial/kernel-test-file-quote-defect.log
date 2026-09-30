@@ -1,0 +1,28 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-parallel.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+132 | test('a failed branch records the other branch's open nodes as cancelled', async () => {
+                                                     ^
+error: Expected ")" but found "s"
+    at [checkout]/packages/scheduler/test/contained-parallel.test.ts:132:48
+
+132 | test('a failed branch records the other branch's open nodes as cancelled', async () => {
+                                                       ^
+error: Expected ";" but found "open"
+    at [checkout]/packages/scheduler/test/contained-parallel.test.ts:132:50
+
+132 | test('a failed branch records the other branch's open nodes as cancelled', async () => {
+                                                                              ^
+error: Unterminated string literal
+    at [checkout]/packages/scheduler/test/contained-parallel.test.ts:132:73
+-------------------------------
+
+
+ 24 pass
+ 1 fail
+ 1 error
+ 36 expect() calls
+Ran 25 tests across 2 files. [648.00ms]

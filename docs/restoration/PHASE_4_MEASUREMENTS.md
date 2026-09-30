@@ -98,3 +98,67 @@ Both failed runs are kept in `evidence/phase-4/initial/`.
 Live agents, real containers, parallel model spend, a live publication remote and
 any benefit of parallel branches over one loop doing both edits. Timings come from
 one macOS arm64 machine with synthetic role replies.
+
+# Implementation measurements — 30 September 2026
+
+Recorded while implementing fork and join from the baseline above. Deterministic
+fixtures only: no model, container, fleet, human decision or external delivery.
+
+## Design as built
+
+- **Version 2 graphs.** `fork` opens 2–8 branches; `join` names its fork and waits
+  for all of them. `parallelism` (1–8) caps concurrent branch effects. Version 1
+  declarations, plans, events and views are unchanged.
+- **Private branches.** A branch is every node reachable from its entry before
+  the join. The compiler refuses shared nodes, nodes reachable from outside,
+  branch nodes reading outside the branch, later nodes reading a branch, nested
+  forks, deliveries in a branch, a branch that reaches `done`, and a branch that
+  never produces its own candidate. Required nodes use wait-all dominance: a node
+  that dominates its branch's arrival dominates the join.
+- **Several cursors, one chain.** Replay admits an event only for an active node.
+  A fork's route opens its branches; each branch's route to the join records one
+  arrival; the join activates when every branch has arrived. Results are recorded
+  in a fixed node order after concurrent dispatch settles.
+- **Integration.** The join merges branch candidates with `git merge-tree
+  --write-tree --merge-base` in declared order, records merge commits with a fixed
+  identity and time, checks acceptance inputs against the root, and verifies the
+  merged candidate with every branch plan's pinned checks. The integration record
+  and every verification summary form the join's evidence digest.
+- **Delivery of an integration.** The evidence commit sits on the merged commit
+  and carries the graph's own export under `.wringer/graph-deliveries/ID/`; Send
+  pushes it to the review branch only and confirms the exact commit.
+
+## Observed
+
+The packaged parallel walkthrough (validation stage
+`compiled-parallel-graph-contract`) drives 11 public commands and 2 fixture-binary
+steps. The public `run` refuses the missing runtime before dispatch and leaves both
+branches reserved. A fixture crash after both branch children finished leaves one
+result unrecorded, and resume reconciles it: each child has exactly two sessions.
+The join integrates; review, graph-evidence preparation and Send follow through
+the public binary. The evidence commit's parent is the integration commit, the
+default branch is unchanged, a fresh clone passes the Node-only audit and holds
+both branches' code, and an altered integration record is refused.
+
+The adapter tests use real Git merges and run the pinned checks on exported trees.
+Two passing branches integrate; a shared rule in only one branch's plan makes the
+clean merge `failed`, which is only visible because the join verifies against
+every branch plan; same-line edits are a `conflict` with no candidate; the same
+graph at ceilings 1 and 2 integrates to the same commit; and branch B's object
+store never holds branch A's candidate.
+
+## Reversions
+
+`scripts/restoration-phase4-reversions.ts` removes each fork/join guard alone in an
+isolated copy. The first run caught 31 of 33. The two that stayed green are the
+fork–join pairing checks: each masks the other, and the branch-region rule also
+refuses a mismatched pair. They are listed as layered, not claimed. Five other
+compiler guards are caught only as "a different guard refused", because the branch
+rules overlap; one turns a crash into a named refusal. The final run's counts are
+in the [reversion record](evidence/phase-4/reversions.json) and
+[effects](evidence/phase-4/effects.json).
+
+## Not measured
+
+Live agents, real containers, parallel model spend and any benefit of branches
+over one loop doing both changes. The join runs no model judge of the integration.

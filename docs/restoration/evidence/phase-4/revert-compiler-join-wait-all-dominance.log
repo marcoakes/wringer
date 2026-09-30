@@ -1,0 +1,20 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v2.test.ts:
+24 |     schema_version: 'wringer.contained-graph-authority.v1'; graphSha256: string; repository: RepositoryRef;
+25 |     actor: string; grantedAt: string; expiresAt: string; budget: GraphBudget; maySend: false; sha256: string;
+26 | }
+27 | const KINDS = ['loop', 'check', 'router', 'human-hold', 'delivery'], PARALLEL_KINDS = ['fork', 'join'];
+28 | const SINKS = ['done', 'fail'];
+29 | function fail(message: string): never { throw new Error(message); }
+                                                                    ^
+error: A done path bypasses a required node
+      at fail ([isolated-checkout]/packages/plan/src/graph.ts:29:64)
+      at compileContainedGraph ([isolated-checkout]/packages/plan/src/graph.ts:239:136)
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph-v2.test.ts:10:78)
+(fail) a parallel graph compiles private branch regions, a candidate-owning join and one ceiling [12.93ms]
+
+ 0 pass
+ 23 filtered out
+ 1 fail
+Ran 1 test across 1 file. [143.00ms]

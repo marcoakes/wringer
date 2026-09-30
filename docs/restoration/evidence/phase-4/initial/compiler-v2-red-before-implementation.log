@@ -1,0 +1,142 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v2.test.ts:
+20 |     schema_version: 'wringer.contained-graph-authority.v1'; graphSha256: string; repository: RepositoryRef;
+21 |     actor: string; grantedAt: string; expiresAt: string; budget: GraphBudget; maySend: false; sha256: string;
+22 | }
+23 | const KINDS = ['loop', 'check', 'router', 'human-hold', 'delivery'];
+24 | const SINKS = ['done', 'fail'];
+25 | function fail(message: string): never { throw new Error(message); }
+                                                                    ^
+error: graph has an unknown field
+      at fail ([checkout]/packages/plan/src/graph.ts:25:64)
+      at object ([checkout]/packages/plan/src/graph.ts:29:62)
+      at compileContainedGraph ([checkout]/packages/plan/src/graph.ts:79:19)
+      at <anonymous> ([checkout]/packages/plan/test/contained-graph-v2.test.ts:27:78)
+(fail) a parallel graph compiles private branch regions, a candidate-owning join and one ceiling [4.97ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /version/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses an unknown declaration version before effects [2.14ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /missing parallelism/i
+Received message: "Contained graph declaration version must be 1"
+
+(fail) a parallel graph refuses missing parallelism before effects [1.14ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /parallelism/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses unbounded parallelism before effects [0.94ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /branches/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a fork with one branch before effects [0.84ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /duplicate/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a duplicate branch before effects [0.78ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /fork/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a branch entry not fed by its fork before effects [0.85ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /fork/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a join naming another fork before effects [3.19ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /join/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a fork naming a non-join before effects [1.26ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /join/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a branch that finishes the graph before effects [1.01ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /share/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses branches sharing a node before effects [0.89ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /outside/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a branch reached from outside before effects [0.88ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /nested/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a nested fork before effects [0.79ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /delivery/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a delivery inside a branch before effects [0.73ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /own candidate/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a branch without its own candidate before effects [0.73ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /join/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a later node reading a branch before effects [2.42ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /router/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a router over a fork before effects [0.93ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /verification/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses too little allowance for integration checks before effects [0.83ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /bypasses/i
+Received message: "graph has an unknown field"
+
+(fail) a parallel graph refuses a required branch node bypassed before effects [0.83ms]
+20 |     schema_version: 'wringer.contained-graph-authority.v1'; graphSha256: string; repository: RepositoryRef;
+21 |     actor: string; grantedAt: string; expiresAt: string; budget: GraphBudget; maySend: false; sha256: string;
+22 | }
+23 | const KINDS = ['loop', 'check', 'router', 'human-hold', 'delivery'];
+24 | const SINKS = ['done', 'fail'];
+25 | function fail(message: string): never { throw new Error(message); }
+                                                                    ^
+error: graph has an unknown field
+      at fail ([checkout]/packages/plan/src/graph.ts:25:64)
+      at object ([checkout]/packages/plan/src/graph.ts:29:62)
+      at compileContainedGraph ([checkout]/packages/plan/src/graph.ts:79:19)
+      at <anonymous> ([checkout]/packages/plan/test/contained-graph-v2.test.ts:67:18)
+(fail) a join may route its typed outcome into a repair loop that owns the next candidate [1.06ms]
+
+ 32 pass
+ 20 fail
+ 66 expect() calls
+Ran 52 tests across 1 file. [831.00ms]

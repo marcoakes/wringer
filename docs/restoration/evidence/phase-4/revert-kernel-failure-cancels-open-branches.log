@@ -1,0 +1,28 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-parallel.test.ts:
+131 | });
+132 | test("a failed branch records the other branch's open nodes as cancelled", async () => {
+133 |     const f = await fixture(v => { v.nodes['build-a'].then = 'look-a'; v.nodes['look-a'] = { kind: 'human-hold', input: 'build-a', prompt: 'Inspect branch A.', then: 'merge' }; }), dispatch = f.driver.dispatch;
+134 |     f.driver.dispatch = async request => { await dispatch(request); if (request.node === 'build-b') (f.observed.get('build-b') as any).outcome = 'stopped'; };
+135 |     const state = await advanceContainedGraph(f.dir, f.driver, { now });
+136 |     expect(state.phase).toBe('failed'); expect(state.cancelled).toEqual(['look-a']); expect(state.active).toEqual([]);
+                                                                      ^
+error: expect(received).toEqual(expected)
+
+- [
+-   "look-a",
+- ]
++ []
+
+- Expected  - 3
++ Received  + 1
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-parallel.test.ts:136:65)
+(fail) a failed branch records the other branch's open nodes as cancelled [52.01ms]
+
+ 0 pass
+ 15 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [194.00ms]

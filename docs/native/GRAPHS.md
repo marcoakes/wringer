@@ -1,4 +1,4 @@
-# Serial graphs of contained loops
+# Graphs of contained loops
 
 A graph lets you express a whole piece of engineering as one inspectable,
 resumable workflow: agree the scope, build in a contained loop, check the exact
@@ -52,6 +52,48 @@ compiles it and pins the result into the graph; the repository's TypeScript is
 never evaluated on the host. `--source-bundle FILE` attaches a Git bundle as the
 root source transport for a local-only repository; each child still verifies the
 pinned commit.
+
+## Parallel branches
+
+A version 2 graph adds `fork` and `join`. A fork opens two to eight branches at
+once, up to the graph's declared `parallelism`. Each branch is a private region:
+it reads only the fork's input and its own nodes, it must produce its own
+candidate, and it can end only at its join or `fail`. The join waits for every
+branch.
+
+```text
+split (fork) ─┬─ reader (loop) ─┐
+              └─ writer (loop) ─┴─ merge (join) → after → review (hold) → ship (delivery)
+```
+
+```sh
+wringer-drive graph plan examples/graphs/parallel-repair/graph.yaml
+```
+
+The join fetches each branch's exact candidate and merges them in declared order
+against the fork's source. It uses a fixed identity and time, so the same branches
+always integrate to the same commit. It then runs a fresh contained verification
+of the merged candidate against **every** branch plan. Its outcome is typed:
+
+| Join outcome | Meaning |
+| --- | --- |
+| `integrated` | The merge is clean and every branch plan's pinned checks pass on it |
+| `failed` | The merge is clean but some branch plan's checks fail on the merged tree |
+| `conflict` | The branches edit the same lines; there is no merged candidate |
+| `unavailable` | A verification could not run |
+
+Only `integrated` follows the join's `then`. A router over the join can send
+`failed` to a repair loop that starts from the merged commit, or `conflict` to a
+human hold. A clean textual merge never inherits the branches' passes. In phase 4's
+measurement, two candidates that each passed their own check merged cleanly and
+then failed the shared check.
+
+A failure in any branch ends the graph at once; nodes still open in other branches
+are recorded as cancelled, never resumed. Every branch preflight runs before any
+dispatch marker, so one refusal leaves every branch reserved. A delivery of an
+integrated candidate publishes an evidence commit on top of the exact merged code
+that carries this graph's own portable export. A fresh clone checks it with
+`node .wringer/graph-deliveries/ID/read-bundle.mjs .wringer/graph-deliveries/ID`.
 
 ## What the graph guarantees
 
@@ -113,7 +155,10 @@ names that path, so share exports of graphs that publish over HTTPS or SSH.
 
 ## Limits
 
-- Serial only in this release: no fan-out, fan-in or integration node yet.
+- No nested forks, no delivery inside a branch, and one repository per graph.
+- A join verifies with each branch plan's pinned checks. It does not run a model
+  judge of the integration; review it at a human hold or route it through a loop.
+- A `conflict` has no automatic repair: route it to a hold or `fail`.
 - No read-only MCP graph tool yet; the CLI is the interface.
 - A crash between the dispatch marker and a child's first durable write leaves
   the node `uncertain`. No external effect can have happened in that window, but
@@ -122,14 +167,16 @@ names that path, so share exports of graphs that publish over HTTPS or SSH.
   the container service stops mid-run) also stays `uncertain`; graphs have no
   verifier-retry route yet. A loop child keeps its own `--retry-*` recovery.
 - The graph actor is recorded, not authenticated.
-- The packaged walkthrough uses deterministic worker, judge and check
-  observations from a separately compiled fixture binary, a real Git source and a
-  local bare origin. It measures the mechanism, not live agent convergence, real
-  containment, independent human acceptance or any benefit over a single job.
+- The packaged walkthroughs use deterministic worker and judge observations from a
+  separately compiled fixture binary, a real Git source and a local bare origin;
+  the parallel walkthrough's verifier really runs each pinned check on the exported
+  tree. They measure the mechanism, not live agent convergence, real containment,
+  independent human acceptance or any benefit of branches over a single job.
 
-Contracts: [`contained-graph-plan-v1`](../../schema/contained-graph-plan-v1.schema.json),
+Contracts: [`contained-graph-plan-v1`](../../schema/contained-graph-plan-v1.schema.json) and
+[`v2`](../../schema/contained-graph-plan-v2.schema.json),
 [`authority`](../../schema/contained-graph-authority-v1.schema.json),
-[`event`](../../schema/contained-graph-event-v1.schema.json),
-[`status`](../../schema/contained-graph-status-v1.schema.json) and
-[`export`](../../schema/contained-graph-export-v1.schema.json).
+[`event`](../../schema/contained-graph-event-v1.schema.json) and [`v2`](../../schema/contained-graph-event-v2.schema.json),
+[`status`](../../schema/contained-graph-status-v1.schema.json) and [`v2`](../../schema/contained-graph-status-v2.schema.json),
+[`export`](../../schema/contained-graph-export-v1.schema.json) and [`v2`](../../schema/contained-graph-export-v2.schema.json).
 The retired host graph format stays readable with `wring graph show|status|explain`.

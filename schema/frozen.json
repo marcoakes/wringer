@@ -138,6 +138,10 @@
   "contained-graph-authority-v1.schema.json": "7350c99d99a4755b17f57ce06d4e594866aaae7d938de8aceaa2d08800cfe38d",
   "contained-graph-event-v1.schema.json": "541aeba5404a087dfd547960e61c53a8f0ed6732470b8d9745f8feecc00c355e",
   "contained-graph-status-v1.schema.json": "6e840d3d3aa2a25ca0062015e990c093785628fc180b69415ac02eb6db5e772a",
-  "contained-graph-export-v1.schema.json": "2da720e47e334255442eeff0b14b6ff086e96abbec3b1f7026d335f34b7ec68b"
+  "contained-graph-export-v1.schema.json": "2da720e47e334255442eeff0b14b6ff086e96abbec3b1f7026d335f34b7ec68b",
+  "contained-graph-plan-v2.schema.json": "901deba31df33eb34ee16c2ff72587daacf632a6cd7527e78113bb7d540d506d",
+  "contained-graph-event-v2.schema.json": "1818e2a044b1273b0d4bb8ae39b05254e91b50ff58214912a07aea79142f0097",
+  "contained-graph-status-v2.schema.json": "ad36ed88958af7c3ed70b7d29bfafc264903eb8f973671a2e518edd557278efc",
+  "contained-graph-export-v2.schema.json": "ab47364937a6c3f027e6c64eb96098af47dd5a67c201e1db3203b8dff5048584"
  }
 }

@@ -1,0 +1,19 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-parallel.test.ts:
+109 | }, 240000);
+110 | test("a clean merge that breaks a shared rule is a failed join, routed to a hold, never delivered", async () => {
+111 |     const f = await fixture("semantic"), state = await advanceContainedGraph(f.graphDir, f.driver);
+112 |     expect(state.nodes["build-a"]!.result!.outcome).toBe("ready"); expect(state.nodes["build-b"]!.result!.outcome).toBe("ready");
+113 |     expect((await readControllerFile(join(f.graphDir, "children/merge/integration.json"))).status).toBe("merged");
+114 |     expect(state.nodes.merge!.result!.outcome).toBe("failed"); expect(state.active).toEqual(["resolve"]); expect(state.nodes.ship).toBeUndefined();
+                                    ^
+TypeError: undefined is not an object (evaluating 'state.nodes.merge.result.outcome')
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-parallel.test.ts:114:31)
+(fail) a clean merge that breaks a shared rule is a failed join, routed to a hold, never delivered [7632.81ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [7.80s]

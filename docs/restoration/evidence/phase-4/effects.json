@@ -1,0 +1,154 @@
+{
+  "layered": [
+    {
+      "guard": "fork names its own join; join names its own fork",
+      "maskedBy": "each other and the branch-region rule: removing either alone still refuses a mismatched pair (measured: both not red alone)"
+    },
+    {
+      "guard": "event names an active node",
+      "maskedBy": "per-kind state checks and route validation refuse the same forgeries"
+    },
+    {
+      "guard": "one arrival per branch; arrival only from the join's own branches",
+      "maskedBy": "the compiler's closed branch regions and route validation; an acyclic branch has one path to its join"
+    },
+    {
+      "guard": "join branch inputs in declared order",
+      "maskedBy": "results are recorded in a fixed node order, so arrivals are already deterministic"
+    },
+    {
+      "guard": "each branch candidate descends from the fork's source",
+      "maskedBy": "each branch child is derived from the fork's input; no fixture can produce another base"
+    },
+    {
+      "guard": "review branch is not the remote default branch",
+      "maskedBy": "the compiler refuses main/master and any branch equal to the target"
+    }
+  ],
+  "effects": [
+    {
+      "name": "compiler-parallelism-bound",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-fork-branch-count",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-branch-reads-its-fork",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "compiler-branch-joins-before-done",
+      "effect": "named-refusal-became-crash"
+    },
+    {
+      "name": "compiler-no-nested-fork",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "compiler-no-delivery-in-branch",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-branches-disjoint",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "compiler-branch-closed",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "compiler-branch-reads-inside",
+      "effect": "different-guard-refused"
+    },
+    {
+      "name": "compiler-only-join-reads-branches",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-branch-own-candidate",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-router-arrival-reads-input",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "compiler-join-wait-all-dominance",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "compiler-no-router-over-fork",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-no-check-after-join",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "compiler-join-reserves-branch-checks",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-fork-opens-branches",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-join-waits-for-every-branch",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-parallelism-ceiling",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-every-preflight-before-any-marker",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-record-others-before-throwing",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-failure-cancels-open-branches",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "kernel-join-owns-integration",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-conflict-has-no-candidate",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "kernel-parallel-event-version",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-conflict-is-an-outcome",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-join-verifies-afresh",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-join-reports-failed-checks",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "adapter-join-verifies-every-branch-plan",
+      "effect": "recorded-state-changed"
+    },
+    {
+      "name": "reader-join-evidence",
+      "effect": "refusal-vanished"
+    },
+    {
+      "name": "reader-join-delivery-carries-export",
+      "effect": "recorded-state-changed"
+    }
+  ]
+}

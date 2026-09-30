@@ -10,7 +10,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 1. Loops and portable evidence | Published and verified | [alpha.24](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.24), commit `40421292da044b91a7d8b072e64066f4d56d6aa4`; [release verification](evidence/phase-1/release.json) |
 | 2. Improvement workflow | Published and verified | [alpha.25](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.25), commit `599ea5f3694035822d214229f6e3bd212dabe455`; [release evidence](evidence/phase-2/release.json) |
 | 3. Serial graphs | Published and verified | [alpha.26](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.26), commit `d263c7ef6aed4dc3f11f16cd78ad9b143e44bc4c`; [release evidence](evidence/phase-3/release.json); [measurements](PHASE_3_MEASUREMENTS.md) |
-| 4. Parallel branches/integration | Baseline measured; contract not yet designed | [measurements](PHASE_4_MEASUREMENTS.md): branches isolate; a clean merge of two passing candidates failed the pinned check |
+| 4. Parallel branches/integration | alpha.27 local qualification passed; remote release pending | Fork/join compiler, multi-cursor kernel, deterministic integration with fresh verification against every branch plan, graph-evidence delivery, four sibling schemas; [measurements](PHASE_4_MEASUREMENTS.md) |
 | 5. Gate/workflow improvement | Pending | — |
 | 6. Tournament/prosecutor | Pending | — |
 | 7. Temporal durability | Pending | — |
@@ -174,6 +174,41 @@ GitHub access; anonymous-install qualification was not measured. The
   CI. Downloads were authenticated; anonymous installation remains unmeasured.
   Successful native CI artifacts were not downloaded. See the
   [release record](evidence/phase-3/release.json).
+
+## Phase 4 measurements
+
+- Baseline (commit `6da68e9`): two independent single-loop branches took 7.2 s
+  serially and 3.6 s concurrently in one process (harness overhead only), with no
+  cross-branch references. Each candidate passed its own check and `git
+  merge-tree` merged them cleanly, yet the merged tree failed the shared check.
+  Same-line edits conflicted. See the [baseline](PHASE_4_MEASUREMENTS.md).
+- The baseline commit's first CI attempt had one failure: the macOS full-suite job
+  timed out a pre-existing Git test at 5,019 ms against the 5 s default (0.63 s
+  locally). One targeted rerun passed with no change. Both attempts are in the
+  [CI record](evidence/phase-4/ci-measurement-commit.json).
+- The phase 4 design follows those measurements: fork and join in a version 2
+  graph, private branch regions, one hash chain with several active nodes, a
+  declared parallelism ceiling, and a join that merges deterministically and then
+  verifies afresh against every branch plan, with typed outcomes.
+- Measurement found three compiler faults in my own first cuts, each fixed with
+  its test first: a router arriving at a join must be read through its input;
+  version 2 must not reinterpret version 1 declarations; a check fed by a join is
+  refused as redundant and ambiguous.
+- Measurement errors are retained: malformed refusal fixtures that failed for the
+  wrong reason, a determinism test comparing two different repositories, a
+  privacy assertion that asserted nothing, a single-quoted test name that broke a
+  file, and a fixture judge scoring the serial plan's criterion. In that last case
+  the product correctly refused the verdict and reported both children as holds.
+- All **31 individual reversions** failed as intended and every restoration and
+  both controls passed: a refusal vanished in 11, recorded state changed in 14,
+  a different guard refused in 5 and a named refusal became a crash in 1. Six
+  layered guards are listed with what masks them, including the fork–join pairing
+  checks that stayed green alone. See the [reversion record](evidence/phase-4/reversions.json)
+  and [effects](evidence/phase-4/effects.json).
+- Full local validation passed all 28 core and 10 browser stages, including both
+  packaged graph walkthroughs. The native suite recorded 1,321 pass, one Linux-only
+  DAC skip, zero fail and 12,852 assertions. Existing published schema bytes are
+  unchanged; four siblings were added.
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.

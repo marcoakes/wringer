@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compiled contained graph with parallel branches",
+  "description": "Version 2 of the contained graph: version 1's nodes plus fork and join. sha256 is the canonical-JSON digest of every other field. The compiler also enforces private branch regions, a candidate produced inside every branch, wait-all dominance for required nodes, no nested forks or deliveries inside branches, and an allowance that reserves every declared leaf and every join verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "repository",
+    "entry",
+    "required",
+    "budget",
+    "parallelism",
+    "nodes",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-plan.v2"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "entry": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 80
+    },
+    "required": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "maxLength": 80
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxRoleSessions",
+        "maxVerificationAttempts",
+        "wallClockSeconds"
+      ],
+      "properties": {
+        "maxRoleSessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxVerificationAttempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "parallelism": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8,
+      "description": "The most branch effects that may run at once; separate from the aggregate allowance."
+    },
+    "nodes": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then",
+              "plan"
+            ],
+            "properties": {
+              "kind": {
+                "const": "loop"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "plan": {
+                "type": "object",
+                "description": "A complete compiled execution plan pinned into the graph. It must itself validate as wringer.execution-plan.v3 or v4 and pin the graph's root source.",
+                "required": [
+                  "schema_version",
+                  "plan_sha256",
+                  "repository",
+                  "budget",
+                  "acceptance"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "enum": [
+                      "wringer.execution-plan.v3",
+                      "wringer.execution-plan.v4"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "check"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "prompt",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "human-hold"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16384
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "then",
+              "publication"
+            ],
+            "properties": {
+              "kind": {
+                "const": "delivery"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "publication": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "remote",
+                  "sourceBranch",
+                  "targetBranch"
+                ],
+                "properties": {
+                  "remote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "sourceBranch": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "targetBranch": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "routes",
+              "otherwise"
+            ],
+            "properties": {
+              "kind": {
+                "const": "router"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "routes": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "outcome",
+                    "to"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    },
+                    "to": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    }
+                  }
+                }
+              },
+              "otherwise": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "description": "Opens every branch at once. Each branch is a private region that reads only the fork's input and its own nodes and reaches only its join or fail.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "input",
+              "branches",
+              "join"
+            ],
+            "properties": {
+              "kind": {
+                "const": "fork"
+              },
+              "input": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "branches": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "maxLength": 80
+                }
+              },
+              "join": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          },
+          {
+            "description": "Waits for every branch, merges their exact candidates in declared order against the fork's source, and verifies the result afresh against every branch plan. Outcomes: integrated, failed, conflict, unavailable.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "fork",
+              "then"
+            ],
+            "properties": {
+              "kind": {
+                "const": "join"
+              },
+              "fork": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              },
+              "then": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "maxLength": 80
+              }
+            }
+          }
+        ]
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

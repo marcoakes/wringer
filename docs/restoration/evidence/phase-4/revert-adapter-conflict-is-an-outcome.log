@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-parallel.test.ts:
+114 |     expect(state.nodes.merge!.result!.outcome).toBe("failed"); expect(state.active).toEqual(["resolve"]); expect(state.nodes.ship).toBeUndefined();
+115 | }, 240000);
+116 | test("overlapping edits are a conflict with no merged candidate", async () => {
+117 |     const f = await fixture("conflict"), state = await advanceContainedGraph(f.graphDir, f.driver);
+118 |     const integration = await readControllerFile(join(f.graphDir, "children/merge/integration.json"));
+119 |     expect(integration.status).toBe("conflict"); expect(integration.conflicts).toEqual(["src/a.js"]); expect(integration.commit).toBeUndefined();
+                                     ^
+error: expect(received).toBe(expected)
+
+Expected: "conflict"
+Received: "merged"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-parallel.test.ts:119:32)
+(fail) overlapping edits are a conflict with no merged candidate [8468.08ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [8.64s]

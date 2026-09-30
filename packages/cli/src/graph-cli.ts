@@ -3,7 +3,7 @@
  * fixture driver, clock or crash hook is reachable from here. */
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createGraphAuthority, validateGraphAuthority, type GraphAuthority } from "@wringer/plan";
+import { createGraphAuthority, validateGraphAuthority, type ContainedGraphNode, type GraphAuthority } from "@wringer/plan";
 import { advanceContainedGraph, decideContainedGraph, initializeContainedGraph, readContainedGraph, sendContainedGraph, type GraphState } from "@wringer/scheduler";
 import { attachGraphRootSource, containedGraphDriver, exportContainedGraph, graphStatusView, loadContainedGraphFile, readControllerFile, renderGraphStatus } from "@wringer/application";
 import { EngineError } from "@wringer/engine";
@@ -21,6 +21,12 @@ export const GRAPH_HELP = `wringer-drive graph · serial graphs of contained loo
   wringer-drive graph send --state DIR --node ID --revision SHA --prepared SHA --by NAME --note TEXT
   wringer-drive graph export --state DIR --output DIR
 
+Version 2 graphs add fork and join: a fork opens 2–8 private branches, up to
+the declared parallelism at once; the join waits for every branch, merges their
+exact candidates deterministically and verifies the result afresh against every
+branch plan (integrated, failed, conflict or unavailable). A failure in any
+branch ends the graph and cancels the others. A delivery of an integrated
+candidate publishes the graph's own portable evidence with the merged code.
 Each loop node is an ordinary contained journey under children/NODE/state, with
 its own status, review and resume commands. Allowance for every declared leaf is
 reserved before any effect. A human hold binds the exact revision and input; it
@@ -51,8 +57,9 @@ export async function graphDrive(a: Args, repo: string, context: DispatchContext
         positionals(a, 2); allowed(a, []);
         const path = resolve(repo, a.words[1]!), plan = await loadContainedGraphFile(path);
         const roles = Object.keys(plan.nodes).reduce((sum, id) => sum + (plan.nodes[id]!.kind === "loop" ? (plan.nodes[id] as any).plan.budget.max_sessions : 0), 0);
-        const lines = Object.entries(plan.nodes).map(([id, node]) => `  ${id} · ${node.kind} · input ${node.input} → ${node.kind === "router" ? `${node.routes.map(route => `${route.outcome}→${route.to}`).join(", ")}, otherwise→${node.otherwise}` : node.then}${node.kind === "loop" ? ` · plan ${node.plan.plan_sha256.slice(0, 12)}` : ""}${node.kind === "delivery" ? ` · ${node.publication.sourceBranch} → ${node.publication.targetBranch} (Send is separate)` : ""}`);
-        return { value: plan, text: `Contained graph ${plan.id} validated: ${plan.sha256}\nSource ${plan.repository.url} @ ${plan.repository.commit}\nEntry ${plan.entry}; required ${plan.required.join(", ")}.\n${lines.join("\n")}\nDeclared leaves reserve ${roles}/${plan.budget.maxRoleSessions} role sessions; verifier ceiling ${plan.budget.maxVerificationAttempts}; wall clock ${plan.budget.wallClockSeconds} s.\nNo agent, container or repository command ran.\nNext: wringer-drive graph authority ${quote(path)} --actor 'YOUR NAME' --expires 'EXPIRY IN ISO-8601' --output graph-authority.json` };
+        const edge = (node: ContainedGraphNode) => node.kind === "router" ? `${node.routes.map(route => `${route.outcome}→${route.to}`).join(", ")}, otherwise→${node.otherwise}` : node.kind === "fork" ? `branches ${node.branches.join(", ")}; join ${node.join}` : node.then;
+        const lines = Object.entries(plan.nodes).map(([id, node]) => `  ${id} · ${node.kind} · ${node.kind === "join" ? `fork ${node.fork}` : `input ${node.input}`} → ${edge(node)}${node.kind === "loop" ? ` · plan ${node.plan.plan_sha256.slice(0, 12)}` : ""}${node.kind === "delivery" ? ` · ${node.publication.sourceBranch} → ${node.publication.targetBranch} (Send is separate)` : ""}`);
+        return { value: plan, text: `Contained graph ${plan.id} validated: ${plan.sha256}\nSource ${plan.repository.url} @ ${plan.repository.commit}\nEntry ${plan.entry}; required ${plan.required.join(", ")}.\n${lines.join("\n")}\nDeclared leaves reserve ${roles}/${plan.budget.maxRoleSessions} role sessions; verifier ceiling ${plan.budget.maxVerificationAttempts}; wall clock ${plan.budget.wallClockSeconds} s${plan.parallelism ? `; up to ${plan.parallelism} branches at once` : ""}.\nNo agent, container or repository command ran.\nNext: wringer-drive graph authority ${quote(path)} --actor 'YOUR NAME' --expires 'EXPIRY IN ISO-8601' --output graph-authority.json` };
     }
     if (verb === "authority") {
         positionals(a, 2); allowed(a, ["actor", "expires", "output"]);

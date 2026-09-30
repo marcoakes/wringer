@@ -1,0 +1,278 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v2.test.ts:
+error: expect(received).toThrow(expected)
+
+Expected pattern: /parallelism/i
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.contained-graph-plan.v2",
+  id: "parallel-repair",
+  repository: {
+    url: "https://github.com/OWNER/REPOSITORY.git",
+    commit: "0000000000000000000000000000000000000000",
+  },
+  entry: "split",
+  required: [ "build-a", "build-b", "merge", "review", "ship" ],
+  budget: {
+    maxRoleSessions: 16,
+    maxVerificationAttempts: 20,
+    wallClockSeconds: 600,
+  },
+  parallelism: 9,
+  nodes: [Object: null prototype] {
+    split: {
+      kind: "fork",
+      input: "root",
+      branches: [ "build-a", "build-b" ],
+      join: "merge",
+    },
+    "build-a": {
+      kind: "loop",
+      input: "split",
+      plan: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "src" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+            }
+          ],
+          protected_paths: [ "bun.lock", "package.json", "tests", "tests/acceptance.test.ts" ],
+        },
+        acceptance_sha256: "e94ab14ee89046720a2c74e34d5f90bd370afc02a688416ffd4174c631f85922",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "621f4b1a698ad2a3f7cdda98075b9e2170fa2b9841fe20f3146d6747860bf59b",
+      },
+      then: "merge",
+    },
+    "build-b": {
+      kind: "loop",
+      input: "split",
+      plan: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "src" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+            }
+          ],
+          protected_paths: [ "bun.lock", "package.json", "tests", "tests/acceptance.test.ts" ],
+        },
+        acceptance_sha256: "e94ab14ee89046720a2c74e34d5f90bd370afc02a688416ffd4174c631f85922",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "621f4b1a698ad2a3f7cdda98075b9e2170fa2b9841fe20f3146d6747860bf59b",
+      },
+      then: "merge",
+    },
+    merge: {
+      kind: "join",
+      fork: "split",
+      then: "review",
+    },
+    review: {
+      kind: "human-hold",
+      input: "merge",
+      prompt: "Inspect the integrated candidate.",
+      then: "ship",
+    },
+    ship: {
+      kind: "delivery",
+      input: "review",
+      publication: {
+        remote: "https://example.test/repository.git",
+        sourceBranch: "wringer/parallel",
+        targetBranch: "main",
+      },
+      then: "done",
+    },
+  },
+  sha256: "17efb275e369917daa6dc31ef28588860280b5ccea77a1de46754d1dd732ad41",
+}
+
+(fail) a parallel graph refuses unbounded parallelism before effects [13.03ms]
+
+ 0 pass
+ 23 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [208.00ms]

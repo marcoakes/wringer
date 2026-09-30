@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-parallel.test.ts:
+120 | }, 240000);
+121 | test("integration is deterministic whatever the branch ceiling", async () => {
+122 |     const one = await fixture("independent", { parallelism: 1 }), two = await fixture("independent", { parallelism: 2 });
+123 |     await advanceContainedGraph(one.graphDir, one.driver); await advanceContainedGraph(two.graphDir, two.driver);
+124 |     const left = await readControllerFile(join(one.graphDir, "children/merge/integration.json")), right = await readControllerFile(join(two.graphDir, "children/merge/integration.json"));
+125 |     expect(left.commit).toBe(right.commit); expect(left.tree).toBe(right.tree);
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: "685148ee343096e89ed5f3481ec54b70b442f847"
+Received: "d398d49af49518cbef676c5eaa65afe689148686"
+
+      at <anonymous> ([checkout]/packages/application/test/graph-parallel.test.ts:125:25)
+(fail) integration is deterministic whatever the branch ceiling [19990.77ms]
+
+ 4 pass
+ 1 fail
+ 39 expect() calls
+Ran 5 tests across 1 file. [64.13s]

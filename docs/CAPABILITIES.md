@@ -1,6 +1,6 @@
 # Capabilities and their evidence
 
-Updated for restoration phase 3, 30 September 2026. Source implementation,
+Updated for restoration phase 4, 30 September 2026. Source implementation,
 fixture coverage, live qualification and comparative benefit are separate facts.
 The [release notes](https://github.com/marcoakes/wringer/releases) identify the
 exact published commit and native artifact measurements.
@@ -14,6 +14,7 @@ exact published commit and native artifact measurements.
 | ACP / MCP | Agent lifecycle and restricted assistant tools | A protocol is not containment; end-to-end client journeys need separate live evidence. |
 | Apple Container / gVisor Kubernetes | Both execution adapters exist | Native operating-system binaries, sandbox backends and workflow durability are different dimensions. Live isolation claims require platform-specific measurements. |
 | Serial graphs | `wringer-drive graph plan/authority/run/resume/status/decide/send/export`; contained loops, fresh checks, typed routers, human holds and deliveries; aggregate reservation, hash-chained history, effect-free preflight, read-only reconciliation, portable export with a Node-only reader | Published in alpha.26 and fixture-tested, including crash/reconcile probes through the compiled binary. Live agent convergence, real containment and any benefit over a single job are unmeasured. No MCP graph tool yet; no parallel branches. The retired host graph format stays read-only. |
+| Parallel branches and integration | Version 2 graphs: `fork`/`join`, private branch regions, a declared parallelism ceiling, wait-all joins, deterministic merges, fresh verification against every branch plan, typed `integrated`/`failed`/`conflict`/`unavailable`, cancellation of open branches on failure, graph-evidence delivery of integrated candidates | Published in alpha.27 and fixture-tested with real Git merges and real check runs on exported trees. Live agents, real containment and any benefit of branches over one loop are unmeasured. No nested forks, no model judge of the integration, no automatic conflict repair. |
 | Parallel branches and integration | Historical internal orchestration only | Phase 4 introduces aggregate reservations, isolated branches and a freshly verified integrated candidate. |
 | Gate/workflow self-improvement | Worker-playbook proposals exist; broader changes are not qualified | Phase 5 adds independent evaluation and reviewable source PRs. |
 | Tournament / prosecutor | Not implemented as a supported contained workflow | Phase 6; no majority-vote correctness or performance claim. |

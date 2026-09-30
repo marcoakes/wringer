@@ -1,0 +1,298 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v2.test.ts:
+12 |     expect(plan.schema_version).toBe("wringer.contained-graph-plan.v2"); expect(plan.parallelism).toBe(2);
+13 |     const { sha256, ...body } = plan; expect(sha256).toBe(hashValue(body));
+14 |     expect(graph.validateContainedGraph(plan)).toEqual(plan);
+15 |     expect(graph.graphCandidateOwner(plan, "ship")).toBe("merge");
+16 |     expect(graph.graphCandidateOwner(plan, "build-a")).toBe("build-a");
+17 |     expect(graph.graphReservation(plan, "merge")).toEqual({ roleSessions: 0, verificationAttempts: 2 });
+                                                       ^
+error: expect(received).toEqual(expected)
+
+@@ -2,3 +2,3 @@
+    "roleSessions": 0,
+-   "verificationAttempts": 2,
++   "verificationAttempts": 0,
+  }
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> ([isolated-checkout]/packages/plan/test/contained-graph-v2.test.ts:17:51)
+(fail) a parallel graph compiles private branch regions, a candidate-owning join and one ceiling [18.63ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /verification/i
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.contained-graph-plan.v2",
+  id: "parallel-repair",
+  repository: {
+    url: "https://github.com/OWNER/REPOSITORY.git",
+    commit: "0000000000000000000000000000000000000000",
+  },
+  entry: "split",
+  required: [ "build-a", "build-b", "merge", "review", "ship" ],
+  budget: {
+    maxRoleSessions: 16,
+    maxVerificationAttempts: 19,
+    wallClockSeconds: 600,
+  },
+  parallelism: 2,
+  nodes: [Object: null prototype] {
+    split: {
+      kind: "fork",
+      input: "root",
+      branches: [ "build-a", "build-b" ],
+      join: "merge",
+    },
+    "build-a": {
+      kind: "loop",
+      input: "split",
+      plan: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "src" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+            }
+          ],
+          protected_paths: [ "bun.lock", "package.json", "tests", "tests/acceptance.test.ts" ],
+        },
+        acceptance_sha256: "e94ab14ee89046720a2c74e34d5f90bd370afc02a688416ffd4174c631f85922",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "621f4b1a698ad2a3f7cdda98075b9e2170fa2b9841fe20f3146d6747860bf59b",
+      },
+      then: "merge",
+    },
+    "build-b": {
+      kind: "loop",
+      input: "split",
+      plan: {
+        schema_version: "wringer.execution-plan.v3",
+        name: "A bounded total",
+        intent: "Return the total as 5.",
+        intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+        repository: {
+          url: "https://github.com/OWNER/REPOSITORY.git",
+          commit: "0000000000000000000000000000000000000000",
+        },
+        runtime: {
+          kind: "apple-container",
+          image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          cpus: 2,
+          memoryMiB: 4096,
+          network: {
+            policy: "deny",
+            allow: [],
+            dns: [],
+          },
+          env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+        },
+        agents: {
+          worker: {
+            protocol: "acp",
+            command: "codex-acp",
+            args: [],
+            env: [ "CODEX_API_KEY" ],
+            authMethod: "api-key",
+          },
+          judge: {
+            protocol: "acp",
+            command: "claude-agent-acp",
+            args: [],
+            env: [ "ANTHROPIC_API_KEY" ],
+          },
+        },
+        environment: {
+          context: [ "README.md" ],
+          tools: [
+            {
+              name: "bun",
+              version: "REPLACE_WITH_MEASURED_VERSION",
+              probe: [ "bun", "--version" ],
+            }
+          ],
+          setup: [
+            {
+              id: "dependencies",
+              argv: [ "bun", "install", "--frozen-lockfile" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          baseline: [
+            {
+              id: "baseline",
+              argv: [ "bun", "test" ],
+              cwd: ".",
+              timeout_seconds: 120,
+            }
+          ],
+          writable_directories: [ "node_modules" ],
+        },
+        scope: {
+          writable: [ "src" ],
+        },
+        acceptance: {
+          criteria: [
+            {
+              id: "total",
+              title: "The returned total is five",
+              quote: "Return the total as 5.",
+              kind: "check",
+              required: true,
+            }
+          ],
+          checks: [
+            {
+              id: "total-check",
+              argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+              cwd: ".",
+              timeout_seconds: 120,
+              criteria: [ "total" ],
+              files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+            }
+          ],
+          protected_paths: [ "bun.lock", "package.json", "tests", "tests/acceptance.test.ts" ],
+        },
+        acceptance_sha256: "e94ab14ee89046720a2c74e34d5f90bd370afc02a688416ffd4174c631f85922",
+        budget: {
+          max_sessions: 8,
+          max_worker_turns: 4,
+          max_judge_turns: 4,
+          max_planner_turns: 0,
+          wall_clock_seconds: 3600,
+          session_timeout_seconds: 900,
+        },
+        loop: {
+          repeatCandidate: "stop",
+          repeatedOutcomeWarning: 3,
+        },
+        plan_sha256: "621f4b1a698ad2a3f7cdda98075b9e2170fa2b9841fe20f3146d6747860bf59b",
+      },
+      then: "merge",
+    },
+    merge: {
+      kind: "join",
+      fork: "split",
+      then: "review",
+    },
+    review: {
+      kind: "human-hold",
+      input: "merge",
+      prompt: "Inspect the integrated candidate.",
+      then: "ship",
+    },
+    ship: {
+      kind: "delivery",
+      input: "review",
+      publication: {
+        remote: "https://example.test/repository.git",
+        sourceBranch: "wringer/parallel",
+        targetBranch: "main",
+      },
+      then: "done",
+    },
+  },
+  sha256: "6a03457f75ea8cd8e88c0f1179aa00d47ff6ec7799f24c13fc7c0c2c1b7a5c1b",
+}
+
+(fail) a parallel graph refuses too little allowance for integration checks before effects [3.20ms]
+
+ 0 pass
+ 22 filtered out
+ 2 fail
+ 9 expect() calls
+Ran 2 tests across 1 file. [146.00ms]

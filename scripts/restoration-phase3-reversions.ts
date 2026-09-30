@@ -1,4 +1,8 @@
-/** Phase 3: every contained-graph guard is removed alone in an isolated copy,
+/** Historical: targets the alpha.26 source (tag v1.0.0-alpha.26). Later phases
+ * changed these files; run this script from that tag. Phase 4's guards are in
+ * restoration-phase4-reversions.ts.
+ *
+ * Phase 3: every contained-graph guard is removed alone in an isolated copy,
  * watched red, restored and watched green before the next. No live dispatch.
  * Layered guards whose removal another guard still catches are listed in
  * `layered` with the guard that masks them, rather than claimed as caught. */

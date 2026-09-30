@@ -1,0 +1,388 @@
+{
+  "baseline": "6da68e968251227634b41b971c4b80d869e59da7",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "compiler-parallelism-bound",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-fork-branch-count",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-branch-reads-its-fork",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-branch-joins-before-done",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-no-nested-fork",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-no-delivery-in-branch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-branches-disjoint",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-branch-closed",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-branch-reads-inside",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-only-join-reads-branches",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-branch-own-candidate",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-router-arrival-reads-input",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-join-wait-all-dominance",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-no-router-over-fork",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-no-check-after-join",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "compiler-join-reserves-branch-checks",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-fork-opens-branches",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-join-waits-for-every-branch",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-parallelism-ceiling",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-every-preflight-before-any-marker",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-record-others-before-throwing",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-failure-cancels-open-branches",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-join-owns-integration",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-conflict-has-no-candidate",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "kernel-parallel-event-version",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-conflict-is-an-outcome",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-join-verifies-afresh",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-join-reports-failed-checks",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "adapter-join-verifies-every-branch-plan",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-join-evidence",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    },
+    {
+      "name": "reader-join-delivery-carries-export",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true,
+      "restored": {
+        "exit": 0,
+        "assertions": true,
+        "failed": false
+      }
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

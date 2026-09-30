@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-parallel.test.ts:
+103 |     expect(ajv.validate(await Bun.file(new URL("../../../schema/contained-graph-export-v2.schema.json", import.meta.url)).json(), index)).toBe(true);
+104 |     expect((await inspectGraph(output)).finished).toBe("done");
+105 |     const forged = `${output}-forged`; await cp(output, forged, { recursive: true });
+106 |     const evidence = join(forged, "nodes/merge/integration.json"), value = JSON.parse(await readFile(evidence, "utf8")); value.verifications[1].status = "passed-by-hand"; await writeFile(evidence, JSON.stringify(value));
+107 |     const graphIndex = JSON.parse(await readFile(join(forged, "graph.json"), "utf8")); graphIndex.files["nodes/merge/integration.json"] = new Bun.CryptoHasher("sha256").update(await readFile(evidence)).digest("hex"); await writeFile(join(forged, "graph.json"), JSON.stringify(graphIndex));
+108 |     await expect(inspectGraph(forged)).rejects.toThrow("Join merge");
+                                                     ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/graph-parallel.test.ts:108:48)
+(fail) two independent branches integrate, pass fresh checks against both plans and publish the graph's own evidence [19643.85ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 23 expect() calls
+Ran 1 test across 1 file. [19.81s]

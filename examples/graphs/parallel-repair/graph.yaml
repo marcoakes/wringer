@@ -1,0 +1,59 @@
+# A contained parallel graph: two independent loops run at once in private
+# branches; the join merges their exact candidates and verifies the result
+# afresh against both plans; a person reviews the integrated candidate; the
+# delivery carries this graph's own evidence and still needs its own Send.
+#
+#   wringer-drive graph plan examples/graphs/parallel-repair/graph.yaml
+#
+# Compile-only: the leaf plans pin a placeholder commit and image.
+version: 2
+id: parallel-repair
+repository:
+  url: https://github.com/OWNER/REPOSITORY.git
+  commit: '0000000000000000000000000000000000000000'
+entry: split
+required: [reader, writer, review, ship]
+parallelism: 2                # at most two branch effects at once
+budget:
+  maxRoleSessions: 16         # both loops' sessions, reserved before any effect
+  maxVerificationAttempts: 20 # both loops' verifiers + discovery + one join check per branch
+  wallClockSeconds: 3600
+nodes:
+  split:
+    kind: fork
+    input: root
+    branches: [reader, writer]
+    join: merge
+  reader:
+    kind: loop
+    input: split
+    plan: reader.yaml
+    then: merge
+  writer:
+    kind: loop
+    input: split
+    plan: writer.yaml
+    then: merge
+  merge:
+    kind: join
+    fork: split
+    then: after
+  after:
+    kind: router
+    input: merge
+    routes:
+      - { outcome: integrated, to: review }
+    otherwise: fail              # failed checks, a conflict or unavailable integration stop here
+  review:
+    kind: human-hold
+    input: merge
+    prompt: Inspect the integrated candidate and both branches' evidence.
+    then: ship
+  ship:
+    kind: delivery
+    input: review
+    publication:
+      remote: https://github.com/OWNER/REPOSITORY.git
+      sourceBranch: wringer/parallel-repair
+      targetBranch: main
+    then: done

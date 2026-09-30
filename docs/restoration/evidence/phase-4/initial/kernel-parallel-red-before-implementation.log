@@ -1,0 +1,190 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-parallel.test.ts:
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) branches run concurrently up to the ceiling and the join receives every exact branch candidate in declared order [40.82ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) a ceiling of one runs branches one at a time [17.10ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) completion order does not change the recorded history or the join input [26.72ms]
+63 |     expect(hashValue(early.inputs.get('merge'))).toBe(hashValue(late.inputs.get('merge')));
+64 | });
+65 | test('a lost branch completion reconciles without redispatch and the join still waits for both', async () => {
+66 |     const f = await fixture(), dispatch = f.driver.dispatch;
+67 |     f.driver.dispatch = async request => { await dispatch(request); if (request.node === 'build-b') throw new Error('lost acknowledgement'); };
+68 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('lost acknowledgement');
+                                                                               ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "lost acknowledgement"
+Received message: "split cannot dispatch"
+
+      at <anonymous> ([checkout]/packages/scheduler/test/contained-parallel.test.ts:68:75)
+(fail) a lost branch completion reconciles without redispatch and the join still waits for both [16.18ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) a repeated observation is recorded once [30.47ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) a failed branch fails the graph at once and cancels the other branch [15.13ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) a branch that cannot finish leaves the join unreserved [14.48ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) a hold inside one branch waits alone while the other branch finishes [13.52ms]
+ 96 |     await decideContainedGraph(f.dir, decision(held, 'look-a'), { now });
+ 97 |     const next = await advanceContainedGraph(f.dir, f.driver, { now }); expect(next.active).toEqual(['review']);
+ 98 |     expect(f.inputs.get('merge').branches[0].node).toBe('look-a'); expect(f.inputs.get('merge').branches[0].candidate.owner).toBe('build-a');
+ 99 | });
+100 | test('a restart during the join reconciles it without a second integration', async () => {
+101 |     const f = await fixture(); await expect(advanceContainedGraph(f.dir, f.driver, crash('dispatch', 'merge'))).rejects.toThrow('simulated crash');
+                                                                                                                              ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "simulated crash"
+Received message: "split cannot dispatch"
+
+      at <anonymous> ([checkout]/packages/scheduler/test/contained-parallel.test.ts:101:121)
+(fail) a restart during the join reconciles it without a second integration [14.52ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) a join conflict fails a required join unless a router sends it to a hold [14.07ms]
+110 |     expect(routed.state.phase).toBe('human-hold'); expect(routed.state.active).toEqual(['resolve']);
+111 | });
+112 | test('a join outcome that names a candidate from outside the join is refused', async () => {
+113 |     const f = await fixture(), dispatch = f.driver.dispatch;
+114 |     f.driver.dispatch = async request => { await dispatch(request); if (request.node === 'merge') f.observed.set('merge', { kind: 'complete', outcome: 'integrated', candidate: f.candidateOf('build-a'), evidenceSha256: hashValue('borrowed') }); };
+115 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('owner');
+                                                                                ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "owner"
+Received message: "split cannot dispatch"
+
+      at <anonymous> ([checkout]/packages/scheduler/test/contained-parallel.test.ts:115:75)
+(fail) a join outcome that names a candidate from outside the join is refused [14.01ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) a rehashed arrival at the join from outside the branch is refused on replay [14.16ms]
+21 | const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
+22 | const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
+23 | const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+24 | const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+25 | 
+26 | function fail(message: string): never { throw new Error(message); }
+                                                       ^
+error: split cannot dispatch
+      at fail ([checkout]/packages/scheduler/src/contained.ts:26:51)
+      at apply ([checkout]/packages/scheduler/src/contained.ts:182:79)
+      at prepare ([checkout]/packages/scheduler/src/contained.ts:303:5)
+      at advanceLocked ([checkout]/packages/scheduler/src/contained.ts:377:32)
+      at async locked ([checkout]/packages/workflow/src/storage.ts:211:22)
+(fail) every graph event of a parallel graph uses the version 2 event record [14.06ms]
+
+ 0 pass
+ 13 fail
+ 3 expect() calls
+Ran 13 tests across 1 file. [552.00ms]

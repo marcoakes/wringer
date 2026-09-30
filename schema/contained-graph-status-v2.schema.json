@@ -1,0 +1,434 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Read-only parallel contained graph status",
+  "description": "Derived from the replayed history of a version 2 graph: every active node, every hold and every available action, each with the exact command. It grants nothing; each command revalidates revision, input and prepared identity under the graph lock.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "graph",
+    "revision",
+    "phase",
+    "reason",
+    "active",
+    "holds",
+    "cancelled",
+    "startedAt",
+    "deadline",
+    "allowance",
+    "nodes",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-graph-status.v2"
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sha256",
+        "repository"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "maxLength": 80
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "commit"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "commit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        }
+      }
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "phase": {
+      "enum": [
+        "pending",
+        "human-hold",
+        "send-hold",
+        "uncertain",
+        "complete",
+        "failed",
+        "expired"
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "active": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "maxLength": 80
+      }
+    },
+    "holds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "node",
+          "kind",
+          "reason"
+        ],
+        "properties": {
+          "node": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "kind": {
+            "enum": [
+              "human",
+              "child",
+              "send"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          }
+        }
+      }
+    },
+    "cancelled": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "maxLength": 80
+      }
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "allowance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "roleSessions",
+        "verificationAttempts",
+        "wallClockSeconds",
+        "parallelism"
+      ],
+      "properties": {
+        "roleSessions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reserved",
+            "ceiling"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ceiling": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "verificationAttempts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reserved",
+            "ceiling"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ceiling": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parallelism": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "required",
+          "input",
+          "branch",
+          "state",
+          "outcome",
+          "route",
+          "candidate",
+          "evidenceSha256",
+          "child"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 80
+          },
+          "kind": {
+            "enum": [
+              "loop",
+              "check",
+              "router",
+              "human-hold",
+              "delivery",
+              "fork",
+              "join"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "input": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "branch": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fork",
+                  "branch"
+                ],
+                "properties": {
+                  "fork": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "maxLength": 80
+                  },
+                  "branch": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "maxLength": 80
+                  }
+                }
+              }
+            ]
+          },
+          "state": {
+            "enum": [
+              "not-reached",
+              "evaluated-inline",
+              "reserved",
+              "dispatched",
+              "decided",
+              "prepared",
+              "sent",
+              "resulted",
+              "complete",
+              "cancelled"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "route": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "to",
+                  "via"
+                ],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "maxLength": 80
+                  },
+                  "via": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "maxLength": 80
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "candidate": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "commit",
+                  "tree",
+                  "owner"
+                ],
+                "properties": {
+                  "commit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                  },
+                  "tree": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "maxLength": 80
+                  }
+                }
+              }
+            ]
+          },
+          "evidenceSha256": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            ]
+          },
+          "child": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "node",
+          "prompt",
+          "inputSha256",
+          "preparedSha256",
+          "command"
+        ],
+        "properties": {
+          "action": {
+            "enum": [
+              "resume",
+              "decide",
+              "send",
+              "inspect-child"
+            ]
+          },
+          "node": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prompt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inputSha256": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            ]
+          },
+          "preparedSha256": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            ]
+          },
+          "command": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,284 @@
+{
+  "schema_version": "wringer.restoration-local-validation.v1",
+  "phase": 4,
+  "version": "1.0.0-alpha.27",
+  "baseline": "6da68e968251227634b41b971c4b80d869e59da7",
+  "sourceState": "working tree; remote CI must qualify the eventual commit",
+  "kind": "deterministic engineering fixtures; no provider calls or human acceptance",
+  "command": "bun run validate",
+  "startedAt": "2026-09-30T07:20:04.130Z",
+  "core": {
+    "stages": [
+      {
+        "name": "workspace-links",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 25
+      },
+      {
+        "name": "standalone-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1288
+      },
+      {
+        "name": "native-confirmation-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 3098
+      },
+      {
+        "name": "native-confirmation-probe",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 572
+      },
+      {
+        "name": "assistant-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 38978
+      },
+      {
+        "name": "native-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1005444
+      },
+      {
+        "name": "design-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 26837
+      },
+      {
+        "name": "figma-api-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 17738
+      },
+      {
+        "name": "meta-loop-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 57662
+      },
+      {
+        "name": "meta-portable-handover",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 22148
+      },
+      {
+        "name": "portable-python-corpus",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5248
+      },
+      {
+        "name": "standalone-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5026
+      },
+      {
+        "name": "compiled-contained-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 38480
+      },
+      {
+        "name": "compiled-graph-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 42034
+      },
+      {
+        "name": "compiled-parallel-graph-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 22999
+      },
+      {
+        "name": "compiled-loop-inspection",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2740
+      },
+      {
+        "name": "compiled-evidence-export",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 23743
+      },
+      {
+        "name": "compiled-job-improvements",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2881
+      },
+      {
+        "name": "local-delivery-fixture",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4126
+      },
+      {
+        "name": "compiled-version",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 129
+      },
+      {
+        "name": "compiled-cli-reference",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 3896
+      },
+      {
+        "name": "adoption-examples",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5182
+      },
+      {
+        "name": "compiled-board",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 130
+      },
+      {
+        "name": "compiled-drive",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 132
+      },
+      {
+        "name": "compiled-assistant",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 326
+      },
+      {
+        "name": "compiled-figma-broker",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 93
+      },
+      {
+        "name": "compiled-assistant-lifecycle",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 6387
+      },
+      {
+        "name": "local-source-route",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 14500
+      }
+    ],
+    "testTotals": {
+      "passed": 1321,
+      "skipped": 1,
+      "failed": 0,
+      "assertions": 12852
+    },
+    "skip": "Linux DAC executes separately on Linux CI"
+  },
+  "browser": {
+    "stages": [
+      {
+        "name": "assistant-launch-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 108756
+      },
+      {
+        "name": "guided-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 93253
+      },
+      {
+        "name": "design-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 132894
+      },
+      {
+        "name": "figma-api-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 146627
+      },
+      {
+        "name": "local-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 115783
+      },
+      {
+        "name": "local-design-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 136061
+      },
+      {
+        "name": "improvements-browser-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2897
+      },
+      {
+        "name": "job-improvements-browser-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2615
+      },
+      {
+        "name": "adoption-connections-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2813
+      },
+      {
+        "name": "verification-browser-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 15388
+      }
+    ]
+  },
+  "reversions": {
+    "cases": 31,
+    "caught": 31,
+    "restored": 31,
+    "effects": {
+      "refusal-vanished": 11,
+      "different-guard-refused": 5,
+      "named-refusal-became-crash": 1,
+      "recorded-state-changed": 14
+    },
+    "layeredNotClaimed": 6,
+    "record": "reversions.json"
+  },
+  "packagedGraphs": [
+    {
+      "stage": "compiled-graph-contract",
+      "publicCommands": 21,
+      "fixtureSteps": 3
+    },
+    {
+      "stage": "compiled-parallel-graph-contract",
+      "publicCommands": 11,
+      "fixtureSteps": 2
+    }
+  ],
+  "limits": [
+    "Scripted decisions and browser clicks are engineering fixtures, not independent human observations.",
+    "The macOS Linux-DAC skip is not Linux qualification.",
+    "No live model, live containment or comparative product benefit was measured."
+  ],
+  "diagnosticErrors": []
+}

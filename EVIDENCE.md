@@ -11,6 +11,9 @@ for hashes, jobs and the authenticated-download limitation. The previous release
 [alpha.25](docs/restoration/evidence/phase-2/release.json), retains its Linux
 browser retry.
 
+Phase 4 adds parallel branches with verified integration as alpha.27; it is under
+local qualification and not yet a published release.
+
 Graph execution is fixture-tested: 81 isolated reversions, a compiled public
 walkthrough with two crash probes and a Node-only export check. Live agent
 convergence, real containment and any benefit over a single job are unmeasured.

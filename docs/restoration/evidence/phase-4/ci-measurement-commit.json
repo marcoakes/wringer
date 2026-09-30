@@ -1,0 +1,95 @@
+{
+  "commit": "6da68e968251227634b41b971c4b80d869e59da7",
+  "change": "docs and an untested measurement script only",
+  "attempts": [
+    {
+      "attempt": 1,
+      "runs": [
+        {
+          "workflow": "Linux permission adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36656027545",
+          "conclusion": "success",
+          "jobs": [
+            {
+              "name": "permission-adversary",
+              "conclusion": "success",
+              "url": "https://github.com/marcoakes/wringer/actions/runs/36656027545/job/109700457045"
+            }
+          ]
+        },
+        {
+          "workflow": "tests",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582",
+          "conclusion": "failure",
+          "jobs": [
+            {
+              "name": "action",
+              "conclusion": "success",
+              "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109700457210"
+            },
+            {
+              "name": "Bun / macos-latest",
+              "conclusion": "failure",
+              "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109700457335"
+            },
+            {
+              "name": "Rehearsals / macos-latest",
+              "conclusion": "success",
+              "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109700457399"
+            },
+            {
+              "name": "Bun / ubuntu-latest",
+              "conclusion": "success",
+              "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109700457433"
+            },
+            {
+              "name": "Rehearsals / ubuntu-latest",
+              "conclusion": "success",
+              "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109700457470"
+            }
+          ]
+        }
+      ],
+      "failure": {
+        "job": "tests / Bun / macos-latest",
+        "test": "packages/cli/test/rehearsal-clone-audit.test.ts: fresh no-local clone binds exact evidence commit, source parent/tree and NUL-delimited evidence additions",
+        "observed": "timed out after 5000 ms at 5019.18 ms during the full suite; 1274 pass, 1 fail",
+        "local": "0.63 s alone on the development machine"
+      }
+    },
+    {
+      "attempt": 2,
+      "kind": "one targeted rerun of the failed job, no code, test or timeout change",
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Bun / macos-latest",
+          "conclusion": "success",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109705139314"
+        },
+        {
+          "name": "action",
+          "conclusion": "success",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109705140646"
+        },
+        {
+          "name": "Rehearsals / macos-latest",
+          "conclusion": "success",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109705169077"
+        },
+        {
+          "name": "Bun / ubuntu-latest",
+          "conclusion": "success",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109705171840"
+        },
+        {
+          "name": "Rehearsals / ubuntu-latest",
+          "conclusion": "success",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36656027582/job/109705172784"
+        }
+      ]
+    }
+  ],
+  "note": "Linux permission adversary passed on attempt 1. The underlying runner cause was not established; both attempts remain visible."
+}

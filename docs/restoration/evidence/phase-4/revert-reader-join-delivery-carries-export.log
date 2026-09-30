@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-parallel.test.ts:
+4 | import { createHash } from "node:crypto";
+5 | import { readFile, readdir, lstat, realpath } from "node:fs/promises";
+6 | import { resolve, join, sep } from "node:path";
+7 | import { pathToFileURL } from "node:url";
+8 | const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+9 | const insist = (ok, message) => { if (!ok) throw new Error(message); };
+                                                         ^
+error: Delivery ship is missing its evidence envelope
+      at insist ([isolated-checkout]/examples/evidence/read-bundle.mjs:9:54)
+      at inspectGraph ([isolated-checkout]/examples/evidence/read-bundle.mjs:119:17)
+      at async exportContainedGraph ([isolated-checkout]/packages/application/src/graph.ts:417:11)
+      at async <anonymous> ([isolated-checkout]/packages/application/test/graph-parallel.test.ts:101:58)
+(fail) two independent branches integrate, pass fresh checks against both plans and publish the graph's own evidence [19481.18ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 19 expect() calls
+Ran 1 test across 1 file. [19.68s]

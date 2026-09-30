@@ -4,6 +4,25 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.27 — parallel branches with verified integration
+
+- Version 2 graphs add `fork` and `join`. A fork opens 2–8 private branches, run
+  at once up to a declared `parallelism`; each branch reads only the fork's input
+  and must produce its own candidate before the join.
+- A join merges the branches' exact candidates deterministically against the
+  fork's source and verifies the result afresh against every branch plan:
+  `integrated`, `failed`, `conflict` or `unavailable`. A clean merge never
+  inherits the branches' passes.
+- One hash chain with several active nodes: every branch preflight precedes any
+  marker, a failure anywhere ends the graph and cancels open branches, lost and
+  repeated completions reconcile once, and completion order does not change the
+  history or the integration.
+- A delivery of an integrated candidate publishes the graph's own portable export
+  in an evidence commit on the merged code; a fresh clone checks it with Node.
+- New sibling contracts: `wringer.contained-graph-plan.v2`, `-event.v2`,
+  `-status.v2`, `-export.v2`. Version 1 graphs keep their exact bytes, events and
+  views. Fixture-tested only; see the [qualification record](docs/restoration/STATUS.md).
+
 ## 1.0.0-alpha.26 — serial graphs of contained loops
 
 - `wringer-drive graph plan|authority|run|resume|status|decide|send|export`

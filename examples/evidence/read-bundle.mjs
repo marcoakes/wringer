@@ -71,7 +71,8 @@ export async function inspectGraph(input) {
     insist(!(await lstat(input)).isSymbolicLink(), "Symlink export root");
     const root = await realpath(input), json = async name => JSON.parse(await file(root, name));
     const index = await json("graph.json");
-    insist(index.schema_version === "wringer.contained-graph-export.v1", "Unsupported graph export index");
+    const version = { "wringer.contained-graph-export.v1": 1, "wringer.contained-graph-export.v2": 2 }[index.schema_version];
+    insist(version, "Unsupported graph export index");
     insist(index.files && typeof index.files === "object" && !Array.isArray(index.files) && Array.isArray(index.nodes), "Invalid graph export inventory");
     const deliveries = index.nodes.filter(row => row.delivery).map(row => row.delivery);
     insist(deliveries.every(path => /^deliveries\/[a-z][a-z0-9-]*$/.test(path)), "Unsafe delivery envelope path");
@@ -79,7 +80,7 @@ export async function inspectGraph(input) {
     insist(JSON.stringify(paths) === JSON.stringify(Object.keys(index.files).sort()), "Graph export inventory changed");
     for (const name of paths) insist(hash(index.files[name]) && digest(await file(root, name)) === index.files[name], `Graph evidence changed: ${name}`);
     const plan = await json("graph/plan.json"), authority = await json("graph/authority.json");
-    insist(plan.schema_version === "wringer.contained-graph-plan.v1" && hashJson(withoutDigest(plan)) === plan.sha256 && plan.sha256 === index.graph?.sha256, "Graph plan identity changed");
+    insist(plan.schema_version === `wringer.contained-graph-plan.v${version}` && hashJson(withoutDigest(plan)) === plan.sha256 && plan.sha256 === index.graph?.sha256, "Graph plan identity changed");
     insist(authority.schema_version === "wringer.contained-graph-authority.v1" && hashJson(withoutDigest(authority)) === authority.sha256 && authority.graphSha256 === plan.sha256 && authority.maySend === false, "Graph authority is not bound to this plan");
     const names = paths.filter(name => name.startsWith("graph/events/"));
     insist(names.length >= 1 && names.length === index.eventCount, "Graph event count changed");
@@ -87,7 +88,7 @@ export async function inspectGraph(input) {
     for (let sequence = 0; sequence < names.length; sequence++) {
         insist(names[sequence] === `graph/events/${String(sequence).padStart(4, "0")}.json`, "Graph events are not one contiguous sequence");
         const event = await json(names[sequence]);
-        insist(event.schema_version === "wringer.contained-graph-event.v1" && event.sequence === sequence && event.previousSha256 === previous && event.graphSha256 === plan.sha256 && hashJson(withoutDigest(event)) === event.sha256, `Graph event ${sequence} changed, is out of order or belongs to another graph`);
+        insist(event.schema_version === `wringer.contained-graph-event.v${version}` && event.sequence === sequence && event.previousSha256 === previous && event.graphSha256 === plan.sha256 && hashJson(withoutDigest(event)) === event.sha256, `Graph event ${sequence} changed, is out of order or belongs to another graph`);
         events.push(event); previous = event.sha256;
     }
     insist(previous === index.revision, "Graph revision changed");
@@ -103,10 +104,18 @@ export async function inspectGraph(input) {
         }
         if (node.kind === "check" && result) insist(row.evidence && hashJson(await json(row.evidence)) === result.data.evidenceSha256, `Check ${row.id} evidence does not match its recorded result`);
         if (node.kind === "human-hold" && result) insist(decision && result.data.evidenceSha256 === decision.sha256, `Hold ${row.id} result is not its recorded decision`);
+        if (node.kind === "join" && result) {
+            const carried = row.evidence && await json(row.evidence);
+            insist(carried && hashJson(carried) === result.data.evidenceSha256, `Join ${row.id} evidence does not match its recorded result`);
+            const arrived = reserve?.data.reservation.input.branches ?? [];
+            insist(JSON.stringify(carried.integration.branches.map(item => item.commit)) === JSON.stringify(arrived.map(item => item.candidate.source.commit)), `Join ${row.id} integrated candidates other than its branches`);
+            insist(result.data.outcome === "conflict" ? !result.data.candidate : result.data.candidate?.source.commit === carried.integration.commit, `Join ${row.id} outcome names a candidate other than its integration`);
+        }
         if (node.kind === "delivery") {
             if (prepared) insist(row.prepared && hashJson(await json(row.prepared)) === prepared.data.evidenceSha256, `Delivery ${row.id} preparation does not match its record`);
             if (result) insist(row.evidence && hashJson(await json(row.evidence)) === result.data.evidenceSha256, `Delivery ${row.id} outcome does not match its record`);
-            if (prepared) {
+            // A join-owned delivery publishes this graph export itself; only a loop's delivery has an envelope.
+            if (prepared && plan.nodes[prepared.data.candidate.owner]?.kind !== "join") {
                 insist(row.delivery, `Delivery ${row.id} is missing its evidence envelope`);
                 const inspected = await inspectBundle(join(root, row.delivery)), candidate = prepared.data.candidate;
                 const manifest = JSON.parse(await file(join(root, row.delivery, "evidence"), "manifest.json")), owner = recorded(candidate.owner, "result");

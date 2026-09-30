@@ -1,21 +1,8 @@
 import { expect, test } from "bun:test";
 import * as graph from "../src/graph";
-import { compileDeclaration, compileExecutionPlan, hashValue } from "../src";
+import { compileDeclaration, hashValue } from "../src";
+import { graphFixture } from "./graph-fixtures";
 
-export function graphFixture() {
-    const parsed = compileExecutionPlan(template, { format: "yaml" });
-    const { schema_version, plan_sha256, acceptance_sha256, intent_sha256, ...raw } = parsed;
-    const plan = compileDeclaration({ version: 3, ...raw, acceptance: { ...raw.acceptance, criteria: raw.acceptance.criteria.filter(row => row.kind === "check") } });
-    return { version: 1, id: "serial-repair", repository: plan.repository, entry: "scope", required: ["build", "verify", "review", "ship"],
-        budget: { maxRoleSessions: plan.budget.max_sessions, maxVerificationAttempts: plan.budget.max_sessions + 2, wallClockSeconds: 600 },
-        nodes: { scope: { kind: "human-hold", input: "root", prompt: "Review this exact scope before work.", then: "build" },
-            build: { kind: "loop", input: "root", plan, then: "verify" },
-            verify: { kind: "check", input: "build", then: "route" },
-            route: { kind: "router", input: "verify", routes: [{ outcome: "passed", to: "review" }], otherwise: "fail" },
-            review: { kind: "human-hold", input: "verify", prompt: "Inspect the exact candidate and evidence.", then: "ship" },
-            ship: { kind: "delivery", input: "review", publication: { remote: "https://example.test/repository.git", sourceBranch: "wringer/serial-repair", targetBranch: "main" }, then: "done" } } };
-}
-const template = await Bun.file(new URL("../examples/contained.yaml", import.meta.url)).text();
 const compile = (input: unknown) => graph.compileContainedGraph(input);
 const changed = (edit: (value: any) => void) => { const value = structuredClone(graphFixture()); edit(value); return value; };
 
@@ -32,7 +19,7 @@ test("serial graph compiles pinned leaves and typed source dependencies without 
 });
 
 const refusals: [string, (value: any) => void, string][] = [
-    ["legacy version", v => v.version = 2, "version"],
+    ["unknown version", v => v.version = 3, "version"],
     ["unknown host command", v => v.nodes.build.command = "touch outside", "unknown"],
     ["unsafe node identity", v => { v.nodes["../worker"] = v.nodes.build; delete v.nodes.build; }, "node id"],
     ["uppercase node identity", v => { v.nodes.Build = v.nodes.build; delete v.nodes.build; v.nodes.scope.then = "Build"; v.nodes.verify.input = "Build"; v.required = v.required.map((id: string) => id === "build" ? "Build" : id); }, "invalid"],

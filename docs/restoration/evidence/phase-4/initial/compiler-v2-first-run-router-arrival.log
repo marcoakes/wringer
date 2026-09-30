@@ -1,0 +1,20 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v2.test.ts:
+error: expect(received).toThrow(expected)
+
+Expected pattern: /router/i
+Received message: "Each branch must produce its own candidate before join merge"
+
+(fail) a parallel graph refuses a router over a fork before effects [6.57ms]
+error: expect(received).toThrow(expected)
+
+Expected pattern: /bypasses/i
+Received message: "Each branch must produce its own candidate before join merge"
+
+(fail) a parallel graph refuses a required branch node bypassed before effects [1.92ms]
+
+ 50 pass
+ 2 fail
+ 78 expect() calls
+Ran 52 tests across 2 files. [826.00ms]

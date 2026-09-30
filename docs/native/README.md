@@ -9,8 +9,8 @@ Wringer coordinates agents, checks and evidence. The agents author the product c
 
 This is prerelease software. Deterministic integration tests are not proof of live-agent convergence or real platform isolation.
 
-[Serial graphs](GRAPHS.md) compose contained loops, fresh checks, routers,
-human holds and deliveries into one resumable workflow.
+[Graphs](GRAPHS.md) compose contained loops, fresh checks, routers, human holds,
+parallel branches and verified integration into one resumable workflow.
 [Measured repair loops](MEASURED_LOOPS.md) explains the v3 contract: actual failure
 feedback, assertion-level checks, repeated-candidate stops and pinned worker
 playbooks. [Experiments](EXPERIMENTS.md) covers separately authorised comparisons

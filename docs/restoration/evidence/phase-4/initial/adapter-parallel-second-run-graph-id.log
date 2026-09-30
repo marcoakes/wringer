@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/graph-parallel.test.ts:
+126 |     await initializeContainedGraph(second, serial, createGraphAuthority(serial, { actor: "Scripted engineering fixture", at, expiresAt: new Date(at.getTime() + 1800000).toISOString() }));
+127 |     await attachGraphRootSource(second, join(f.root, "source.bundle"));
+128 |     await advanceContainedGraph(f.graphDir, f.driver); await advanceContainedGraph(second, f.driver);
+129 |     const left = await readControllerFile(join(f.graphDir, "children/merge/integration.json")), right = await readControllerFile(join(second, "children/merge/integration.json"));
+130 |     expect(left.branches.map((row: any) => row.commit)).toEqual(right.branches.map((row: any) => row.commit));
+131 |     expect(left.commit).toBe(right.commit); expect(left.tree).toBe(right.tree);
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: "5a960ba0db5be491fa07bb23165e539a64ef9648"
+Received: "fc8c5802de89a662e7415d132bc9124216f96dab"
+
+      at <anonymous> ([checkout]/packages/application/test/graph-parallel.test.ts:131:25)
+(fail) integration is deterministic whatever the branch ceiling [17291.20ms]
+
+ 1 pass
+ 3 filtered out
+ 1 fail
+ 7 expect() calls
+Ran 2 tests across 1 file. [26.49s]

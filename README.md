@@ -17,6 +17,7 @@ request → approved plan → worker → protected checks → independent judge
                             result review → separate Send → portable evidence
 
 scope hold → contained loop → fresh check → typed route → exact review → prepared delivery → Send
+fork → private branches in parallel → join: deterministic merge + fresh checks against every branch plan
                   one allowance, reserved before every effect · one resumable history
 
 development failures → predicted improvement → fixed comparison → future adoption
@@ -31,24 +32,27 @@ development failures → predicted improvement → fixed comparison → future a
 | **Evidence that travels with the change** | Versioned records, source identities, check receipts, loop decisions and human observations. A fresh clone can audit a delivery without the original controller or provider account. |
 | **Measured improvement for future work** | Register a prediction and comparison before trials, keep failures in the denominator, and explicitly adopt or undo a qualified worker playbook. A suggestion cannot grade or approve itself. |
 | **Durable, bounded work** | One allowance covers the journey. Resume retains reservations and reconciles uncertain effects; it does not silently buy another attempt. |
-| **Composable serial workflows** | A graph of contained loops, fresh checks, typed routers, human holds and deliveries. Each step hands the next an exact candidate; a failed requirement cannot be routed to success; a hold binds the exact revision and input; Send stays separate. Export verifies with Node alone. |
+| **Composable workflows** | A graph of contained loops, fresh checks, typed routers, human holds and deliveries. Each step hands the next an exact candidate; a failed requirement cannot be routed to success; a hold binds the exact revision and input; Send stays separate. Export verifies with Node alone. |
+| **Parallel branches with verified integration** | A fork runs private branches at once under one ceiling; a join merges their exact candidates deterministically and re-checks the result against every branch plan. Two changes that each pass can still fail together, and Wringer says so: `integrated`, `failed`, `conflict` or `unavailable`, never a silent merge. |
 
-Explore [serial graphs](docs/native/GRAPHS.md),
+Explore [graphs and parallel branches](docs/native/GRAPHS.md),
 [loops and inspection](docs/native/LOOP_INSPECTION.md),
 [portable evidence](examples/evidence/README.md),
 [improvements from ordinary jobs](docs/native/JOB_IMPROVEMENTS.md) and
 [the execution architecture](docs/REWRITE_PLAN.md).
 
 **The platform direction is composable workflows that improve through evidence.**
-Serial graphs of contained loops ship in 1.0.0-alpha.26, proven with deterministic
-fixtures and not yet with live agents. Bounded parallel branches, gate/workflow
-proposals, candidate tournaments, Temporal and A2A are the ordered next steps in
+Serial graphs of contained loops shipped in 1.0.0-alpha.26; parallel branches with
+verified integration ship in 1.0.0-alpha.27. Both are proven with deterministic
+fixtures and not yet with live agents. Gate/workflow proposals, candidate
+tournaments, Temporal and A2A are the ordered next steps in
 the [restoration plan](docs/SOTA_RESTORATION_PLAN.md). Their exact current status
 is listed in [capabilities](docs/CAPABILITIES.md); planned features are not
 release claims.
 
 ```sh
 wringer-drive graph plan examples/graphs/serial-repair/graph.yaml   # validate, pin, show the allowance
+wringer-drive graph plan examples/graphs/parallel-repair/graph.yaml # two branches, one verified integration
 wringer-drive graph run GRAPH.yaml --authority AUTH.json --state DIR
 wringer-drive graph status --state DIR                              # every node and the exact next command
 ```

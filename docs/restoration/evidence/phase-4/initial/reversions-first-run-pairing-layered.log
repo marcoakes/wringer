@@ -1,0 +1,46 @@
+compiler-parallelism-bound: red
+compiler-fork-branch-count: red
+compiler-fork-names-its-join: NOT RED
+compiler-branch-reads-its-fork: red
+compiler-join-names-its-fork: NOT RED
+compiler-branch-joins-before-done: red
+compiler-no-nested-fork: red
+compiler-no-delivery-in-branch: red
+compiler-branches-disjoint: red
+compiler-branch-closed: red
+compiler-branch-reads-inside: red
+compiler-only-join-reads-branches: red
+compiler-branch-own-candidate: red
+compiler-router-arrival-reads-input: red
+compiler-join-wait-all-dominance: red
+compiler-no-router-over-fork: red
+compiler-no-check-after-join: red
+compiler-join-reserves-branch-checks: red
+kernel-fork-opens-branches: red
+kernel-join-waits-for-every-branch: red
+kernel-parallelism-ceiling: red
+kernel-every-preflight-before-any-marker: red
+kernel-record-others-before-throwing: red
+kernel-failure-cancels-open-branches: red
+kernel-join-owns-integration: red
+kernel-conflict-has-no-candidate: red
+kernel-parallel-event-version: red
+adapter-conflict-is-an-outcome: red
+adapter-join-verifies-afresh: red
+adapter-join-reports-failed-checks: red
+adapter-join-verifies-every-branch-plan: red
+reader-join-evidence: red
+reader-join-delivery-carries-export: red
+{"refusal-vanished":11,"not-red":2,"different-guard-refused":5,"named-refusal-became-crash":1,"recorded-state-changed":14}
+49 |             if (restored.exit) throw new Error(`Restoration failed for ${probe.name}; no next mutation ran`);
+50 |         }
+51 |     }
+52 |     const restored = await run("restored-green", tests);
+53 |     await writeFile(join(evidence, "reversions.json"), JSON.stringify({ baseline: options.baseline ?? "7f4cc542fd1149c00a3be0ee8949c895b95ef0c3", kind: "Automated deterministic engineering fixtures; no live model or human judgment", control, results, restored }, null, 2) + "\n");
+54 |     if (restored.exit || results.some(row => !row.caught)) throw new Error("The reversion gate did not pass; inspect retained results");
+                                                                          ^
+error: The reversion gate did not pass; inspect retained results
+      at runReversions ([checkout]/scripts/rebuild-reversions.ts:54:70)
+
+Bun v1.4.2 (macOS arm64)
+exit=1

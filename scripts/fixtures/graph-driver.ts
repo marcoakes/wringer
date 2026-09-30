@@ -2,7 +2,7 @@
  * Synthesizes ACP replies and check observations for contained graph loops and
  * checks. Real Git, real source transport and a real local bare origin; no real
  * container, provider or human decision is measured. */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { hashBytes } from "../../packages/plan/src";
 import { createLocalSourceBundle, processDriver, runtimeProvenanceVersion, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../../packages/runtime/src";
@@ -41,19 +41,60 @@ if (action === "prepare") {
             ship: { kind: "delivery", input: "review", publication: { remote: origin, sourceBranch: "wringer/graph-fixture", targetBranch: "main" }, then: "done" } } };
     await writeFile(join(directory, "plan.yaml"), JSON.stringify(plan, null, 2)); await writeFile(join(directory, "graph.yaml"), JSON.stringify(graph, null, 2));
     console.log(JSON.stringify({ fixture: true, origin, baseCommit: commit, graph: join(directory, "graph.yaml"), bundle: join(directory, "source.bundle") }));
+} else if (action === "prepare-parallel") {
+    // Two branches, each finishing its own module; each plan checks its own file.
+    await mkdir(directory, { recursive: true });
+    await git(["init", "--initial-branch=main", repo]); await git(["init", "--bare", "--initial-branch=main", origin]);
+    await git(["-C", repo, "config", "user.name", "Graph distribution fixture"]); await git(["-C", repo, "config", "user.email", "fixture@example.invalid"]);
+    await mkdir(join(repo, "src"));
+    await writeFile(join(repo, "README.md"), "Deterministic parallel graph fixture. Synthetic role receipts do not measure real containers or providers.\n");
+    await writeFile(join(repo, "src/reader.js"), "export const reader = 'todo';\n"); await writeFile(join(repo, "src/writer.js"), "export const writer = 'todo';\n");
+    await writeFile(join(repo, "check-reader.sh"), "grep -q \"'done'\" src/reader.js\n"); await writeFile(join(repo, "check-writer.sh"), "grep -q \"'done'\" src/writer.js\n");
+    await git(["-C", repo, "add", "."]); await git(["-C", repo, "commit", "-m", "Committed fixture baseline"]); await git(["-C", repo, "push", origin, "main"]);
+    const commit = await git(["-C", repo, "rev-parse", "HEAD"]);
+    for (const name of ["reader", "writer"]) {
+        await writeFile(join(repo, `src/${name}.js`), `export const ${name} = 'done';\n`);
+        await writeFile(join(directory, `worker-${name}.patch`), await git(["-C", repo, "diff", "--binary", "--full-index"]) + "\n");
+        await git(["-C", repo, "checkout", "--", `src/${name}.js`]);
+    }
+    await createLocalSourceBundle(repo, commit, join(directory, "source.bundle"));
+    const url = "https://fixture.invalid/parallel.git";
+    const leaf = (name: string) => ({ version: 3, name: `Finish ${name}`, intent: `Finish the ${name} module.`, repository: { url, commit },
+        runtime: { kind: "apple-container", image: `fixture.invalid/agent@sha256:${"a".repeat(64)}`, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] },
+        agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } },
+        environment: { context: ["README.md"], tools: [], setup: [], baseline: [], writable_directories: [] }, scope: { writable: ["src"] },
+        acceptance: { criteria: [{ id: "done", title: `Finish ${name}`, quote: `Finish the ${name} module.`, kind: "check", required: true }], checks: [{ id: "done", argv: ["sh", `check-${name}.sh`], cwd: ".", timeout_seconds: 5, criteria: ["done"], files: ["check-reader.sh", "check-writer.sh"] }], protected_paths: ["check-reader.sh", "check-writer.sh"] },
+        budget: { max_sessions: 4, max_worker_turns: 2, max_judge_turns: 2, max_planner_turns: 0, wall_clock_seconds: 3600, session_timeout_seconds: 900 } });
+    for (const name of ["reader", "writer"]) await writeFile(join(directory, `${name}.yaml`), JSON.stringify(leaf(name), null, 2));
+    const graph = { version: 2, id: "parallel-fixture", repository: { url, commit }, entry: "split", required: ["reader", "writer", "review", "ship"], parallelism: 2,
+        budget: { maxRoleSessions: 8, maxVerificationAttempts: 12, wallClockSeconds: 1800 },
+        nodes: { split: { kind: "fork", input: "root", branches: ["reader", "writer"], join: "merge" },
+            reader: { kind: "loop", input: "split", plan: "reader.yaml", then: "merge" }, writer: { kind: "loop", input: "split", plan: "writer.yaml", then: "merge" },
+            merge: { kind: "join", fork: "split", then: "after" },
+            after: { kind: "router", input: "merge", routes: [{ outcome: "integrated", to: "review" }], otherwise: "fail" },
+            review: { kind: "human-hold", input: "merge", prompt: "Inspect the integrated candidate.", then: "ship" },
+            ship: { kind: "delivery", input: "review", publication: { remote: origin, sourceBranch: "wringer/parallel-fixture", targetBranch: "main" }, then: "done" } } };
+    await writeFile(join(directory, "graph.yaml"), JSON.stringify(graph, null, 2));
+    console.log(JSON.stringify({ fixture: true, origin, baseCommit: commit, graph: join(directory, "graph.yaml"), bundle: join(directory, "source.bundle") }));
 } else if (action === "advance") {
-    const state = resolve(stateArgument!), patch = await readFile(join(directory, "worker.patch"), "utf8"), crash = process.env.WRINGER_GRAPH_FIXTURE_CRASH;
+    const state = resolve(stateArgument!), crash = process.env.WRINGER_GRAPH_FIXTURE_CRASH;
+    const patchFor = async (prompt: string) => { for (const name of ["reader", "writer"]) if (prompt.includes(`Finish the ${name} module.`)) return readFile(join(directory, `worker-${name}.patch`), "utf8"); return readFile(join(directory, "worker.patch"), "utf8"); };
     const provenance = (role: "worker" | "judge" | "verifier", source: { url: string; commit: string }, runtime: any) => ({ schema_version: runtimeProvenanceVersion(source.url), runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: source.url, commit: source.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: [] }, limits: ["Synthetic fixture receipt: no real container, provider, authentication or agent convergence measured"] });
     const runCommands = async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
         const source = request.repo as PreparedRepositorySource, acceptance = request.acceptanceSource as PreparedRepositorySource;
-        const tree = await git(["--git-dir", source.objectStore, "rev-parse", `${source.commit}^{tree}`]), contents = await git(["--git-dir", source.objectStore, "show", `${source.commit}:src/value.js`]);
-        const inputs = await git(["--git-dir", acceptance.objectStore, "--literal-pathspecs", "ls-tree", "-r", "-z", acceptance.commit, "--", "check.sh"]);
-        return { provenance: provenance("verifier", source, request.runtime), sourceChanged: false, sourceTree: tree, checkInputsSha256: hashBytes(inputs), results: request.commands.map(c => ({ id: c.id, code: c.id.startsWith("acceptance/") && !contents.includes("expected = true;") ? 1 : 0, stdout: "Synthetic fixture observation of the pinned source blob\n", stderr: "", durationMs: 1 })) };
+        // Really run each pinned acceptance command on the exported candidate tree.
+        const tree = await git(["--git-dir", source.objectStore, "rev-parse", `${source.commit}^{tree}`]), work = await mkdtemp(join(directory, "verify-"));
+        await git(["--git-dir", source.objectStore, "--work-tree", work, "checkout", source.commit, "--", "."]);
+        const protectedFiles = request.protectedFiles?.length ? request.protectedFiles : ["check.sh"];
+        const inputs = await git(["--git-dir", acceptance.objectStore, "--literal-pathspecs", "ls-tree", "-r", "-z", acceptance.commit, "--", ...protectedFiles]);
+        return { provenance: provenance("verifier", source, request.runtime), sourceChanged: false, sourceTree: tree, checkInputsSha256: hashBytes(inputs), results: request.commands.map(c => ({ id: c.id, code: c.id.startsWith("acceptance/") ? Bun.spawnSync(c.argv!, { cwd: work, stdout: "ignore", stderr: "ignore" }).exitCode : 0, stdout: "Fixture ran the pinned command on the exported candidate tree\n", stderr: "", durationMs: 1 })) };
     };
-    const executeRole = async (request: RoleExecutionRequest): Promise<RoleExecutionResult> => ({ status: "completed", text: request.role === "worker" ? "PRIVATE_FIXTURE_WORKER_NARRATIVE" : JSON.stringify({ criteria: [{ id: "expected", met: true, reason: "Synthetic independent fixture finding" }], note: "Fixture only, not live model review" }), sessionId: crypto.randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "synthetic-graph-fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "PRIVATE_FIXTURE_CONSOLE", provenance: provenance(request.role as "worker" | "judge", request.repo, request.runtime), ...(request.role === "worker" ? { change: { baseCommit: request.repo.commit, patch, sha256: hashBytes(patch) } } : {}) }) as RoleExecutionResult;
+    const executeRole = async (request: RoleExecutionRequest): Promise<RoleExecutionResult> => { const patch = await patchFor(request.prompt); return ({ status: "completed", text: request.role === "worker" ? "PRIVATE_FIXTURE_WORKER_NARRATIVE" : JSON.stringify({ criteria: [{ id: /Finish the (reader|writer) module\./.test(request.prompt) ? "done" : "expected", met: true, reason: "Synthetic independent fixture finding" }], note: "Fixture only, not live model review" }), sessionId: crypto.randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "synthetic-graph-fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "PRIVATE_FIXTURE_CONSOLE", provenance: provenance(request.role as "worker" | "judge", request.repo, request.runtime), ...(request.role === "worker" ? { change: { baseCommit: request.repo.commit, patch, sha256: hashBytes(patch) } } : {}) }) as RoleExecutionResult; };
     const driver = containedGraphDriver({ executeRole, runCommands }), dispatch = driver.dispatch.bind(driver);
     // Crash probes simulate a killed process at an exact durable boundary.
     driver.dispatch = async request => { await dispatch(request); if (crash === "after-child" && request.node === "build") process.exit(9); };
-    const result = await advanceContainedGraph(state, driver, { checkpoint: async event => { if (crash === "after-marker" && event.kind === "dispatch") process.exit(9); } });
+    // after-first-result: every branch child has finished, and the process dies before the second result is recorded.
+    let results = 0;
+    const result = await advanceContainedGraph(state, driver, { checkpoint: async event => { if (crash === "after-marker" && event.kind === "dispatch") process.exit(9); if (crash === "after-first-result" && event.kind === "result" && ++results === 1) process.exit(9); } });
     console.log(JSON.stringify(graphStatusView(state, result)));
-} else throw new Error("Fixture actions are prepare and advance only");
+} else throw new Error("Fixture actions are prepare, prepare-parallel and advance only");

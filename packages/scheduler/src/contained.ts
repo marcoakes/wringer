@@ -1,4 +1,4 @@
-/** Durable serial execution of a compiled contained graph.
+/** Durable execution of a compiled contained graph, serial or parallel.
  *
  * Authority is the immutable plan + grant plus a hash-chained, append-only
  * event history. No mutable snapshot is authoritative: every read replays
@@ -11,16 +11,18 @@ import { randomUUID } from 'node:crypto';
 import { link, lstat, mkdir, open, readFile, readdir, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Redactor } from '@wringer/engine';
-import { graphOutcomes, graphReservation, hashValue, validateContainedGraph, validateGraphAuthority, type ContainedGraphNode, type ContainedGraphPlan, type GraphAuthority } from '@wringer/plan';
+import { graphOutcomes, graphRegions, graphReservation, hashValue, validateContainedGraph, validateGraphAuthority, type ContainedGraphNode, type ContainedGraphPlan, type GraphAuthority } from '@wringer/plan';
 import { locked, safePath } from '@wringer/workflow';
 import type { GraphCandidate, GraphDecision, GraphDriver, GraphEffectRequest, GraphEvent, GraphEventKind, GraphInput, GraphNodeState, ContainedGraphOptions, GraphPreparation, GraphReservation, GraphResult, GraphRoute, GraphSend, GraphState } from './contained-types';
 export * from './contained-types';
 
-const EVENT_SCHEMA = 'wringer.contained-graph-event.v1';
+// A parallel (version 2) graph writes version 2 events; a serial graph keeps version 1.
+const eventSchema = (plan: ContainedGraphPlan) => plan.schema_version === 'wringer.contained-graph-plan.v2' ? 'wringer.contained-graph-event.v2' : 'wringer.contained-graph-event.v1';
+const EFFECT_KINDS = ['loop', 'check', 'delivery', 'join'];
 const LOCK = 'contained-graph';
 const MAX_EVENT_BYTES = 1024 * 1024, MAX_EVENTS = 4096, MAX_PLAN_BYTES = 8 * 1024 * 1024, MAX_AUTHORITY_BYTES = 64 * 1024;
 const KINDS: GraphEventKind[] = ['start', 'reserve', 'dispatch', 'prepared', 'send', 'result', 'decision', 'route'];
-const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed' };
+const SUCCESS: Record<ContainedGraphNode['kind'], string> = { loop: 'ready', check: 'passed', 'human-hold': 'continued', delivery: 'delivered', router: 'routed', fork: 'forked', join: 'integrated' };
 const HEX64 = /^[a-f0-9]{64}$/, OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 
 function fail(message: string): never { throw new Error(message); }
@@ -46,10 +48,20 @@ function clock(options: ContainedGraphOptions): Date {
 interface Progress {
     nodes: Record<string, GraphNodeState>;
     reserved: { roleSessions: number; verificationAttempts: number };
-    cursor: string; startedAt: string; deadline: string;
+    /** Every node that may record its next event; a serial graph has one. */
+    active: string[];
+    /** Branch nodes that routed into each join, one per branch. */
+    arrivals: Record<string, { branch: string; node: string }[]>;
+    cancelled: string[]; startedAt: string; deadline: string;
     terminal: 'done' | 'fail' | null; reason: string | null;
 }
 interface History { directory: string; plan: ContainedGraphPlan; authority: GraphAuthority; events: GraphEvent[]; progress: Progress; }
+/** Which branch of which fork each private branch node belongs to. */
+function branchIndex(plan: ContainedGraphPlan) {
+    const index = new Map<string, { fork: string; branch: string }>();
+    for (const [fork, branches] of Object.entries(graphRegions(plan))) for (const [branch, nodes] of Object.entries(branches)) for (const node of nodes) index.set(node, { fork, branch });
+    return index;
+}
 
 function candidate(value: unknown, label: string): GraphCandidate {
     const row = exact(value, label, ['source', 'tree', 'owner']), source = exact(row.source, `${label} source`, ['url', 'commit']);
@@ -67,11 +79,17 @@ function evidence(value: unknown, label: string): string {
 function validateResult(plan: ContainedGraphPlan, id: string, state: GraphNodeState, value: unknown): GraphResult {
     const node = plan.nodes[id]!, row = exact(value, `${id} result`, ['kind', 'outcome', 'candidate', 'evidenceSha256']);
     if (row.kind !== 'complete') fail(`${id} result must be a completed observation`);
-    if (typeof row.outcome !== 'string' || !['loop', 'check', 'delivery'].includes(node.kind) || !graphOutcomes(node.kind).includes(row.outcome)) fail(`Outcome ${String(row.outcome)} is not defined for ${node.kind} ${id}`);
+    if (typeof row.outcome !== 'string' || !EFFECT_KINDS.includes(node.kind) || !graphOutcomes(node.kind).includes(row.outcome)) fail(`Outcome ${String(row.outcome)} is not defined for ${node.kind} ${id}`);
     const result: GraphResult = { kind: 'complete', outcome: row.outcome, candidate: row.candidate === null ? null : candidate(row.candidate, `${id} candidate`), evidenceSha256: evidence(row.evidenceSha256, id) };
     if (node.kind === 'loop') {
         if (result.outcome === 'ready' && !result.candidate) fail(`Loop ${id} reported ready without a candidate`);
         if (result.candidate && result.candidate.owner !== id) fail(`Candidate owner must be the producing loop ${id}`);
+        if (result.candidate && result.candidate.source.url !== plan.repository.url) fail(`Candidate source is not the graph repository`);
+    } else if (node.kind === 'join') {
+        // Only the join owns an integration; a conflict has no merged candidate.
+        if (result.outcome === 'conflict' && result.candidate) fail(`Join ${id} reported a conflict with a candidate`);
+        if (result.outcome !== 'conflict' && !result.candidate) fail(`Join ${id} reported ${result.outcome} without its integrated candidate`);
+        if (result.candidate && result.candidate.owner !== id) fail(`Candidate owner must be the integrating join ${id}`);
         if (result.candidate && result.candidate.source.url !== plan.repository.url) fail(`Candidate source is not the graph repository`);
     } else if (node.kind === 'check') {
         if (!same(result.candidate, state.reservation.input.candidate)) fail(`A check cannot replace its input candidate`);
@@ -90,6 +108,18 @@ function validatePreparation(id: string, state: GraphNodeState, value: unknown):
 }
 function expectedInput(plan: ContainedGraphPlan, progress: Progress, id: string): GraphInput {
     const node = plan.nodes[id]!;
+    if (node.kind === 'join') {
+        // The exact candidate each branch delivered, in declared branch order.
+        const fork = plan.nodes[node.fork] as Extract<ContainedGraphNode, { kind: 'fork' }>, forked = progress.nodes[node.fork];
+        if (!forked?.result) fail(`Fork ${node.fork} of ${id} has no recorded result`);
+        const branches = fork.branches.map(branch => {
+            const arrival = (progress.arrivals[id] ?? []).find(row => row.branch === branch);
+            const result = arrival ? progress.nodes[arrival.node]?.result : undefined;
+            if (!arrival || !result?.candidate) fail(`Join ${id} has no candidate from branch ${branch}`);
+            return { branch, node: arrival.node, candidate: result.candidate, evidenceSha256: result.evidenceSha256 };
+        });
+        return { node: node.fork, source: forked.result.candidate?.source ?? forked.reservation.input.source, candidate: null, evidenceSha256: hashValue(branches), branches };
+    }
     if (node.input === 'root') return { node: 'root', source: { url: plan.repository.url, commit: plan.repository.commit }, candidate: null, evidenceSha256: plan.sha256 };
     const prior = progress.nodes[node.input];
     if (!prior?.result) fail(`Input ${node.input} of ${id} has no recorded result`);
@@ -104,7 +134,9 @@ function expectedReservation(plan: ContainedGraphPlan, progress: Progress, id: s
  * fails unless `then` names a router over this node's outcomes. Completion
  * requires every required node to have succeeded, whatever the route. */
 function resolveRoute(plan: ContainedGraphPlan, progress: Progress, from: string, outcome: string): GraphRoute {
-    const node = plan.nodes[from]! as Exclude<ContainedGraphNode, { kind: 'router' }>, via: string[] = [];
+    const forked = plan.nodes[from]!;
+    if (forked.kind === 'fork') return { outcome, to: forked.join, via: [], reason: null, branches: [...forked.branches] };
+    const node = forked as Exclude<ContainedGraphNode, { kind: 'router' | 'fork' }>, via: string[] = [];
     let next: string;
     // A recorded required failure can never become success in an acyclic graph;
     // stop before any later hold, preparation or Send could act on it.
@@ -150,20 +182,20 @@ function sendRecord(value: unknown): GraphSend {
 
 /** The single transition function. Replay and append both use it, so the
  * kernel cannot write an event its own reader would refuse. */
-function apply(plan: ContainedGraphPlan, progress: Progress, event: GraphEvent, first: boolean) {
+function apply(plan: ContainedGraphPlan, progress: Progress, event: GraphEvent, first: boolean, branches = branchIndex(plan)) {
     const data = event.data;
     if (event.kind === 'start') {
         if (!first || event.node !== null) fail('Only the first graph event may start it');
         const row = exact(data, 'start', ['startedAt', 'deadline']);
         if (row.startedAt !== event.at || !Number.isFinite(Date.parse(row.startedAt))) fail('Graph start time is invalid');
         if (row.deadline !== new Date(Date.parse(row.startedAt) + plan.budget.wallClockSeconds * 1000).toISOString()) fail('Graph deadline differs from the root wall-clock allowance');
-        Object.assign(progress, { startedAt: row.startedAt, deadline: row.deadline, cursor: plan.entry });
+        Object.assign(progress, { startedAt: row.startedAt, deadline: row.deadline, active: [plan.entry] });
         return;
     }
     if (first) fail('Graph history must begin with start');
     if (progress.terminal) fail('The graph has already finished; no further event can be recorded');
-    const id = event.node;
-    if (id !== progress.cursor) fail('Graph event names a node other than the current graph position');
+    const id = event.node ?? fail('Graph event needs a node');
+    if (!progress.active.includes(id)) fail('Graph event names a node that is not an active graph position');
     const node = plan.nodes[id]!;
     if (!node || node.kind === 'router') fail('Graph event names a node that cannot record state');
     const state = progress.nodes[id];
@@ -179,7 +211,7 @@ function apply(plan: ContainedGraphPlan, progress: Progress, event: GraphEvent, 
             return;
         }
         case 'dispatch': {
-            if (!state || !['loop', 'check', 'delivery'].includes(node.kind)) fail(`${id} cannot dispatch`);
+            if (!state || !EFFECT_KINDS.includes(node.kind)) fail(`${id} cannot dispatch`);
             if (state.dispatched) fail(`${id} was already dispatched; dispatch is never repeated`);
             exact(data, 'dispatch', []);
             state.dispatched = true;
@@ -217,6 +249,10 @@ function apply(plan: ContainedGraphPlan, progress: Progress, event: GraphEvent, 
                 const expected: GraphResult = { kind: 'complete', outcome: state.decision.choice === 'continue' ? 'continued' : 'rejected', candidate: state.reservation.input.candidate, evidenceSha256: state.decisionSha256! };
                 if (!same(data, expected)) fail(`${id} result differs from its recorded decision`);
                 state.result = expected;
+            } else if (node.kind === 'fork') {
+                const expected: GraphResult = { kind: 'complete', outcome: 'forked', candidate: state.reservation.input.candidate, evidenceSha256: state.reservation.input.evidenceSha256 };
+                if (!same(data, expected)) fail(`Fork ${id} result must pass its exact input to every branch`);
+                state.result = expected;
             } else {
                 if (!state.dispatched) fail(`${id} recorded a result without a dispatch`);
                 state.result = validateResult(plan, id, state, data);
@@ -228,8 +264,21 @@ function apply(plan: ContainedGraphPlan, progress: Progress, event: GraphEvent, 
             const expected = resolveRoute(plan, progress, id, state.result.outcome);
             if (!same(data, expected)) fail(`Route from ${id} differs from its recorded outcome`);
             state.route = expected;
-            progress.cursor = expected.to;
-            if (expected.to === 'done' || expected.to === 'fail') { progress.terminal = expected.to; progress.reason = expected.reason; }
+            progress.active = progress.active.filter(name => name !== id);
+            if (expected.to === 'done' || expected.to === 'fail') {
+                // A failure anywhere ends the graph; other open branches are cancelled, never resumed.
+                progress.terminal = expected.to; progress.reason = expected.reason;
+                progress.cancelled = [...progress.active]; progress.active = [];
+            } else if (node.kind === 'fork') progress.active.push(...(expected.branches ?? []));
+            else if (plan.nodes[expected.to]?.kind === 'join') {
+                const joined = plan.nodes[expected.to] as Extract<ContainedGraphNode, { kind: 'join' }>, fork = plan.nodes[joined.fork] as Extract<ContainedGraphNode, { kind: 'fork' }>, where = branches.get(id);
+                if (!where || where.fork !== joined.fork) fail(`${id} cannot arrive at join ${expected.to} from outside its branches`);
+                const arrivals = progress.arrivals[expected.to] ??= [];
+                if (arrivals.some(row => row.branch === where.branch)) fail(`Branch ${where.branch} already arrived at join ${expected.to}`);
+                arrivals.push({ branch: where.branch, node: id });
+                if (arrivals.length === fork.branches.length) progress.active.push(expected.to);
+            } else progress.active.push(expected.to);
+            progress.active.sort();
             return;
         }
     }
@@ -237,7 +286,7 @@ function apply(plan: ContainedGraphPlan, progress: Progress, event: GraphEvent, 
 }
 function eventRecord(value: unknown, sequence: number, previous: string | null, plan: ContainedGraphPlan): GraphEvent {
     const row = exact(value, `Graph event ${sequence}`, ['schema_version', 'graphSha256', 'sequence', 'previousSha256', 'at', 'node', 'kind', 'data', 'sha256']);
-    if (row.schema_version !== EVENT_SCHEMA) fail('Unsupported graph event version');
+    if (row.schema_version !== eventSchema(plan)) fail('Unsupported graph event version');
     if (row.graphSha256 !== plan.sha256) fail('Graph event belongs to another graph');
     if (row.sequence !== sequence) fail('Graph event sequence differs from its position');
     if (row.previousSha256 !== previous) fail('Graph event chain is broken');
@@ -272,7 +321,7 @@ async function durableCreate(directory: string, name: string, content: string) {
     await syncDirectory(dirname(target));
 }
 const eventName = (sequence: number) => `events/${String(sequence).padStart(4, '0')}.json`;
-function emptyProgress(): Progress { return { nodes: Object.create(null), reserved: { roleSessions: 0, verificationAttempts: 0 }, cursor: '', startedAt: '', deadline: '', terminal: null, reason: null }; }
+function emptyProgress(): Progress { return { nodes: Object.create(null), reserved: { roleSessions: 0, verificationAttempts: 0 }, active: [], arrivals: Object.create(null), cancelled: [], startedAt: '', deadline: '', terminal: null, reason: null }; }
 
 async function load(directory: string): Promise<History> {
     const plan = validateContainedGraph(parse(await boundedFile(directory, 'plan.json', MAX_PLAN_BYTES), 'plan.json'));
@@ -282,11 +331,11 @@ async function load(directory: string): Promise<History> {
     if (!names.length) fail('Graph history has no events');
     if (names.length > MAX_EVENTS) fail('Graph history exceeds its event bound');
     names.forEach((name, index) => { if (`events/${name}` !== eventName(index)) fail('Graph events are not one contiguous sequence'); });
-    const events: GraphEvent[] = [], progress = emptyProgress();
+    const events: GraphEvent[] = [], progress = emptyProgress(), branches = branchIndex(plan);
     for (let sequence = 0; sequence < names.length; sequence++) {
         const file = `events/${names[sequence]}`;
         const event = eventRecord(parse(await boundedFile(directory, file, MAX_EVENT_BYTES), file), sequence, events.at(-1)?.sha256 ?? null, plan);
-        apply(plan, progress, event, sequence === 0);
+        apply(plan, progress, event, sequence === 0, branches);
         events.push(event);
     }
     const authority = validateGraphAuthority(parse(await boundedFile(directory, 'authority.json', MAX_AUTHORITY_BYTES), 'authority.json'), plan, new Date(progress.startedAt));
@@ -296,7 +345,7 @@ async function load(directory: string): Promise<History> {
  * refused transition or a refused preflight leaves no trace. */
 function prepare(history: History, kind: GraphEventKind, node: string | null, data: unknown, at: Date) {
     const previous = history.events.at(-1) ?? null;
-    const body = { schema_version: EVENT_SCHEMA, graphSha256: history.plan.sha256, sequence: history.events.length, previousSha256: previous?.sha256 ?? null, at: at.toISOString(), node, kind, data: structuredClone(data) };
+    const body = { schema_version: eventSchema(history.plan), graphSha256: history.plan.sha256, sequence: history.events.length, previousSha256: previous?.sha256 ?? null, at: at.toISOString(), node, kind, data: structuredClone(data) };
     const event = { ...body, sha256: hashValue(body) } as GraphEvent;
     if (history.events.length >= MAX_EVENTS || Buffer.byteLength(JSON.stringify(event)) > MAX_EVENT_BYTES) fail('Graph event exceeds its bound');
     const next = structuredClone(history.progress);
@@ -313,23 +362,32 @@ async function commit(history: History, prepared: ReturnType<typeof prepare>, op
 }
 const append = (history: History, kind: GraphEventKind, node: string | null, data: unknown, options: ContainedGraphOptions, at = clock(options)) => commit(history, prepare(history, kind, node, data, at), options);
 const expired = (history: History, at: Date) => at.getTime() > Date.parse(history.progress.deadline) || at.getTime() >= Date.parse(history.authority.expiresAt);
-function project(history: History, at: Date, hold: string | null = null): GraphState {
+/** Classify every active node. Uncertain effects need attention first, then
+ * holds, then Send; anything else is work a resume can still do. */
+function project(history: History, at: Date, childHolds: Map<string, string> = new Map()): GraphState {
     const { progress, plan } = history;
     let phase: GraphState['phase'], reason: string | null = null;
+    const holds: GraphState['holds'] = [];
     if (progress.terminal === 'done') phase = 'complete';
     else if (progress.terminal === 'fail') { phase = 'failed'; reason = progress.reason; }
     else {
-        const node = plan.nodes[progress.cursor]!, state = progress.nodes[progress.cursor];
-        if (!state) phase = 'pending';
-        else if (node.kind === 'human-hold') { phase = state.decision ? 'pending' : 'human-hold'; reason = state.decision ? null : node.prompt; }
-        else if (state.result) phase = 'pending';
-        else if (node.kind === 'delivery' && state.prepared && !state.sent) { phase = 'send-hold'; reason = 'Delivery is prepared. Publication needs an explicit graph Send bound to this revision.'; }
-        else if (state.dispatched) { phase = 'uncertain'; reason = state.sent ? 'Send was recorded without confirmed publication. Resume reconciles read-only and never sends again.' : 'Dispatch was recorded without a retained outcome. Resume reconciles by observation only and never dispatches again.'; }
-        else phase = 'pending';
-        if (hold !== null) { phase = 'human-hold'; reason = hold; }
+        const rows = progress.active.map(id => {
+            const node = plan.nodes[id]!, state = progress.nodes[id];
+            if (childHolds.has(id)) return { id, kind: 'child' as const, reason: childHolds.get(id)! };
+            if (!state || state.result || node.kind === 'fork') return { id, kind: 'pending' as const, reason: null };
+            if (node.kind === 'human-hold') return state.decision ? { id, kind: 'pending' as const, reason: null } : { id, kind: 'human' as const, reason: node.prompt };
+            if (node.kind === 'delivery' && state.prepared && !state.sent) return { id, kind: 'send' as const, reason: 'Delivery is prepared. Publication needs an explicit graph Send bound to this revision.' };
+            if (state.dispatched) return { id, kind: 'uncertain' as const, reason: state.sent ? 'Send was recorded without confirmed publication. Resume reconciles read-only and never sends again.' : 'Dispatch was recorded without a retained outcome. Resume reconciles by observation only and never dispatches again.' };
+            return { id, kind: 'pending' as const, reason: null };
+        });
+        for (const row of rows) if (row.kind === 'human' || row.kind === 'child' || row.kind === 'send') holds.push({ node: row.id, kind: row.kind, reason: row.reason! });
+        const first = (kind: string) => rows.find(row => row.kind === kind);
+        const chosen = first('uncertain') ?? first('human') ?? first('child') ?? first('send') ?? first('pending');
+        phase = !chosen || chosen.kind === 'pending' ? 'pending' : chosen.kind === 'uncertain' ? 'uncertain' : chosen.kind === 'send' ? 'send-hold' : 'human-hold';
+        reason = chosen?.reason ?? null;
         if (expired(history, at)) { reason = `The root wall clock or graph authority expired while ${phase}${reason ? `: ${reason}` : ''}. Inspection and read-only reconciliation remain available; no new work starts.`; phase = 'expired'; }
     }
-    return { plan, authority: history.authority, events: history.events, revision: history.events.at(-1)!.sha256, cursor: progress.cursor, startedAt: progress.startedAt, deadline: progress.deadline, nodes: structuredClone(progress.nodes), reserved: { ...progress.reserved }, phase, reason };
+    return { plan, authority: history.authority, events: history.events, revision: history.events.at(-1)!.sha256, cursor: progress.active[0] ?? progress.terminal ?? '', active: [...progress.active], holds, cancelled: [...progress.cancelled], startedAt: progress.startedAt, deadline: progress.deadline, nodes: structuredClone(progress.nodes), reserved: { ...progress.reserved }, phase, reason };
 }
 
 export async function initializeContainedGraph(directory: string, planInput: ContainedGraphPlan, authorityInput: GraphAuthority, options: ContainedGraphOptions = {}): Promise<GraphState> {
@@ -356,49 +414,60 @@ export async function readContainedGraph(directory: string, options: Pick<Contai
 export async function advanceContainedGraph(directory: string, driver: GraphDriver, options: ContainedGraphOptions = {}): Promise<GraphState> {
     options.signal?.throwIfAborted();
     return locked(directory, LOCK, async function advanceLocked() {
-        const history = await load(directory);
-        let hold: string | null = null;
+        const history = await load(directory), parallelism = history.plan.parallelism ?? 1, holds = new Map<string, string>();
+        const request = (id: string): GraphEffectRequest => ({ directory, plan: history.plan, authority: history.authority, node: id, reservation: structuredClone(history.progress.nodes[id]!.reservation), signal: options.signal });
         for (let step = 0; step < 4 * MAX_EVENTS; step++) {
             options.signal?.throwIfAborted();
-            const progress = history.progress;
-            if (progress.terminal) break;
-            const at = clock(options), late = expired(history, at), id = progress.cursor, node = history.plan.nodes[id]!, state = progress.nodes[id];
-            if (!state) { if (late) break; await append(history, 'reserve', id, { reservation: expectedReservation(history.plan, progress, id) }, options, at); continue; }
-            if (state.result) { await append(history, 'route', id, resolveRoute(history.plan, progress, id, state.result.outcome), options, at); continue; }
-            if (node.kind === 'human-hold') {
-                if (!state.decision) break;
-                await append(history, 'result', id, { kind: 'complete', outcome: state.decision.choice === 'continue' ? 'continued' : 'rejected', candidate: state.reservation.input.candidate, evidenceSha256: state.decisionSha256 }, options, at);
-                continue;
+            if (history.progress.terminal) break;
+            const at = clock(options), late = expired(history, at);
+            // Transitions without an effect, for every active node in a fixed order.
+            let moved = false;
+            for (const id of [...history.progress.active]) {
+                if (history.progress.terminal) break;
+                if (!history.progress.active.includes(id)) continue;
+                const node = history.plan.nodes[id]!, state = history.progress.nodes[id];
+                if (!state) { if (late) continue; await append(history, 'reserve', id, { reservation: expectedReservation(history.plan, history.progress, id) }, options, at); moved = true; continue; }
+                if (state.result) { await append(history, 'route', id, resolveRoute(history.plan, history.progress, id, state.result.outcome), options, at); moved = true; continue; }
+                if (node.kind === 'human-hold' && state.decision) { await append(history, 'result', id, { kind: 'complete', outcome: state.decision.choice === 'continue' ? 'continued' : 'rejected', candidate: state.reservation.input.candidate, evidenceSha256: state.decisionSha256 }, options, at); moved = true; continue; }
+                if (node.kind === 'fork') { await append(history, 'result', id, { kind: 'complete', outcome: 'forked', candidate: state.reservation.input.candidate, evidenceSha256: state.reservation.input.evidenceSha256 }, options, at); moved = true; }
             }
-            if (node.kind === 'delivery' && state.prepared && !state.sent) break;
-            const request: GraphEffectRequest = { directory, plan: history.plan, authority: history.authority, node: id, reservation: structuredClone(state.reservation), signal: options.signal };
-            if (!state.dispatched) {
-                if (late) break;
-                const marker = prepare(history, 'dispatch', id, {}, at);
-                // Effect-free prerequisites. A refusal leaves the node reserved, never uncertain.
-                await driver.preflight?.(request, 'dispatch');
-                await commit(history, marker, options);
-                await driver.dispatch(request);
+            if (history.progress.terminal) break;
+            if (moved) continue;
+            const effects = history.progress.active.filter(id => EFFECT_KINDS.includes(history.plan.nodes[id]!.kind) && history.progress.nodes[id] && !history.progress.nodes[id]!.result);
+            const ready = late ? [] : effects.filter(id => !history.progress.nodes[id]!.dispatched).slice(0, parallelism);
+            let failure: unknown = null;
+            if (ready.length) {
+                // Every preflight is effect-free and runs before any marker, so one
+                // refusal leaves every ready node reserved and resumable.
+                for (const id of ready) await driver.preflight?.(request(id), 'dispatch');
+                for (const id of ready) await append(history, 'dispatch', id, {}, options, at);
+                const settled = await Promise.allSettled(ready.map(id => driver.dispatch(request(id))));
+                failure = settled.find((row): row is PromiseRejectedResult => row.status === 'rejected')?.reason ?? null;
             }
-            const observed = await driver.observe(request);
-            if (observed === null) break;
-            const observation = structuredClone(observed);
-            if (observation.kind === 'held') {
-                if (node.kind !== 'loop') fail(`Only a contained loop can report a child hold; ${id} is a ${node.kind}`);
-                hold = bounded(observation.reason, 'Child hold reason', 16384);
-                break;
+            // Reconcile every dispatched effect from retained evidence only, in the same order.
+            let observed = false;
+            for (const id of effects) {
+                const node = history.plan.nodes[id]!, state = history.progress.nodes[id]!;
+                if (!state.dispatched || state.result || node.kind === 'delivery' && state.prepared && !state.sent) continue;
+                const found = await driver.observe(request(id));
+                if (found === null) continue;
+                const observation = structuredClone(found);
+                if (observation.kind === 'held') {
+                    if (node.kind !== 'loop') fail(`Only a contained loop can report a child hold; ${id} is a ${node.kind}`);
+                    holds.set(id, bounded(observation.reason, 'Child hold reason', 16384));
+                    continue;
+                }
+                if (node.kind === 'delivery' && !state.sent && observation.kind === 'prepared') { await append(history, 'prepared', id, observation, options); observed = true; continue; }
+                if (node.kind === 'delivery' && observation.kind === 'prepared') {
+                    if (!same(observation, state.prepared)) fail(`Delivery ${id} changed its prepared identity after Send`);
+                    continue;
+                }
+                await append(history, 'result', id, observation, options); observed = true;
             }
-            if (node.kind === 'delivery' && !state.sent && observation.kind === 'prepared') {
-                await append(history, 'prepared', id, observation, options);
-                continue;
-            }
-            if (node.kind === 'delivery' && observation.kind === 'prepared') {
-                if (!same(observation, state.prepared)) fail(`Delivery ${id} changed its prepared identity after Send`);
-                break;
-            }
-            await append(history, 'result', id, observation, options);
+            if (failure) throw failure;
+            if (!observed) break;
         }
-        return project(history, clock(options), hold);
+        return project(history, clock(options), holds);
     });
 }
 export async function decideContainedGraph(directory: string, decisionInput: GraphDecision, options: ContainedGraphOptions = {}): Promise<GraphState> {

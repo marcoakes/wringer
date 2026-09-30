@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-parallel.test.ts:
+144 |     ready = true; expect((await advanceContainedGraph(f.dir, f.driver, { now })).phase).toBe('human-hold');
+145 | });
+146 | test('a conflict outcome that names a candidate is refused', async () => {
+147 |     const f = await fixture(), dispatch = f.driver.dispatch;
+148 |     f.driver.dispatch = async request => { await dispatch(request); if (request.node === 'merge') f.observed.set('merge', { kind: 'complete', outcome: 'conflict', candidate: f.candidateOf('merge'), evidenceSha256: hashValue('conflict') }); };
+149 |     await expect(advanceContainedGraph(f.dir, f.driver, { now })).rejects.toThrow('conflict with a candidate');
+                                                                                ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-parallel.test.ts:149:75)
+(fail) a conflict outcome that names a candidate is refused [67.20ms]
+
+ 0 pass
+ 15 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [209.00ms]

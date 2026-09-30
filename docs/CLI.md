@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.26
+Wringer · Bun/TypeScript · 1.0.0-alpha.27
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -295,7 +295,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.26
+Wringer assistant entry point — 1.0.0-alpha.27
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.
@@ -670,6 +670,12 @@ wringer-drive graph · serial graphs of contained loops
   wringer-drive graph send --state DIR --node ID --revision SHA --prepared SHA --by NAME --note TEXT
   wringer-drive graph export --state DIR --output DIR
 
+Version 2 graphs add fork and join: a fork opens 2–8 private branches, up to
+the declared parallelism at once; the join waits for every branch, merges their
+exact candidates deterministically and verifies the result afresh against every
+branch plan (integrated, failed, conflict or unavailable). A failure in any
+branch ends the graph and cancels the others. A delivery of an integrated
+candidate publishes the graph's own portable evidence with the merged code.
 Each loop node is an ordinary contained journey under children/NODE/state, with
 its own status, review and resume commands. Allowance for every declared leaf is
 reserved before any effect. A human hold binds the exact revision and input; it

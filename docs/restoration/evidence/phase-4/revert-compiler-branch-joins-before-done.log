@@ -1,0 +1,15 @@
+bun test v1.4.2 (744846f84)
+
+packages/plan/test/contained-graph-v2.test.ts:
+error: expect(received).toThrow(expected)
+
+Expected pattern: /join/i
+Received message: "undefined is not an object (evaluating 'inner.kind')"
+
+(fail) a parallel graph refuses a branch that finishes the graph before effects [17.06ms]
+
+ 0 pass
+ 23 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [140.00ms]

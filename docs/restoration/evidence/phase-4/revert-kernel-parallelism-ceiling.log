@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/scheduler/test/contained-parallel.test.ts:
+52 |     const done = await sendContainedGraph(f.dir, { node: 'ship', expectedRevision: ready.revision, preparedSha256: hashValue(ready.nodes.ship!.prepared), actor: 'Scripted engineering fixture', note: 'Fixture Send.' }, f.driver, { now });
+53 |     expect(done.phase).toBe('complete'); expect(done.reserved).toEqual({ roleSessions: f.plan.budget.maxRoleSessions, verificationAttempts: f.plan.budget.maxVerificationAttempts });
+54 | });
+55 | test('a ceiling of one runs branches one at a time', async () => {
+56 |     const f = await fixture(v => v.parallelism = 1); await advanceContainedGraph(f.dir, f.driver, { now });
+57 |     expect(f.peak()).toBe(1); expect(f.calls).toEqual(['build-a', 'build-b', 'merge']);
+                          ^
+error: expect(received).toBe(expected)
+
+Expected: 1
+Received: 2
+
+      at <anonymous> ([isolated-checkout]/packages/scheduler/test/contained-parallel.test.ts:57:22)
+(fail) a ceiling of one runs branches one at a time [67.58ms]
+
+ 0 pass
+ 15 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [209.00ms]
