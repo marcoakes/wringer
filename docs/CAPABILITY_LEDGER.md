@@ -1,0 +1,34 @@
+# Capability ledger
+
+Generated from [capability-ledger.json](capability-ledger.json) by
+`scripts/capability-ledger.ts`; edit the JSON, not this page. Updated
+2026-09-30.
+
+Each capability is judged at four separate levels. A level is raised only by
+evidence of its own kind.
+
+| Level | Meaning | Capabilities at "Yes" |
+| --- | --- | --- |
+| Implemented | The capability exists in the released source and its public command or contract. | 9 of 10 |
+| Fixture-tested | Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved. | 8 of 10 |
+| Live-qualified | A recorded run with a live agent or real counterpart completed it under its declared contract. | 0 of 10 |
+| Comparatively beneficial | A registered comparison with fair baselines and complete denominators found it helps on a named workload. | 0 of 10 |
+
+| Capability | Implemented | Fixture-tested | Live-qualified | Comparatively beneficial |
+| --- | --- | --- | --- | --- |
+| Bounded contained loops | Yes ([LOOP_INSPECTION.md](native/LOOP_INSPECTION.md)) | Yes ([local-validation.json](restoration/evidence/phase-1/local-validation.json)) | Not established ([PM_BLIND_REPORT_2026-09-08.md](PM_BLIND_REPORT_2026-09-08.md)). Earlier blind journeys with live agents did not complete a qualified delivery; none ran in this restoration. | Not established ([PILOT_REGISTRATION.md](qualification/PILOT_REGISTRATION.md)). The registered pilot compares orchestration with the same builder used directly; it has not run. |
+| Portable evidence and offline audit | Yes ([README.md](../examples/evidence/README.md)) | Yes ([local-validation.json](restoration/evidence/phase-1/local-validation.json)) | Not established. The Node reader checks integrity; it does not prove the author honest or rerun behaviour. | Not applicable. An integrity property, not a performance claim. |
+| Prediction-gated playbook improvement | Yes ([EXPERIMENTS.md](native/EXPERIMENTS.md)) | Yes ([local-validation.json](restoration/evidence/phase-2/local-validation.json)) | Not established | Not established ([PILOT_REGISTRATION.md](qualification/PILOT_REGISTRATION.md)). No general improvement percentage has been established. |
+| Serial graphs of contained loops | Yes ([GRAPHS.md](native/GRAPHS.md), [release.json](restoration/evidence/phase-3/release.json)) | Yes ([reversions.json](restoration/evidence/phase-3/reversions.json), [local-validation.json](restoration/evidence/phase-3/local-validation.json)) | Not established | Not established ([PILOT_REGISTRATION.md](qualification/PILOT_REGISTRATION.md)). Single loop versus graph is a registered secondary comparison. |
+| Parallel branches with verified integration | Yes ([GRAPHS.md](native/GRAPHS.md), [release.json](restoration/evidence/phase-4/release.json)) | Yes ([reversions.json](restoration/evidence/phase-4/reversions.json), [reversions.json](restoration/evidence/phase-4/git-compat/reversions.json), [local-validation-alpha28.json](restoration/evidence/phase-4/local-validation-alpha28.json)) | Not established | Not established ([PHASE_4_MEASUREMENTS.md](restoration/PHASE_4_MEASUREMENTS.md)). The baseline shows why integration needs its own check; any benefit of branches over one loop is unmeasured. |
+| Gate and workflow proposals judged by a frozen oracle | Yes ([GATE_EXPERIMENTS.md](native/GATE_EXPERIMENTS.md), [release.json](restoration/evidence/phase-5/release.json)) | Yes ([reversions.json](restoration/evidence/phase-5/reversions.json), [local-validation.json](restoration/evidence/phase-5/local-validation.json)) | Not established. Gate runs used a fixture runner on exported trees; real containment of gate runs is unmeasured. | Not established ([PHASE_5_MEASUREMENTS.md](restoration/PHASE_5_MEASUREMENTS.md)). Measured on one constructed corpus; baseline versus adopted gate is a registered secondary comparison. |
+| Tournaments with a prosecutor | Yes ([GRAPHS.md](native/GRAPHS.md), [release.json](restoration/evidence/phase-6/release.json)) | Yes ([reversions.json](restoration/evidence/phase-6/reversions.json), [reversions.json](restoration/evidence/phase-6/followup/reversions.json), [local-validation.json](restoration/evidence/phase-6/local-validation.json)) | Not established | Not established ([PHASE_6_MEASUREMENTS.md](restoration/PHASE_6_MEASUREMENTS.md)). Constructed candidates only; single candidate versus tournament is a registered secondary comparison. |
+| A second durable runtime (Temporal) | No ([PHASE_7_MEASUREMENTS.md](restoration/PHASE_7_MEASUREMENTS.md)). Measured; the prototype needs the Temporal CLI and SDK downloaded, which awaits approval. | No | No | Not applicable |
+| External A2A tasks, verified locally | Yes ([INTERFACES.md](native/INTERFACES.md), [release.json](restoration/evidence/phase-8/release.json)) | Yes ([reversions.json](restoration/evidence/phase-8/reversions.json), [local-validation.json](restoration/evidence/phase-8/local-validation.json), [phase8-baseline.json](restoration/evidence/phase-8/measurements/phase8-baseline.json)). Against a local reference peer: fixture conformance only. | Not established. No real A2A agent has completed a task. | Not applicable |
+| Contained execution (Apple Container, gVisor on Kubernetes) | Yes ([ARCHITECTURE.md](native/ARCHITECTURE.md), [INTERFACES.md](native/INTERFACES.md)) | Partly. Restoration walkthroughs inject a fixture verifier; containment tests are a separate matrix. | Not established. Live isolation claims need platform-specific measurements. | Not applicable |
+
+The checker refuses a live claim without a record under
+`docs/qualification/live/` and a benefit claim without a registered comparison
+result under `docs/qualification/results/`. Neither folder exists yet. No
+capability is claimed live-qualified or comparatively beneficial, and nothing
+here supports a "state of the art" claim.

@@ -14,8 +14,8 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 | 5. Gate/workflow improvement | Published and verified | [alpha.29](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.29), commit `f24a0ca83c09430ca5796142da4fa4283e310419`; [release evidence](evidence/phase-5/release.json); [measurements](PHASE_5_MEASUREMENTS.md). Two earlier remote runs stopped at CI hang guards; see the phase 5 section |
 | 6. Tournament/prosecutor | Published and verified | [alpha.30](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.30), commit `615a9308a1c21a03c10214c00f6bd64a2ab0cda9`; [release evidence](evidence/phase-6/release.json); [measurements](PHASE_6_MEASUREMENTS.md). One earlier remote run stopped at a flaky test timeout; see the phase 6 section |
 | 7. Temporal durability | Measured; no release. The Temporal prototype needs the Temporal CLI and SDK downloaded, which awaits the operator's approval | The graph kernel's decisions and effects mapped, replay determinism measured; [measurements](PHASE_7_MEASUREMENTS.md) |
-| 8. Platform interfaces | alpha.31 local qualification passed; remote release pending | Version 4 graphs with an external A2A `delegate` verified locally, a service interfaces page, five sibling schemas; fixture conformance against a local reference peer only; [measurements](PHASE_8_MEASUREMENTS.md) |
-| 9. Comparative qualification | Pending; live and independent observations need their actual prerequisites | — |
+| 8. Platform interfaces | Published and verified | [alpha.31](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.31), commit `2d2884d7ff568b340cb584ba22ec0329e7ef7439`; [release evidence](evidence/phase-8/release.json); [measurements](PHASE_8_MEASUREMENTS.md). Fixture conformance against a local reference peer only |
+| 9. Comparative qualification | alpha.32 local qualification passed; remote release pending | A checked capability ledger, a reproducible showcase and the pilot registered before any run; the pilot itself needs live model access, real tasks and independent reviewers; [record](PHASE_9_MEASUREMENTS.md) |
 
 ## Phase 1 measurements
 
@@ -347,6 +347,31 @@ GitHub access; anonymous-install qualification was not measured. The
   ([record](evidence/phase-8/local-validation.json)).
 - A local reference peer establishes fixture conformance only. No real A2A agent
   has completed a task.
+
+## Phase 9 measurements
+
+- An inventory of the restoration's evidence: every phase from 1 to 8 except 7
+  has a release, isolated reversions and a packaged public walkthrough; none
+  involves a live model, real containment, a real external peer or an
+  independent person. See the [record](PHASE_9_MEASUREMENTS.md).
+- The [capability ledger](../CAPABILITY_LEDGER.md) judges each capability at four
+  levels. Nine are implemented and eight fixture-tested; none is claimed
+  live-qualified or comparatively beneficial. Its checker, a validation stage,
+  refuses a missing citation, a live claim without a live run record, a benefit
+  claim without a registered comparison result, a changed pilot registration and
+  an incomplete or path-bearing showcase record.
+- The [showcase](../showcase/SHOWCASE.md) ran four compiled journeys, 81 stages,
+  all passed. Building it first failed twice, both documentation closure errors:
+  the showcase page links its own not-yet-written record, and a ledger citation
+  pulled in an older page whose link target no longer exists. The record is
+  written by the run, and the citation now names current pages.
+- The 20-task pilot is [registered](../qualification/PILOT_REGISTRATION.md) with a
+  digest a test enforces. It has not run.
+- All **7 individual reversions** of the checker's rules went red and were
+  restored ([record](evidence/phase-9/reversions.json)).
+- Full local validation passed all 42 stages in one run, including the new
+  capability-ledger stage: 1,422 pass, one Linux-only skip, zero fail and
+  13,284 assertions ([record](evidence/phase-9/local-validation.json)).
 
 Historical failures remain evidence. No phase is marked published until its
 actual release and all required jobs and artifact checks have been observed.

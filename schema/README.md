@@ -103,6 +103,8 @@ rather than reverse-engineer it — the point of
 | [`contained-graph-status-v4.schema.json`](contained-graph-status-v4.schema.json) | `wringer.contained-graph-status.v4` — the read-only status of a version 4 graph, in the version 2 shape with delegate nodes |
 | [`contained-graph-export-v4.schema.json`](contained-graph-export-v4.schema.json) | `wringer.contained-graph-export.v4` — the export of a version 4 graph: as version 3, plus each delegation record bound to its recorded result |
 | [`contained-graph-delegation-v1.schema.json`](contained-graph-delegation-v1.schema.json) | `wringer.contained-graph-delegation.v1` — one external A2A task: the pinned peer, the deterministic message id, the task id, every state observed, any cancellation, the outcome and reason, and for a returned patch its digest, changed paths and candidate commit; `local-peer` marks a loopback endpoint |
+| [`capability-ledger-v1.schema.json`](capability-ledger-v1.schema.json) | `wringer.capability-ledger.v1` — `docs/capability-ledger.json` (1.0.0-alpha.32): each capability judged separately as implemented, fixture-tested, live-qualified and comparatively beneficial, each with its status and the repository files that evidence it |
+| [`pilot-registration-v1.schema.json`](pilot-registration-v1.schema.json) | `wringer.pilot-registration.v1` — `docs/qualification/pilot-registration.json`: a comparison's arms, task allocation, primary endpoint, minimum useful effect, regression limits, uncertainty and stopping rules, fixed by a digest before any evaluation |
 
 The loop schemas carry their own version, now **`wringer.loop.v2`**, moving
 independently of the evidence bundle: a loop *references* the runs it drove

@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pilot qualification registration",
+  "description": "docs/qualification/pilot-registration.json: the arms, task allocation, primary endpoint, minimum useful effect, regression limits, uncertainty and stopping rules of a comparison, fixed before any evaluation. sha256 is the canonical-JSON digest of every other field; a changed field is a new registration, never an edit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registeredAt",
+    "status",
+    "design",
+    "comparisons",
+    "tasks",
+    "primaryEndpoint",
+    "minimumUsefulEffect",
+    "regressionLimits",
+    "uncertainty",
+    "stopping",
+    "equalResourceCeilings",
+    "evaluatorFixedAcrossArms",
+    "independentReviewers",
+    "reportedAlways",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.pilot-registration.v1"
+    },
+    "registeredAt": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "enum": [
+        "registered-not-run",
+        "running",
+        "completed"
+      ]
+    },
+    "design": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "comparisons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "armA",
+          "armB",
+          "appliesTo"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "armA": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "armB": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "appliesTo": {
+            "oneOf": [
+              {
+                "const": "all"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "repositories",
+        "userFacingRepositories",
+        "classes",
+        "repetitionsPerArm",
+        "unit",
+        "frozenBeforeFirstRun"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "repositories": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "userFacingRepositories": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "classes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "repetitionsPerArm": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unit": {
+          "const": "task"
+        },
+        "frozenBeforeFirstRun": {
+          "const": true
+        }
+      }
+    },
+    "primaryEndpoint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "minimumUsefulEffect": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "regressionLimits": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test",
+        "interval"
+      ],
+      "properties": {
+        "test": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "interval": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
+    "stopping": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "equalResourceCeilings": {
+      "const": true
+    },
+    "evaluatorFixedAcrossArms": {
+      "const": true
+    },
+    "independentReviewers": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "reportedAlways": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": "wringer.pilot-registration.v1",
+  "registeredAt": "2026-09-30",
+  "status": "registered-not-run",
+  "design": "docs/qualification/PILOT_REGISTRATION.md",
+  "comparisons": [
+    {
+      "id": "primary",
+      "armA": "wringer-contained-loop",
+      "armB": "same-builder-direct",
+      "appliesTo": "all"
+    },
+    {
+      "id": "loop-versus-graph",
+      "armA": "single-loop",
+      "armB": "graph",
+      "appliesTo": [
+        "serial-dependencies",
+        "parallel-integration"
+      ]
+    },
+    {
+      "id": "candidate-versus-tournament",
+      "armA": "single-attempt",
+      "armB": "three-attempt-tournament",
+      "appliesTo": [
+        "adversarial-candidates"
+      ]
+    },
+    {
+      "id": "baseline-versus-adopted-gate",
+      "armA": "current-gates",
+      "armB": "adopted-gates",
+      "appliesTo": [
+        "ordinary-repairs"
+      ]
+    }
+  ],
+  "tasks": {
+    "total": 20,
+    "repositories": 3,
+    "userFacingRepositories": 1,
+    "classes": {
+      "ordinary-repairs": 7,
+      "serial-dependencies": 4,
+      "parallel-integration": 3,
+      "interruptions-and-recovery": 2,
+      "human-review-decisions": 2,
+      "adversarial-candidates": 2
+    },
+    "repetitionsPerArm": 2,
+    "unit": "task",
+    "frozenBeforeFirstRun": true
+  },
+  "primaryEndpoint": "tasks accepted review-ready by an independent reviewer within budget, out of 20; non-convergence and honest stops count as failures",
+  "minimumUsefulEffect": {
+    "additionalAcceptedTasks": 4
+  },
+  "regressionLimits": {
+    "falseAcceptanceInAdversarialTasks": 0,
+    "medianActiveHumanMinutesIncreaseMaxPercent": 20,
+    "deliveriesFailingPortableAudit": 0
+  },
+  "uncertainty": {
+    "test": "exact two-sided sign test on paired task-level differences",
+    "interval": "95% bootstrap over tasks"
+  },
+  "stopping": "fixed sample; no additions, removals or re-runs after results are seen except documented harness faults",
+  "equalResourceCeilings": true,
+  "evaluatorFixedAcrossArms": true,
+  "independentReviewers": "did not build Wringer; blind to arm labels",
+  "reportedAlways": [
+    "every attempt",
+    "requirement failures",
+    "active human minutes",
+    "intervention counts",
+    "wall time",
+    "role calls",
+    "measured billing where available",
+    "recovery outcomes",
+    "fresh-clone audit results"
+  ],
+  "sha256": "c2def271d2350bc1f5887d320e7fb21cdc7b3a8f47321b3366dbbc892d7b170e"
+}

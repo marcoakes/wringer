@@ -42,6 +42,8 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["compiled-tournament-graph-contract", [process.execPath, "scripts/graph-tournament-distribution.ts"], workspace],
         // No-model compiled external task: the public binary as A2A client to a local reference peer, changed card refused, check, Send, Node audit.
         ["compiled-delegate-graph-contract", [process.execPath, "scripts/graph-delegate-distribution.ts"], workspace],
+        // The capability ledger cites only existing evidence and claims no level without evidence of that kind.
+        ["capability-ledger", [process.execPath, "scripts/capability-ledger.ts", "--check"], workspace],
         // No-model compiled gate proposal: oracle, register, evaluate, change, Send, future-only adoption.
         ["compiled-gate-experiment-contract", [process.execPath, "scripts/gate-experiment-distribution.ts"], workspace],
         ["compiled-loop-inspection", [process.execPath, "scripts/loop-inspection-rehearsal.ts"], workspace],

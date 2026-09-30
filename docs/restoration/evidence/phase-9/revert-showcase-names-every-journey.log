@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/records/test/capability-ledger.test.ts:
+27 |     const registration = await read("docs/qualification/pilot-registration.json"); registration.minimumUsefulEffect.additionalAcceptedTasks = 2;
+28 |     await expect(checkLedger(undefined, { registration })).rejects.toThrow("changed after it was registered");
+29 | });
+30 | test("a showcase record missing a journey, with a failed journey or a machine path is refused", async () => {
+31 |     const showcase = await read("docs/showcase/showcase.json");
+32 |     await expect(checkLedger(undefined, { showcase: { ...showcase, journeys: showcase.journeys.slice(1) } })).rejects.toThrow("missing a journey");
+                                                                                                                           ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/records/test/capability-ledger.test.ts:32:119)
+(fail) a showcase record missing a journey, with a failed journey or a machine path is refused [31.12ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [166.00ms]

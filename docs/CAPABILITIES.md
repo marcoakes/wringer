@@ -1,6 +1,6 @@
 # Capabilities and their evidence
 
-Updated for restoration phase 8, 30 September 2026. Source implementation,
+Updated for restoration phase 9, 30 September 2026. Source implementation,
 fixture coverage, live qualification and comparative benefit are separate facts.
 The [release notes](https://github.com/marcoakes/wringer/releases) identify the
 exact published commit and native artifact measurements.
@@ -19,7 +19,7 @@ exact published commit and native artifact measurements.
 | Tournaments and prosecution | Version 3 graphs: a `tournament` closes a fork of independent attempts; one contained prosecutor session writes challenges; challenges count only after passing on trusted controls; the frozen set runs on every attempt's exact tree; selection among survivors only, with `no-winner` or a declared tree-id tie rule; a final untouched evaluator recorded after selection; Node-only recomputation of the selection from the record | Published in alpha.30 and fixture-tested on constructed candidates. No evidence that a tournament beats one attempt on real tasks; live agents, real containment and how often attempts' mistakes correlate are unmeasured. Without a trusted control, challenges are advisory. No majority vote and no model judge of candidates. |
 | Temporal durability | Not implemented. Phase 7 measured the graph kernel: decisions are a pure function of recorded events, every effect sits behind a durable marker, and identical recorded inputs replay to identical records ([baseline](restoration/PHASE_7_MEASUREMENTS.md)) | The Temporal prototype needs the Temporal CLI and TypeScript SDK downloaded, which awaits the operator's approval. No Temporal behaviour is claimed. |
 | External A2A tasks | Version 4 graphs: a `delegate` node sends one bounded task to an A2A 1.0 agent over JSON-RPC, pinned by endpoint and Agent Card digest, checked before sending and at completion; one `CancelTask` at the deadline; reconciliation of a retained task id; a returned patch applied only within the verification plan's scope and verified by a following check; Node-only reading of the delegation record. [Interface contracts](native/INTERFACES.md) list what each boundary exercises | Published in alpha.31 with fixture conformance against a local reference peer only. No real A2A peer has completed a task; no streaming, push notifications or peer authentication schemes; no delegate inside a branch; no claim that services are interchangeable. |
-| Comparative product advantage | Not established by fixture totals or installation success | Phase 9 uses registered comparisons, independent observations and complete denominators. |
+| Comparative product advantage | Not established. The [capability ledger](CAPABILITY_LEDGER.md) judges every capability at four separate levels, and a checker refuses a live or comparative claim without evidence of that kind; a reproducible [showcase](showcase/SHOWCASE.md) demonstrates the mechanisms | The 20-task pilot is [registered](qualification/PILOT_REGISTRATION.md) before any run. It needs live model access, real tasks and independent reviewers. No capability is claimed live-qualified or comparatively beneficial. |
 
 See the [ordered plan](SOTA_RESTORATION_PLAN.md) and
 [execution record](restoration/STATUS.md). Each phase needs its own tested release;

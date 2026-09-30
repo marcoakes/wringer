@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/records/test/capability-ledger.test.ts:
+29 | });
+30 | test("a showcase record missing a journey, with a failed journey or a machine path is refused", async () => {
+31 |     const showcase = await read("docs/showcase/showcase.json");
+32 |     await expect(checkLedger(undefined, { showcase: { ...showcase, journeys: showcase.journeys.slice(1) } })).rejects.toThrow("missing a journey");
+33 |     await expect(checkLedger(undefined, { showcase: { ...showcase, journeys: showcase.journeys.map((row: any, index: number) => index ? row : { ...row, status: "failed" }) } })).rejects.toThrow("did not pass");
+34 |     await expect(checkLedger(undefined, { showcase: { ...showcase, note: "ran in /Users/someone/repo" } })).rejects.toThrow("machine path");
+                                                                                                                         ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/records/test/capability-ledger.test.ts:34:117)
+(fail) a showcase record missing a journey, with a failed journey or a machine path is refused [57.06ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [189.00ms]

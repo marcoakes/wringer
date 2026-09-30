@@ -158,6 +158,8 @@
   "contained-graph-event-v4.schema.json": "386d6a9ca4953708251f5a4fcc81b04849a77af3074dc732f881d85d0b3e29eb",
   "contained-graph-status-v4.schema.json": "7b31009209a5d5c9bccec85e0b40bfc767b0dfd427b4327b8950a4c731834b83",
   "contained-graph-export-v4.schema.json": "2d4b437bd9a0e91a22c2cf282f14141f0979091f850ad18abe89ce97a41b3748",
-  "contained-graph-delegation-v1.schema.json": "ac918a3d6eef3284dae1926af4ece66ece7c7202672ca8f92402b57608f43dc5"
+  "contained-graph-delegation-v1.schema.json": "ac918a3d6eef3284dae1926af4ece66ece7c7202672ca8f92402b57608f43dc5",
+  "capability-ledger-v1.schema.json": "e88c652eed727a362d6b6a57b51647358a76dc6e2ae6ae2b68e0286ca96aac6c",
+  "pilot-registration-v1.schema.json": "fc828825c48b3100fbee1650b116b056411693a90655e21fd2c95960d86ae965"
  }
 }

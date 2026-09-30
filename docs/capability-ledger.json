@@ -1,0 +1,291 @@
+{
+  "schema_version": "wringer.capability-ledger.v1",
+  "updated": "2026-09-30",
+  "levels": {
+    "implemented": "The capability exists in the released source and its public command or contract.",
+    "fixtureTested": "Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved.",
+    "liveQualified": "A recorded run with a live agent or real counterpart completed it under its declared contract.",
+    "comparativelyBeneficial": "A registered comparison with fair baselines and complete denominators found it helps on a named workload."
+  },
+  "capabilities": [
+    {
+      "id": "contained-loops",
+      "name": "Bounded contained loops",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/LOOP_INSPECTION.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-1/local-validation.json"
+        ]
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [
+          "docs/PM_BLIND_REPORT_2026-09-08.md"
+        ],
+        "note": "Earlier blind journeys with live agents did not complete a qualified delivery; none ran in this restoration."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [
+          "docs/qualification/PILOT_REGISTRATION.md"
+        ],
+        "note": "The registered pilot compares orchestration with the same builder used directly; it has not run."
+      }
+    },
+    {
+      "id": "portable-evidence",
+      "name": "Portable evidence and offline audit",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "examples/evidence/README.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-1/local-validation.json"
+        ]
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "The Node reader checks integrity; it does not prove the author honest or rerun behaviour."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-applicable",
+        "evidence": [],
+        "note": "An integrity property, not a performance claim."
+      }
+    },
+    {
+      "id": "playbook-improvement",
+      "name": "Prediction-gated playbook improvement",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/EXPERIMENTS.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-2/local-validation.json"
+        ]
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": []
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [
+          "docs/qualification/PILOT_REGISTRATION.md"
+        ],
+        "note": "No general improvement percentage has been established."
+      }
+    },
+    {
+      "id": "serial-graphs",
+      "name": "Serial graphs of contained loops",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/GRAPHS.md",
+          "docs/restoration/evidence/phase-3/release.json"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-3/reversions.json",
+          "docs/restoration/evidence/phase-3/local-validation.json"
+        ]
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": []
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [
+          "docs/qualification/PILOT_REGISTRATION.md"
+        ],
+        "note": "Single loop versus graph is a registered secondary comparison."
+      }
+    },
+    {
+      "id": "parallel-branches",
+      "name": "Parallel branches with verified integration",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/GRAPHS.md",
+          "docs/restoration/evidence/phase-4/release.json"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-4/reversions.json",
+          "docs/restoration/evidence/phase-4/git-compat/reversions.json",
+          "docs/restoration/evidence/phase-4/local-validation-alpha28.json"
+        ]
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": []
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [
+          "docs/restoration/PHASE_4_MEASUREMENTS.md"
+        ],
+        "note": "The baseline shows why integration needs its own check; any benefit of branches over one loop is unmeasured."
+      }
+    },
+    {
+      "id": "gate-proposals",
+      "name": "Gate and workflow proposals judged by a frozen oracle",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/GATE_EXPERIMENTS.md",
+          "docs/restoration/evidence/phase-5/release.json"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-5/reversions.json",
+          "docs/restoration/evidence/phase-5/local-validation.json"
+        ]
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "Gate runs used a fixture runner on exported trees; real containment of gate runs is unmeasured."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [
+          "docs/restoration/PHASE_5_MEASUREMENTS.md"
+        ],
+        "note": "Measured on one constructed corpus; baseline versus adopted gate is a registered secondary comparison."
+      }
+    },
+    {
+      "id": "tournaments",
+      "name": "Tournaments with a prosecutor",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/GRAPHS.md",
+          "docs/restoration/evidence/phase-6/release.json"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-6/reversions.json",
+          "docs/restoration/evidence/phase-6/followup/reversions.json",
+          "docs/restoration/evidence/phase-6/local-validation.json"
+        ]
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": []
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [
+          "docs/restoration/PHASE_6_MEASUREMENTS.md"
+        ],
+        "note": "Constructed candidates only; single candidate versus tournament is a registered secondary comparison."
+      }
+    },
+    {
+      "id": "temporal-durability",
+      "name": "A second durable runtime (Temporal)",
+      "implemented": {
+        "status": "no",
+        "evidence": [
+          "docs/restoration/PHASE_7_MEASUREMENTS.md"
+        ],
+        "note": "Measured; the prototype needs the Temporal CLI and SDK downloaded, which awaits approval."
+      },
+      "fixtureTested": {
+        "status": "no",
+        "evidence": []
+      },
+      "liveQualified": {
+        "status": "no",
+        "evidence": []
+      },
+      "comparativelyBeneficial": {
+        "status": "not-applicable",
+        "evidence": []
+      }
+    },
+    {
+      "id": "external-tasks",
+      "name": "External A2A tasks, verified locally",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/INTERFACES.md",
+          "docs/restoration/evidence/phase-8/release.json"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "docs/restoration/evidence/phase-8/reversions.json",
+          "docs/restoration/evidence/phase-8/local-validation.json",
+          "docs/restoration/evidence/phase-8/measurements/phase8-baseline.json"
+        ],
+        "note": "Against a local reference peer: fixture conformance only."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No real A2A agent has completed a task."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-applicable",
+        "evidence": []
+      }
+    },
+    {
+      "id": "containment",
+      "name": "Contained execution (Apple Container, gVisor on Kubernetes)",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/ARCHITECTURE.md",
+          "docs/native/INTERFACES.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "partial",
+        "evidence": [],
+        "note": "Restoration walkthroughs inject a fixture verifier; containment tests are a separate matrix."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "Live isolation claims need platform-specific measurements."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-applicable",
+        "evidence": []
+      }
+    }
+  ]
+}

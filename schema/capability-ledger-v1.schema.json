@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Capability ledger",
+  "description": "docs/capability-ledger.json: each capability judged at four separate levels (implemented, fixture-tested, live-qualified, comparatively beneficial), each with its status and the repository files that evidence it. A level is raised only by evidence of its own kind; the checker refuses a live claim without a live run record and a benefit claim without a registered comparison result.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "updated",
+    "levels",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.capability-ledger.v1"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date"
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implemented",
+        "fixtureTested",
+        "liveQualified",
+        "comparativelyBeneficial"
+      ],
+      "properties": {
+        "implemented": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "fixtureTested": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "liveQualified": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "comparativelyBeneficial": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "implemented",
+          "fixtureTested",
+          "liveQualified",
+          "comparativelyBeneficial"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "implemented": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "evidence"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "yes",
+                  "partial",
+                  "no",
+                  "not-established",
+                  "not-applicable"
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(docs|examples|schema|scripts|packages)/[A-Za-z0-9._/-]+$"
+                }
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              }
+            }
+          },
+          "fixtureTested": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "evidence"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "yes",
+                  "partial",
+                  "no",
+                  "not-established",
+                  "not-applicable"
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(docs|examples|schema|scripts|packages)/[A-Za-z0-9._/-]+$"
+                }
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              }
+            }
+          },
+          "liveQualified": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "evidence"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "yes",
+                  "partial",
+                  "no",
+                  "not-established",
+                  "not-applicable"
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(docs|examples|schema|scripts|packages)/[A-Za-z0-9._/-]+$"
+                }
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              }
+            }
+          },
+          "comparativelyBeneficial": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "evidence"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "yes",
+                  "partial",
+                  "no",
+                  "not-established",
+                  "not-applicable"
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(docs|examples|schema|scripts|packages)/[A-Za-z0-9._/-]+$"
+                }
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

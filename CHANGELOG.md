@@ -4,6 +4,27 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.32 — what is proven, at which level
+
+- A [capability ledger](docs/CAPABILITY_LEDGER.md) judges every capability
+  separately as implemented, fixture-tested, live-qualified and comparatively
+  beneficial, citing its evidence files. `scripts/capability-ledger.ts --check`,
+  now a validation stage, refuses a missing citation, a live claim without a live
+  run record and a benefit claim without a registered comparison result. No
+  capability is claimed live-qualified or comparatively beneficial.
+- `bun scripts/showcase.ts` reproduces the showcase: four compiled public
+  journeys carrying a graph, all candidate and integration evidence, a restart, a
+  source-bound review and delivery, an offline audit, a future-improvement
+  proposal with its comparison results, and an external task. It writes a
+  path-free record.
+- The 20-task pilot comparing orchestration with the same builder used directly
+  is [registered](docs/qualification/PILOT_REGISTRATION.md) before any run: arms,
+  task allocation, primary endpoint, minimum useful effect, regression limits,
+  uncertainty and stopping rules, fixed by a digest a test enforces. It has not
+  run.
+- New sibling contracts: `wringer.capability-ledger.v1` and
+  `wringer.pilot-registration.v1`.
+
 ## 1.0.0-alpha.31 — external A2A tasks, verified locally
 
 - Version 4 graphs add `delegate`, which sends one bounded task to an external

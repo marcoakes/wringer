@@ -1040,6 +1040,46 @@ export type BundleIndexV1 = {
 };
 
 /**
+ * Capability ledger
+ *
+ * Generated from `schema/capability-ledger-v1.schema.json`. Do not edit.
+ */
+export type CapabilityLedgerV1 = {
+  "schema_version": "wringer.capability-ledger.v1";
+  "updated": string;
+  "levels": {
+    "implemented": string;
+    "fixtureTested": string;
+    "liveQualified": string;
+    "comparativelyBeneficial": string;
+  };
+  "capabilities": {
+    "id": string;
+    "name": string;
+    "implemented": {
+      "status": "yes" | "partial" | "no" | "not-established" | "not-applicable";
+      "evidence": string[];
+      "note"?: string;
+    };
+    "fixtureTested": {
+      "status": "yes" | "partial" | "no" | "not-established" | "not-applicable";
+      "evidence": string[];
+      "note"?: string;
+    };
+    "liveQualified": {
+      "status": "yes" | "partial" | "no" | "not-established" | "not-applicable";
+      "evidence": string[];
+      "note"?: string;
+    };
+    "comparativelyBeneficial": {
+      "status": "yes" | "partial" | "no" | "not-established" | "not-applicable";
+      "evidence": string[];
+      "note"?: string;
+    };
+  }[];
+};
+
+/**
  * Wringer certificate
  *
  * Generated from `schema/certificate-v1.schema.json`. Do not edit.
@@ -6206,6 +6246,52 @@ export type OrchestrationV1 = {
 };
 
 /**
+ * Pilot qualification registration
+ *
+ * Generated from `schema/pilot-registration-v1.schema.json`. Do not edit.
+ */
+export type PilotRegistrationV1 = {
+  "schema_version": "wringer.pilot-registration.v1";
+  "registeredAt": string;
+  "status": "registered-not-run" | "running" | "completed";
+  "design": string;
+  "comparisons": {
+    "id": string;
+    "armA": string;
+    "armB": string;
+    "appliesTo": "all" | string[];
+  }[];
+  "tasks": {
+    "total": number;
+    "repositories": number;
+    "userFacingRepositories": number;
+    "classes": {
+      [key: string]: number;
+    };
+    "repetitionsPerArm": number;
+    "unit": "task";
+    "frozenBeforeFirstRun": true;
+  };
+  "primaryEndpoint": string;
+  "minimumUsefulEffect": {
+    [key: string]: number;
+  };
+  "regressionLimits": {
+    [key: string]: number;
+  };
+  "uncertainty": {
+    "test": string;
+    "interval": string;
+  };
+  "stopping": string;
+  "equalResourceCeilings": true;
+  "evaluatorFixedAcrossArms": true;
+  "independentReviewers": string;
+  "reportedAlways": string[];
+  "sha256": string;
+};
+
+/**
  * Design-bound planning request v2
  *
  * Generated from `schema/planning-request-v2.schema.json`. Do not edit.
@@ -8032,6 +8118,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "bench-manifest.schema.json": "wringer.bench.v1",
   "briefed.schema.json": "wringer.briefed.v1",
   "bundle-index-v1.schema.json": "wringer.bundle-index.v1",
+  "capability-ledger-v1.schema.json": "wringer.capability-ledger.v1",
   "certificate-v1.schema.json": "wringer.certificate.v1",
   "check-observation-v1.schema.json": "wringer.check-observation.v1",
   "checks-v2.schema.json": "wringer.checks.v2",
@@ -8159,6 +8246,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "manifest.schema.json": "wringer.evidence.v1",
   "next-move.schema.json": "wringer.nextmove.v1",
   "orchestration-v1.schema.json": "wringer.orchestration.v1",
+  "pilot-registration-v1.schema.json": "wringer.pilot-registration.v1",
   "planning-request-v2.schema.json": "wringer.planning-request.v2",
   "planning-request-v3.schema.json": "wringer.planning-request.v3",
   "planning-request-v4.schema.json": "wringer.planning-request.v4",
@@ -8240,6 +8328,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.bench.v1": "bench-manifest.schema.json",
   "wringer.briefed.v1": "briefed.schema.json",
   "wringer.bundle-index.v1": "bundle-index-v1.schema.json",
+  "wringer.capability-ledger.v1": "capability-ledger-v1.schema.json",
   "wringer.certificate.v1": "certificate-v1.schema.json",
   "wringer.check-observation.v1": "check-observation-v1.schema.json",
   "wringer.checks.v2": "checks-v2.schema.json",
@@ -8360,6 +8449,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.evidence.v1": "manifest.schema.json",
   "wringer.nextmove.v1": "next-move.schema.json",
   "wringer.orchestration.v1": "orchestration-v1.schema.json",
+  "wringer.pilot-registration.v1": "pilot-registration-v1.schema.json",
   "wringer.planning-request.v2": "planning-request-v2.schema.json",
   "wringer.planning-request.v3": "planning-request-v3.schema.json",
   "wringer.planning-request.v4": "planning-request-v4.schema.json",

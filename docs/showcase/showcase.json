@@ -1,0 +1,478 @@
+{
+  "schema_version": "wringer.showcase.v1",
+  "generatedAt": "2026-09-30T13:14:13.111Z",
+  "version": "1.0.0-alpha.32",
+  "reproduce": "bun run build && bun scripts/showcase.ts",
+  "journeys": [
+    {
+      "id": "parallel-integration",
+      "script": "scripts/graph-parallel-distribution.ts",
+      "demonstrates": [
+        "a version 2 graph",
+        "integration evidence re-checked against every branch plan",
+        "a restart: a crash after the first branch result, reconciled without repeating work",
+        "a source-bound review decision and an explicit Send",
+        "a fresh-clone offline audit with Node alone",
+        "a refused edited export"
+      ],
+      "status": "passed",
+      "seconds": 25,
+      "stages": [
+        {
+          "label": "compile-fixture-only-driver",
+          "exit": 0
+        },
+        {
+          "label": "synthetic-parallel-repository",
+          "exit": 0
+        },
+        {
+          "label": "public-parallel-graph-plan",
+          "exit": 0
+        },
+        {
+          "label": "public-graph-authority",
+          "exit": 0
+        },
+        {
+          "label": "public-run-refuses-missing-runtime-before-dispatch",
+          "exit": 3
+        },
+        {
+          "label": "public-status-both-branches-reserved",
+          "exit": 3
+        },
+        {
+          "label": "fixture-branches-finish-then-crash",
+          "exit": 9
+        },
+        {
+          "label": "public-status-after-crash",
+          "exit": 3
+        },
+        {
+          "label": "fixture-reconcile-and-integrate",
+          "exit": 0
+        },
+        {
+          "label": "public-reader-child-status",
+          "exit": 0
+        },
+        {
+          "label": "public-writer-child-status",
+          "exit": 0
+        },
+        {
+          "label": "public-review-decision",
+          "exit": 0
+        },
+        {
+          "label": "public-resume-prepares-graph-delivery",
+          "exit": 3
+        },
+        {
+          "label": "public-explicit-send",
+          "exit": 0
+        },
+        {
+          "label": "evidence-commit-parent-is-integration",
+          "exit": 0
+        },
+        {
+          "label": "unchanged-default-branch",
+          "exit": 0
+        },
+        {
+          "label": "fresh-review-branch-clone",
+          "exit": 0
+        },
+        {
+          "label": "literal-graph-audit-command-with-node",
+          "exit": 0
+        },
+        {
+          "label": "public-graph-export",
+          "exit": 0
+        },
+        {
+          "label": "node-only-independent-reader",
+          "exit": 0
+        },
+        {
+          "label": "node-reader-refuses-altered-integration",
+          "exit": 1
+        }
+      ],
+      "result": {
+        "status": "passed",
+        "startedAt": "2026-09-30T13:12:36.855Z",
+        "finishedAt": "2026-09-30T13:13:02.181Z",
+        "publicCommandStages": 11,
+        "fixtureStages": 2,
+        "integrationCommit": "e70a9ea3967c90e4f84592c7c588fe129c4177cd",
+        "evidenceCommit": "cc2359203cedd1cb5424e20e189e236b4f18dea8",
+        "branchSessions": 2,
+        "synthetic": [
+          "worker ACP replies",
+          "judge ACP replies"
+        ],
+        "checksRunOnExportedTrees": true,
+        "liveProviderMeasured": false,
+        "realContainmentMeasured": false,
+        "humanAcceptanceMeasured": false,
+        "limits": [
+          "Deterministic contract fixture: branch role observations come from a separately compiled fixture binary; pinned checks really ran on exported candidate trees.",
+          "Publication used only a new local bare fixture origin.",
+          "Scripted decisions are engineering checkpoints, not independent human acceptance."
+        ]
+      }
+    },
+    {
+      "id": "tournament",
+      "script": "scripts/graph-tournament-distribution.ts",
+      "demonstrates": [
+        "all candidate evidence: eligibility, challenges validated on a trusted control, replays on every attempt and the selection",
+        "a spurious challenge dropped and a hard-coded attempt disqualified",
+        "a restart after the attempts finished",
+        "delivery of the selected attempt and a fresh-clone offline audit"
+      ],
+      "status": "passed",
+      "seconds": 36,
+      "stages": [
+        {
+          "label": "compile-fixture-only-driver",
+          "exit": 0
+        },
+        {
+          "label": "synthetic-tournament-repository",
+          "exit": 0
+        },
+        {
+          "label": "public-tournament-graph-plan",
+          "exit": 0
+        },
+        {
+          "label": "public-graph-authority",
+          "exit": 0
+        },
+        {
+          "label": "public-run-refuses-missing-runtime-before-dispatch",
+          "exit": 3
+        },
+        {
+          "label": "public-status-every-attempt-reserved",
+          "exit": 3
+        },
+        {
+          "label": "fixture-attempts-finish-then-crash",
+          "exit": 9
+        },
+        {
+          "label": "public-status-after-crash",
+          "exit": 3
+        },
+        {
+          "label": "fixture-reconcile-and-run-tournament",
+          "exit": 0
+        },
+        {
+          "label": "public-build-a-child-status",
+          "exit": 0
+        },
+        {
+          "label": "public-build-b-child-status",
+          "exit": 0
+        },
+        {
+          "label": "public-build-c-child-status",
+          "exit": 0
+        },
+        {
+          "label": "public-review-decision",
+          "exit": 0
+        },
+        {
+          "label": "public-resume-prepares-graph-delivery",
+          "exit": 3
+        },
+        {
+          "label": "public-explicit-send",
+          "exit": 0
+        },
+        {
+          "label": "evidence-commit-parent-is-the-winner",
+          "exit": 0
+        },
+        {
+          "label": "unchanged-default-branch",
+          "exit": 0
+        },
+        {
+          "label": "fresh-review-branch-clone",
+          "exit": 0
+        },
+        {
+          "label": "literal-graph-audit-command-with-node",
+          "exit": 0
+        },
+        {
+          "label": "public-graph-export",
+          "exit": 0
+        },
+        {
+          "label": "node-only-independent-reader",
+          "exit": 0
+        },
+        {
+          "label": "node-reader-refuses-altered-tournament",
+          "exit": 1
+        }
+      ],
+      "result": {
+        "status": "passed",
+        "startedAt": "2026-09-30T13:13:02.200Z",
+        "finishedAt": "2026-09-30T13:13:38.272Z",
+        "publicCommandStages": 12,
+        "fixtureStages": 2,
+        "selected": "build-c",
+        "selectedCommit": "025b5eaf191ce50dab2e390750c1883fc9a44f43",
+        "evidenceCommit": "f20145bbdf0df0d1516604786eb7a202c1cadbd8",
+        "disqualified": [
+          "build-a"
+        ],
+        "spuriousChallenges": [
+          "wrong-expectation"
+        ],
+        "realContainmentMeasured": false,
+        "liveProviderMeasured": false,
+        "limits": [
+          "Role replies came from a separately compiled fixture binary; its verifier really ran each check, challenge and evaluator gate on exported trees.",
+          "Publication used only a new local bare fixture origin.",
+          "The review decision is a scripted engineering checkpoint, not independent human acceptance."
+        ]
+      }
+    },
+    {
+      "id": "future-improvement",
+      "script": "scripts/gate-experiment-distribution.ts",
+      "demonstrates": [
+        "a future-improvement proposal: a stronger gate registered with a prediction, evaluated on held-out items against a frozen oracle, qualified, prepared as a reviewable change, sent to a review branch and adopted for future plans only",
+        "a weakened gate that looks greener refused by the same comparison"
+      ],
+      "status": "passed",
+      "seconds": 17,
+      "stages": [
+        {
+          "label": "compile-fixture-only-driver",
+          "exit": 0
+        },
+        {
+          "label": "synthetic-labelled-corpus",
+          "exit": 0
+        },
+        {
+          "label": "public-seal-oracle",
+          "exit": 0
+        },
+        {
+          "label": "public-property-proposal",
+          "exit": 0
+        },
+        {
+          "label": "public-property-register",
+          "exit": 0
+        },
+        {
+          "label": "public-evaluate-refuses-missing-runtime",
+          "exit": 2
+        },
+        {
+          "label": "fixture-evaluate-useful-gate",
+          "exit": 0
+        },
+        {
+          "label": "public-status-qualified",
+          "exit": 0
+        },
+        {
+          "label": "public-prepare-change",
+          "exit": 0
+        },
+        {
+          "label": "public-explicit-send",
+          "exit": 0
+        },
+        {
+          "label": "sent-branch-is-exact-change",
+          "exit": 0
+        },
+        {
+          "label": "unchanged-default-branch",
+          "exit": 0
+        },
+        {
+          "label": "public-future-only-adoption",
+          "exit": 0
+        },
+        {
+          "label": "public-selections",
+          "exit": 0
+        },
+        {
+          "label": "public-weakened-proposal",
+          "exit": 0
+        },
+        {
+          "label": "public-weakened-register",
+          "exit": 0
+        },
+        {
+          "label": "fixture-evaluate-weakened-gate",
+          "exit": 0
+        },
+        {
+          "label": "public-weakened-status-not-qualified",
+          "exit": 3
+        },
+        {
+          "label": "public-weakened-change-refused",
+          "exit": 2
+        }
+      ],
+      "result": {
+        "status": "passed",
+        "startedAt": "2026-09-30T13:13:38.292Z",
+        "finishedAt": "2026-09-30T13:13:55.191Z",
+        "publicCommandStages": 13,
+        "fixtureStages": 2,
+        "usefulEvaluation": "a457a567d88e16457754556e58ca30cb6e88d24de48168fb597d74a8e66effa3",
+        "weakenedReasons": [
+          "the candidate catches fewer held-out defects than the baseline (0 against 2), however green it looks"
+        ],
+        "sentCommit": "aa420e933289fa6daad5a277ef1f788dd09872f6",
+        "gateRunsOnExportedTrees": true,
+        "realContainmentMeasured": false,
+        "liveProviderMeasured": false,
+        "limits": [
+          "Gate runs used a separately compiled fixture runner on exported trees, not a contained verifier.",
+          "Publication used only a new local bare fixture origin."
+        ]
+      }
+    },
+    {
+      "id": "external-task",
+      "script": "scripts/graph-delegate-distribution.ts",
+      "demonstrates": [
+        "the public binary as an A2A 1.0 client to a local reference peer",
+        "a changed Agent Card refused before sending",
+        "a returned patch verified afresh before review and delivery"
+      ],
+      "status": "passed",
+      "seconds": 18,
+      "stages": [
+        {
+          "label": "compile-fixture-only-driver",
+          "exit": 0
+        },
+        {
+          "label": "fixture-reference-peer-serving",
+          "exit": 0
+        },
+        {
+          "label": "synthetic-delegation-repository",
+          "exit": 0
+        },
+        {
+          "label": "public-delegate-graph-plan",
+          "exit": 0
+        },
+        {
+          "label": "public-changed-card-authority",
+          "exit": 0
+        },
+        {
+          "label": "public-run-refuses-changed-card-before-sending",
+          "exit": 3
+        },
+        {
+          "label": "public-graph-authority",
+          "exit": 0
+        },
+        {
+          "label": "public-run-delegates-then-refuses-check-without-runtime",
+          "exit": 3
+        },
+        {
+          "label": "public-status-returned-and-check-reserved",
+          "exit": 3
+        },
+        {
+          "label": "fixture-verifier-runs-the-pinned-check",
+          "exit": 0
+        },
+        {
+          "label": "public-review-decision",
+          "exit": 0
+        },
+        {
+          "label": "public-resume-prepares-graph-delivery",
+          "exit": 3
+        },
+        {
+          "label": "public-explicit-send",
+          "exit": 0
+        },
+        {
+          "label": "evidence-commit-parent-is-the-returned-candidate",
+          "exit": 0
+        },
+        {
+          "label": "fresh-review-branch-clone",
+          "exit": 0
+        },
+        {
+          "label": "literal-graph-audit-command-with-node",
+          "exit": 0
+        },
+        {
+          "label": "public-graph-export",
+          "exit": 0
+        },
+        {
+          "label": "node-only-independent-reader",
+          "exit": 0
+        },
+        {
+          "label": "node-reader-refuses-altered-delegation",
+          "exit": 1
+        }
+      ],
+      "result": {
+        "status": "passed",
+        "startedAt": "2026-09-30T13:13:55.206Z",
+        "finishedAt": "2026-09-30T13:14:13.107Z",
+        "publicCommandStages": 10,
+        "fixtureStages": 2,
+        "a2aVersion": "1.0",
+        "sendMessageCalls": 1,
+        "returnedCommit": "22a95cf5dbc18049fcb20d8a8c65b1c762b9e819",
+        "evidenceCommit": "21c4758cae251938e812800a7b7dd99ea6d8ae81",
+        "realPeerMeasured": false,
+        "realContainmentMeasured": false,
+        "limits": [
+          "The peer is a local reference fixture on loopback; it establishes fixture conformance only.",
+          "The check's verifier came from a separately compiled fixture binary that really ran the pinned check on the exported tree.",
+          "The review decision is a scripted engineering checkpoint, not independent human acceptance."
+        ]
+      }
+    }
+  ],
+  "notDemonstrated": [
+    "live agent behaviour or convergence",
+    "real containment of these runs",
+    "a real A2A peer",
+    "independent human acceptance",
+    "any comparative benefit"
+  ],
+  "note": "Commits, times and digests differ between runs because every journey builds fresh fixture repositories; the stages and outcomes are what reproduce."
+}

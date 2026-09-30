@@ -38,6 +38,8 @@ development failures → predicted improvement → fixed comparison → future a
 | **External agents without trusting them** | A graph can hand one bounded task to an external A2A agent pinned by endpoint and Agent Card digest. Its patch is applied only within the declared scope and verified afresh by a local check; its completion claim grants nothing. Cancellation, a changed identity and malformed artifacts have documented outcomes. |
 | **Proposals that change how work is checked** | A proposed gate or workflow is compared with the current one on a labelled corpus and judged on held-out items against a frozen oracle, never by its own pass rate. A weakened gate looks greener and fails; a noisy gate shows its false positives. A qualified proposal becomes a reviewable source change; Send and future-only adoption stay separate. |
 
+What is proven, and at which level, is in the [capability ledger](docs/CAPABILITY_LEDGER.md);
+one command reproduces the [showcase](docs/showcase/SHOWCASE.md).
 Explore [graphs, parallel branches and tournaments](docs/native/GRAPHS.md),
 [gate and workflow proposals](docs/native/GATE_EXPERIMENTS.md),
 [service interfaces](docs/native/INTERFACES.md),
@@ -50,9 +52,10 @@ Explore [graphs, parallel branches and tournaments](docs/native/GRAPHS.md),
 Serial graphs of contained loops shipped in 1.0.0-alpha.26; parallel branches with
 verified integration in 1.0.0-alpha.28; gate and workflow proposals judged by a
 frozen oracle in 1.0.0-alpha.29; tournaments that try to falsify every attempt in
-1.0.0-alpha.30; external A2A tasks ship in 1.0.0-alpha.31. All are proven with
-deterministic fixtures and not yet with live agents or a real A2A peer. A Temporal
-runtime awaits its prototype, and comparative qualification is next in
+1.0.0-alpha.30; external A2A tasks in 1.0.0-alpha.31; the capability ledger,
+showcase and registered pilot in 1.0.0-alpha.32. All are proven with deterministic
+fixtures and not yet with live agents or a real A2A peer. A Temporal runtime
+awaits its prototype, and the registered pilot awaits live runs; see
 the [restoration plan](docs/SOTA_RESTORATION_PLAN.md). Their exact current status
 is listed in [capabilities](docs/CAPABILITIES.md); planned features are not
 release claims.
