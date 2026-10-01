@@ -52,7 +52,8 @@ test("a worker runs in a fresh clone on this computer; its change is captured an
     expect(p).toMatchObject({ schema_version: "wringer.runtime.v3", kind: "trusted-local", boundary: "trusted-local", established: "none", workspace: "fresh-temporary-clone", repositoryAccess: "read-write", repository: { url: fixture.source.url, commit: fixture.commit } });
     expect(p.limits).toContain(TRUSTED_LOCAL_SENTENCE);
     expect(p.image).toBeUndefined(); expect(p.clonedInside).toBeUndefined();
-    expect(JSON.stringify(p)).not.toContain(tmpdir());
+    // The temporary clone's location is never recorded (the agent's own command path may be anywhere).
+    expect(JSON.stringify(p)).not.toContain(report.cwd); expect(JSON.stringify(p)).not.toContain(report.cwd.split("/").at(-2));
 });
 test("a trusted-local record matches only a trusted-local runtime, and only when it says nothing was contained", async () => {
     const fixture = await repository();
