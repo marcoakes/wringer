@@ -1,16 +1,30 @@
-# Current product evidence — 30 September 2026
+# Current product evidence — 1 October 2026
 
 The current verified public release is
-[1.0.0-alpha.33](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.33),
-commit `870dee4185fcf314d5991715a6834ce16d0c08e1`: contained graphs on a second
-durable runtime, Temporal, through an optional Node adapter, with the graph
-kernel behind a journal interface. All seven test jobs, including the new Temporal
-job, the Linux DAC job and all six release jobs passed on the first attempt. All
-14 public assets matched the clean source, both archives' signed provenance
-verified, and public macOS extraction/installation passed 17/13 checks. See the
-[release verification](docs/restoration/evidence/phase-7/release.json). The
-adapter was tested against a local Temporal dev server only; no production
-cluster, Temporal Cloud, live agent or real containment was measured.
+[1.0.0-alpha.34](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.34),
+commit `7c57cf18121d45c5ccaa4ab4e06f6057d8531869`: delegation on this computer
+(the explicit trusted-local runtime) and connection recipes for eight named MCP
+clients. All seven test jobs and the Linux DAC job passed for that commit. In the
+release workflow the Linux build failed once on a test race (a cancel test racing
+a page tick), passed when that job alone was re-run unchanged, and the race is
+fixed in the next release. All 14 public assets matched the clean source, both
+archives' signed provenance verified, and public macOS extraction/installation
+passed 17/13 checks. See the [release record](docs/adoption/evidence/alpha34/release.json).
+
+Trusted-local is fixture-tested end to end and was rehearsed from source with the
+real Codex adapter: a scripted MCP client played the agent, and Claude, as Marc's
+delegated tester, approved and sent from the page. It reached a passing
+fresh-clone audit and found eight defects that were fixed before release
+([rehearsal record](docs/adoption/evidence/alpha34/REHEARSAL_2026-10-01.md)).
+31 isolated reversions of its guards each went red
+([record](docs/adoption/evidence/alpha34/reversions/reversions.json)). No journey
+with a real coding app as the client has run yet; that is the
+[beta gate](docs/adoption/BETA_GATE.md), and its pass will be a delegated AI
+tester's, not an independent person's.
+
+Previous release: [alpha.33](docs/restoration/evidence/phase-7/release.json),
+contained graphs on a second durable runtime, Temporal, through an optional Node
+adapter, tested against a local Temporal dev server only.
 
 Earlier restoration releases: [alpha.32](docs/restoration/evidence/phase-9/release.json),
 the capability ledger, showcase and registered pilot;
