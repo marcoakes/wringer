@@ -507,6 +507,90 @@ export type AssistantResponseV2 = {
 };
 
 /**
+ * assistant-response-v3.schema.json
+ *
+ * Generated from `schema/assistant-response-v3.schema.json`. Do not edit.
+ */
+export type AssistantResponseV3 = {
+  "schema_version": "wringer.assistant-response.v3";
+  "jobId": string;
+  "workspaceId": string;
+  "mode": "delegation";
+  "revision": string;
+  "candidateIdentity": null | string;
+  "eventId": string;
+  "phase": string;
+  "outcome": string;
+  "uncertainty": boolean;
+  "nextAction": {
+    "code": string;
+    "actor": "assistant" | "operator";
+    "eligible": boolean;
+    "reason": string;
+  };
+  "decision": {
+    "kind": null | string;
+    "page": null | string;
+  };
+  "remaining": {
+    "ceilings": {
+      "max_sessions": number;
+      "max_worker_turns": number;
+      "max_judge_turns": number;
+      "max_planner_turns": number;
+      "wall_clock_seconds": number;
+      "session_timeout_seconds": number;
+    };
+    "measured": null | {
+      "sessions": {
+        "reserved": number;
+        "ceiling": number;
+      };
+      "roles": {
+        "role": "worker" | "judge" | "planner";
+        "reserved": number;
+        "ceiling": number;
+      }[];
+      "verificationAttempts": {
+        "reserved": number;
+        "ceiling": number;
+        "unknown": number;
+      };
+      "wallClock": {
+        "elapsedSeconds": number;
+        "ceilingSeconds": number;
+        "expired": boolean;
+      };
+      "tokens": {
+        "input": null | number;
+        "output": null | number;
+      };
+    };
+    "monetaryCost": null;
+    "codingAppCost": null;
+  };
+  "operation": null | {
+    "operationId": string;
+    "status": "accepted" | "running" | "cancel-requested" | "uncertain" | "completed" | "failed" | "cancelled" | "reconciled";
+    "message": null | string;
+  };
+  "evidence": {
+    "id": string;
+    "kind": "request" | "proposal" | "report" | "handover";
+    "contentIdentity": string;
+  }[];
+  "boundary": {
+    "approval": "cooperative-local";
+    "execution": "trusted-local" | "contained";
+  };
+  "lineage": null | {
+    "parentJobId": string;
+    "rootJobId": string;
+  };
+  "supersededBy": null | string;
+};
+
+/**
  * Wringer attestation
  *
  * Generated from `schema/attestation.schema.json`. Do not edit.
@@ -3061,6 +3145,45 @@ export type DelegationSetupV1 = {
 };
 
 /**
+ * delegation-setup-v2.schema.json
+ *
+ * Generated from `schema/delegation-setup-v2.schema.json`. Do not edit.
+ */
+export type DelegationSetupV2 = {
+  "schema_version": "wringer.delegation-setup.v2";
+  "mode": "delegation";
+  "workspaceId": string;
+  "profileIdentity": string;
+  "checks": {
+    "id": string;
+    "argv": string[];
+    "cwd": string;
+    "timeout_seconds": number;
+    "files": string[];
+    "evidence": null | {
+      "kind": "assertions";
+      "format": "wringer-check.v1";
+    };
+  }[];
+  "writable": string[];
+  "protectedPaths": string[];
+  "ceilings": {
+    "max_sessions": number;
+    "max_worker_turns": number;
+    "max_judge_turns": number;
+    "max_planner_turns": number;
+    "wall_clock_seconds": number;
+    "session_timeout_seconds": number;
+  };
+  "boundary": {
+    "approval": "cooperative-local";
+    "execution": "trusted-local" | "contained";
+  };
+  "authority": "none";
+  "untrustedContent": true;
+};
+
+/**
  * Wringer delivery manifest
  *
  * Generated from `schema/delivery-manifest.schema.json`. Do not edit.
@@ -3457,6 +3580,48 @@ export type EnvironmentMapV2 = {
 };
 
 /**
+ * Trusted-local environment map v3
+ *
+ * Generated from `schema/environment-map-v3.schema.json`. Do not edit.
+ */
+export type EnvironmentMapV3 = {
+  "schema_version": "wringer.environment-map.v3";
+  "repository": unknown;
+  "plan_sha256": string;
+  "source_tree": string;
+  "inventory_sha256": string;
+  "files": {
+    "path": string;
+    "mode": "100644" | "100755" | "120000" | "160000";
+    "blob": string;
+  }[];
+  "context": {
+    "path": unknown;
+    "blob": string;
+    "text": string;
+    "sha256": string;
+  }[];
+  "components": {
+    "path": string;
+    "files": number;
+  }[];
+  "tools": {
+    "name": string;
+    "version": string;
+    "probe": string[];
+    "observation": unknown | null;
+  }[];
+  "baseline": {
+    "declaration": unknown;
+    "observation": unknown | null;
+  }[];
+  "protected_paths": unknown[];
+  "writable_paths": unknown[];
+  "limits": string[];
+  "map_sha256": string;
+};
+
+/**
  * Wringer evidence event
  *
  * Generated from `schema/evidence-event.schema.json`. Do not edit.
@@ -3753,6 +3918,75 @@ export type ExecutionPlanV3 = {
  */
 export type ExecutionPlanV4 = {
   "schema_version": "wringer.execution-plan.v4";
+  "name": string;
+  "intent": string;
+  "intent_sha256": string;
+  "repository": unknown;
+  "runtime": unknown;
+  "agents": {
+    "worker": unknown;
+    "judge": unknown;
+    "planner"?: unknown;
+  };
+  "environment": unknown;
+  "scope": {
+    "writable": unknown[];
+  };
+  "acceptance": unknown;
+  "acceptance_sha256": string;
+  "budget": unknown;
+  "plan_sha256": string;
+  "design"?: {
+    "snapshotPath": string;
+    "snapshotSha256": string;
+    "reviews": {
+      "criterionId": string;
+      "referenceIds": string[];
+      "captures": {
+        "id": string;
+        "path": string;
+        "mimeType": "image/png";
+        "width": number;
+        "height": number;
+      }[];
+    }[];
+  };
+  "loop": {
+    "repeatCandidate": "stop";
+    "repeatedOutcomeWarning": number;
+  };
+  "approachAdoption"?: unknown;
+  "playbook"?: {
+    "path": string;
+    "sha256": string;
+    "taskFamily": string;
+    "adoption"?: {
+      "schema_version": "wringer.playbook-adoption.v1";
+      "repository": string;
+      "taskFamily": string;
+      "action": "promote" | "rollback";
+      "actor": string;
+      "note": string;
+      "at": string;
+      "previousRevision": string;
+      "previousDigest": string | null;
+      "selectedDigest": string | null;
+      "experimentSha256": string;
+      "evidenceRevision": string;
+      "appliesTo": "future-plans-only";
+      "executionApproved": false;
+      "sha256": string;
+    };
+  };
+};
+
+/**
+ * Trusted-local execution plan v5
+ *
+ * Generated from `schema/execution-plan-v5.schema.json`. Do not edit.
+ */
+export type ExecutionPlanV5 = {
+  "schema_version": "wringer.execution-plan.v5";
   "name": string;
   "intent": string;
   "intent_sha256": string;
@@ -6819,6 +7053,29 @@ export type ProposalSupersessionV1 = {
 };
 
 /**
+ * proposal-supersession-v2.schema.json
+ *
+ * Generated from `schema/proposal-supersession-v2.schema.json`. Do not edit.
+ */
+export type ProposalSupersessionV2 = {
+  "schema_version": "wringer.proposal-supersession.v2";
+  "parentJobId": string;
+  "parentRevision": string;
+  "requestId": string;
+  "inputIdentity": string;
+  "successor": {
+    "schema_version": "wringer.assistant-proposal.v1";
+    "id": string;
+    "workspaceId": string;
+    "requestId": string;
+    "intent": string;
+    "plan": null | unknown | unknown | unknown | unknown | unknown;
+    "assumptions": string[];
+    "questions": string[];
+  };
+};
+
+/**
  * proposal-validation-v2.schema.json
  *
  * Generated from `schema/proposal-validation-v2.schema.json`. Do not edit.
@@ -7016,6 +7273,36 @@ export type RuntimeV2 = {
   "hostMounts": unknown[];
   "repositoryAccess": "read-only" | "read-write";
   "declared": unknown;
+  "observed": Record<string, unknown>;
+  "limits": string[];
+};
+
+/**
+ * Trusted-local runtime provenance v3
+ *
+ * Generated from `schema/runtime-v3.schema.json`. Do not edit.
+ */
+export type RuntimeV3 = {
+  "schema_version": "wringer.runtime.v3";
+  "runtimeId": string;
+  "role": "planner" | "worker" | "judge" | "verifier";
+  "kind": "trusted-local";
+  "boundary": "trusted-local";
+  "established": "none";
+  "repository": {
+    "url": string;
+    "commit": string;
+    "bundlePath"?: string;
+  };
+  "workspace": "fresh-temporary-clone";
+  "repositoryAccess": "read-only" | "read-write";
+  "declared": {
+    "kind": "trusted-local";
+    "network": {
+      "policy": "unenforced";
+    };
+    "env": string[];
+  };
   "observed": Record<string, unknown>;
   "limits": string[];
 };
@@ -8107,6 +8394,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "assertion-report-v1.schema.json": "wringer-check.v1",
   "assistant-refusal-v2.schema.json": "wringer.assistant-refusal.v2",
   "assistant-response-v2.schema.json": "wringer.assistant-response.v2",
+  "assistant-response-v3.schema.json": "wringer.assistant-response.v3",
   "attestation.schema.json": "wringer.attestation.v1",
   "audit.schema.json": "wringer.audit.v1",
   "audited-verification-publication-v1.schema.json": "wringer.audited-verification-publication.v1",
@@ -8166,6 +8454,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "delegation-recovery-preview-v1.schema.json": "wringer.delegation-recovery-preview.v1",
   "delegation-recovery-result-v1.schema.json": "wringer.delegation-recovery-result.v1",
   "delegation-setup-v1.schema.json": "wringer.delegation-setup.v1",
+  "delegation-setup-v2.schema.json": "wringer.delegation-setup.v2",
   "delivery-manifest.schema.json": "wringer.delivery.v1",
   "design-snapshot-v1.schema.json": "wringer.design-snapshot.v1",
   "design-snapshot-v2.schema.json": "wringer.design-snapshot.v2",
@@ -8177,6 +8466,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "engineering-evidence-v1.schema.json": "wringer.engineering-evidence.v1",
   "environment-map-v1.schema.json": "wringer.environment-map.v1",
   "environment-map-v2.schema.json": "wringer.environment-map.v2",
+  "environment-map-v3.schema.json": "wringer.environment-map.v3",
   "evidence-event.schema.json": null,
   "evidence-layers-v1.schema.json": "wringer.evidence-layers.v1",
   "evidence-page-v2.schema.json": "wringer.evidence-page.v2",
@@ -8187,6 +8477,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "execution-plan-v2.schema.json": "wringer.execution-plan.v2",
   "execution-plan-v3.schema.json": "wringer.execution-plan.v3",
   "execution-plan-v4.schema.json": "wringer.execution-plan.v4",
+  "execution-plan-v5.schema.json": "wringer.execution-plan.v5",
   "execution-v2.schema.json": "wringer.execution.v2",
   "execution.schema.json": "wringer.execution.v1",
   "experiment-collection-v1.schema.json": "wringer.experiment-collection.v1",
@@ -8263,6 +8554,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "proposal-destination-policy-v1.schema.json": "wringer.proposal-destination-policy.v1",
   "proposal-lineage-v1.schema.json": "wringer.proposal-lineage.v1",
   "proposal-supersession-v1.schema.json": "wringer.proposal-supersession.v1",
+  "proposal-supersession-v2.schema.json": "wringer.proposal-supersession.v2",
   "proposal-validation-v2.schema.json": "wringer.proposal-validation.v2",
   "readiness.schema.json": "wringer.readiness.v1",
   "refusal.schema.json": "wringer.refusal.v1",
@@ -8270,6 +8562,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "rubric.schema.json": "wringer.rubric.v1",
   "runtime-v1.schema.json": "wringer.runtime.v1",
   "runtime-v2.schema.json": "wringer.runtime.v2",
+  "runtime-v3.schema.json": "wringer.runtime.v3",
   "selection-v1.schema.json": "wringer.selection.v1",
   "selection-v2.schema.json": "wringer.selection.v2",
   "selection-v3.schema.json": "wringer.selection.v3",
@@ -8320,6 +8613,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer-check.v1": "assertion-report-v1.schema.json",
   "wringer.assistant-refusal.v2": "assistant-refusal-v2.schema.json",
   "wringer.assistant-response.v2": "assistant-response-v2.schema.json",
+  "wringer.assistant-response.v3": "assistant-response-v3.schema.json",
   "wringer.attestation.v1": "attestation.schema.json",
   "wringer.audit.v1": "audit.schema.json",
   "wringer.audited-verification-publication.v1": "audited-verification-publication-v1.schema.json",
@@ -8376,6 +8670,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.delegation-recovery-preview.v1": "delegation-recovery-preview-v1.schema.json",
   "wringer.delegation-recovery-result.v1": "delegation-recovery-result-v1.schema.json",
   "wringer.delegation-setup.v1": "delegation-setup-v1.schema.json",
+  "wringer.delegation-setup.v2": "delegation-setup-v2.schema.json",
   "wringer.delivery.v1": "delivery-manifest.schema.json",
   "wringer.design-snapshot.v1": "design-snapshot-v1.schema.json",
   "wringer.design-snapshot.v2": "design-snapshot-v2.schema.json",
@@ -8387,6 +8682,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.engineering-evidence.v1": "engineering-evidence-v1.schema.json",
   "wringer.environment-map.v1": "environment-map-v1.schema.json",
   "wringer.environment-map.v2": "environment-map-v2.schema.json",
+  "wringer.environment-map.v3": "environment-map-v3.schema.json",
   "wringer.evidence-layers.v1": "evidence-layers-v1.schema.json",
   "wringer.evidence-page.v2": "evidence-page-v2.schema.json",
   "wringer.exchange.v1": "exchange.schema.json",
@@ -8396,6 +8692,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.execution-plan.v2": "execution-plan-v2.schema.json",
   "wringer.execution-plan.v3": "execution-plan-v3.schema.json",
   "wringer.execution-plan.v4": "execution-plan-v4.schema.json",
+  "wringer.execution-plan.v5": "execution-plan-v5.schema.json",
   "wringer.execution.v2": "execution-v2.schema.json",
   "wringer.execution.v1": "execution.schema.json",
   "wringer.experiment-collection.v1": "experiment-collection-v1.schema.json",
@@ -8466,6 +8763,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.proposal-destination-policy.v1": "proposal-destination-policy-v1.schema.json",
   "wringer.proposal-lineage.v1": "proposal-lineage-v1.schema.json",
   "wringer.proposal-supersession.v1": "proposal-supersession-v1.schema.json",
+  "wringer.proposal-supersession.v2": "proposal-supersession-v2.schema.json",
   "wringer.proposal-validation.v2": "proposal-validation-v2.schema.json",
   "wringer.readiness.v1": "readiness.schema.json",
   "wringer.refusal.v1": "refusal.schema.json",
@@ -8473,6 +8771,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.rubric.v1": "rubric.schema.json",
   "wringer.runtime.v1": "runtime-v1.schema.json",
   "wringer.runtime.v2": "runtime-v2.schema.json",
+  "wringer.runtime.v3": "runtime-v3.schema.json",
   "wringer.selection.v1": "selection-v1.schema.json",
   "wringer.selection.v2": "selection-v2.schema.json",
   "wringer.selection.v3": "selection-v3.schema.json",

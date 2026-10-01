@@ -5,7 +5,7 @@ export const clientEnvironment = (extra: NodeJS.ProcessEnv = {}) => Object.fromE
 export function connectProcess(argv: string[], options: RuntimeCommandOptions = {}): AcpTransport {
     if (!argv.length || argv.some(arg => typeof arg !== "string" || arg.includes("\0")))
         throw new RuntimeError("Invalid runtime argv");
-    const child = spawn(argv[0]!, argv.slice(1), { env: clientEnvironment(options.env), stdio: ["pipe", "pipe", "pipe"], detached: true });
+    const child = spawn(argv[0]!, argv.slice(1), { env: clientEnvironment(options.env), stdio: ["pipe", "pipe", "pipe"], detached: true, ...(options.cwd ? { cwd: options.cwd } : {}) });
     child.stdin.on("error", () => { });
     const exited = new Promise<{
         code: number | null;

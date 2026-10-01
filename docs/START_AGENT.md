@@ -1,50 +1,55 @@
-# Start with Claude Code, Codex or generic STDIO
+# Start here if you are a coding agent
 
-Install the candidate using [INSTALL](../INSTALL.md). Choose verification when
-your existing coding assistant will make the change. Choose delegation when
-Wringer should assign a bounded contained worker/judge job. Switching modes is a
-new setup decision. No provider/model is chosen implicitly.
+Install with [INSTALL](../INSTALL.md). Name your client in every command:
+`claude-code`, `codex`, `cursor`, `gemini-cli`, `generic`, `kimi`, `vscode` or
+`windsurf`. None is a default, and no provider or model is chosen for you.
 
-For a repository whose checks you trust, inspect first:
+**Verification:** your client makes the change and Wringer runs the
+repository's checks. **Delegation:** Wringer gives a bounded job to a worker and
+an independent judge. The quickest delegation is
+[trusted-local](native/TRUSTED_LOCAL.md): your own Claude Code or Codex login,
+on this computer, with nothing contained.
 
 ```sh
-wring setup --repo /absolute/project --client codex --mode verification --dry-run --json
-wring setup --repo /absolute/project --client codex --mode verification --apply
+wring setup --repo /absolute/project --client CLIENT --mode delegation \
+  --runtime trusted-local --worker-adapter claude-agent-acp --judge-adapter claude-agent-acp \
+  --source local --dependencies none --dry-run --json
 ```
 
-Use `claude-code` for Claude Code or `generic` for an explicit STDIO recipe.
-Inspect the proposed files and check definitions before apply. Missing meaningful
-checks remain incomplete; use the [local example](../examples/adoption/local-fix/README.md)
-to see a real red/green check. Setup approves no work. Copy the returned workspace
-ID, then:
+For verification only, use `--mode verification`. Show the person what setup
+proposes and apply it only with their agreement
+(`--apply --expected IDENTITY --actor NAME --cooperative-local`). Setup
+approves no work. Then:
 
 ```sh
 wring job new --workspace WORKSPACE_ID --intent 'The original request' --json
-wring job open --workspace WORKSPACE_ID --job JOB_ID
-wring connect --workspace WORKSPACE_ID --client codex --scope project --dry-run --json
+wring connect --workspace WORKSPACE_ID --client CLIENT --scope project --dry-run --json
 ```
 
-Review the exact changed files and tool allowlist. Repeat connect with
-`--apply --expected IDENTITY`. The default does not relax client tool prompts.
-`--auto-approve` is an explicit option for only the mode's routine MCP tools;
-there are no MCP approval/verdict/Send tools. `--verify-client` reads the client
-version; `--probe-tools` performs a no-model STDIO discovery against the owner.
-Neither proves a full named-client journey. See [compatibility](ASSISTANT_COMPATIBILITY.md).
+Repeat connect with `--apply --expected IDENTITY` for `claude-code` or `codex`;
+other clients print their documented recipe for you to add. Reload the client.
 
-After client trust/reload, ask it to use the Wringer skill and preserve your
-original words. Use the operator page for approval, actual result review,
-correction and separate Send. The page shows fixed limits and operating mode.
-A scripted engineering click must not be presented as your judgment.
+## The loop
 
-For generic clients, inspect `connect --client generic`: configure the exact
-absolute `wring mcp --connection PATH` recipe. Keep the private connection file
-in application state; do not paste its contents into a prompt or repository.
+1. `wringer.inspect_setup`, then build the request from the person's own words:
+   `wringer.validate_proposal`, then `wringer.propose`.
+2. Give the person the decision link the tools return, once, exactly as
+   returned. Approval happens on that page, not in chat.
+3. Once approved, `wringer.start` with the revision `wringer.get_status` reports.
+   Wait with `wringer.wait_for_update` (at most 25 seconds a call).
+4. When the result is ready, send the person to the same page to review it.
+   After they accept it, `wringer.prepare_handover`; Send stays their decision.
 
-A stopped owner needs [explicit recovery](MIGRATION.md). Open the same workspace
-again and reconnect; do not repropose an uncertain job. For a second request,
-`wring job new` captures new source while retaining earlier records. Use `--parent`
-for a successor correction/renewal; each new job still needs approval.
+There are no approval, verdict or Send tools. Never write a decision for the
+person, edit `wringer.judgements.yaml`, or replace their keys. A refusal is an
+answer: read its reason and its next step. More: [USING_WRINGER](../USING_WRINGER.md).
 
-Contained work uses [the bounded feature example](../examples/adoption/contained-feature/README.md)
-and [operator setup](START_OPERATOR.md). Provider spending and actual platform
-containment are separate prerequisites.
+A stopped owner needs [explicit recovery](MIGRATION.md); reconnect to the same
+workspace rather than proposing an uncertain job again.
+
+## Limits
+
+Each recipe is a connection, not a measured journey; see
+[compatibility](ASSISTANT_COMPATIBILITY.md). Trusted-local runs with your
+permissions. Contained work needs [operator setup](START_OPERATOR.md) and the
+[bounded feature example](../examples/adoption/contained-feature/README.md).

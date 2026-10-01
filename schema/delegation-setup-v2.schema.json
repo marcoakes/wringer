@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/delegation-setup-v2.schema.json",
+  "description": "Sibling of the previous version (1.0.0-alpha.34): identical except that the execution boundary may be trusted-local, an explicitly declared run on the operator's own computer with nothing contained. Contained workspaces keep emitting the previous version.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.delegation-setup.v2"
+    },
+    "mode": {
+      "const": "delegation"
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "profileIdentity": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "argv": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "maxItems": 256
+          },
+          "cwd": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "maxItems": 256
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "assertions"
+                  },
+                  "format": {
+                    "const": "wringer-check.v1"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "format"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "argv",
+          "cwd",
+          "timeout_seconds",
+          "files",
+          "evidence"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 64
+    },
+    "writable": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 64
+    },
+    "protectedPaths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 256
+    },
+    "ceilings": {
+      "type": "object",
+      "properties": {
+        "max_sessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_worker_turns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_judge_turns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_planner_turns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wall_clock_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "session_timeout_seconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "max_sessions",
+        "max_worker_turns",
+        "max_judge_turns",
+        "max_planner_turns",
+        "wall_clock_seconds",
+        "session_timeout_seconds"
+      ],
+      "additionalProperties": false
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "approval": {
+          "const": "cooperative-local"
+        },
+        "execution": {
+          "enum": [
+            "trusted-local",
+            "contained"
+          ]
+        }
+      },
+      "required": [
+        "approval",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "authority": {
+      "const": "none"
+    },
+    "untrustedContent": {
+      "const": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "mode",
+    "workspaceId",
+    "profileIdentity",
+    "checks",
+    "writable",
+    "protectedPaths",
+    "ceilings",
+    "boundary",
+    "authority",
+    "untrustedContent"
+  ],
+  "additionalProperties": false
+}

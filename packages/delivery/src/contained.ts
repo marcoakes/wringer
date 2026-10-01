@@ -3,7 +3,7 @@ import { join, relative, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { assertRecordFamily, measuredLoopPlan, recordVersion, hashValue, hashBytes, canonicalJson, validateExecutionPlan, validateExecutionAuthority, readPinnedPlaybook, type ExecutionPlan } from "@wringer/plan";
 import { assertResearchPublication, validateResearchDeliveryPurpose } from "./research-purpose";
-import { processDriver } from "@wringer/runtime";
+import { processDriver, provenanceMatchesRuntime, runtimeImage, TRUSTED_LOCAL_SENTENCE } from "@wringer/runtime";
 import { readValidatedContainedState, withContainedJourneyLock, validContainedHumanAttribution } from "@wringer/workflow";
 import { assertContainedDisplayVisuals, readPinnedDesignSnapshot } from "@wringer/workflow";
 import { observeAssertionReport, validateCheckEvidence, assertAssertionRed, assertAssertionPair, buildRepairPacket, validateRepairPacket } from "@wringer/workflow";
@@ -66,9 +66,17 @@ export interface ContainedAudit {
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
 const digestPattern = /^[a-f0-9]{64}$/, gitPattern = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/;
 const legacyFalsificationRouteV1 = (bundlePath: string) => ({ status: "available" as const, command: `wringer-drive falsify --bundle ${bundlePath}`, reason: "A separate bounded committed-source mutation challenge is available. No mutation result is claimed before that command runs; an unavailable contained runtime is recorded as inconclusive." });
-const falsificationRoute = legacyFalsificationRouteV1;
+/** The frozen delivery contracts pin this route's status to "available"; for a trusted-local delivery its reason says the command refuses it. */
+const falsificationRoute = (bundlePath: string, plan?: { runtime: { kind: string } }) => plan?.runtime.kind === "trusted-local"
+    ? { ...legacyFalsificationRouteV1(bundlePath), reason: "This delivery ran trusted-local, on the operator's computer with nothing contained, so this command refuses it: falsification needs an isolated verifier the candidate cannot reach. No mutation result exists or is claimed." }
+    : legacyFalsificationRouteV1(bundlePath);
 const legacyLimitationsV1 = ["This is a tamper-evident record of controller observations, not a fresh execution of acceptance checks or proof against a malicious controller.", "ACP prompts, worker narrative, thought streams and private provider traces are omitted. The source journal was validated before a separately hashed portable semantic projection was made; source digest commitments are provenance, not a claim that omitted bytes can be replayed here.", "Container declarations and recorded runtime identities do not substitute for the live platform isolation release gate.", "The candidate bundle carries exact committed Git history. An evidence commit contains this bundle; its own hash is returned by publication, not self-embedded in its contents.", "The separate contained falsification command challenges supported changed source lines only. It is not a correctness proof; caught, surviving and unavailable mutations are reported separately."];
 const limitations = [...legacyLimitationsV1];
+const CONTAINER_LIMIT = "Container declarations and recorded runtime identities do not substitute for the live platform isolation release gate.";
+/** A trusted-local delivery says first, and in place of the container caveat, that nothing was contained. */
+const trustedLocalLimitations = [TRUSTED_LOCAL_SENTENCE, ...limitations.map(line => line === CONTAINER_LIMIT ? "No isolation was established: roles and checks ran as ordinary processes under the operator's account, so no platform isolation gate applies to this delivery."
+    : line.startsWith("The separate contained falsification command") ? "Falsification is not available for this delivery: it needs an isolated verifier, and nothing was contained." : line)];
+const runtimeLimitations = (plan: { runtime: { kind: string } }) => plan.runtime.kind === "trusted-local" ? trustedLocalLimitations : limitations;
 const gitEnv = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_AUTHOR_NAME: "Wringer evidence", GIT_AUTHOR_EMAIL: "wringer@localhost", GIT_COMMITTER_NAME: "Wringer evidence", GIT_COMMITTER_EMAIL: "wringer@localhost", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
 async function git(store: string, args: string[], options: {
     input?: string | Uint8Array;
@@ -148,9 +156,11 @@ async function validatePublication(publication: ContainedPublication) {
         throw new Error("Publication remote must not contain credentials/query/fragment");
 }
 function provenance(p: any, plan: ExecutionPlan) {
-    if (!p || !p.clonedInside || !Array.isArray(p.hostMounts) || p.hostMounts.length || !p.runtimeId || !gitPattern.test(p.repository?.commit))
-        throw new Error("Runtime provenance lacks the independent cloned-repository boundary");
+    if (!p || !provenanceMatchesRuntime(p, plan.runtime) || !p.runtimeId || !gitPattern.test(p.repository?.commit))
+        throw new Error(plan.runtime.kind === "trusted-local" ? "Runtime provenance does not record a stamped trusted-local run in a fresh clone" : "Runtime provenance lacks the independent cloned-repository boundary");
     assertRecordFamily(plan, "runtime", p.schema_version);
+    // A trusted-local run carries its own record: nothing was cloned inside a boundary.
+    if (plan.runtime.kind === "trusted-local") return { schema_version: p.schema_version, runtimeId: p.runtimeId, role: p.role, kind: p.kind, boundary: p.boundary, established: p.established, repository: ref(p.repository)!, workspace: p.workspace, repositoryAccess: p.repositoryAccess, declared: p.declared, observed: p.observed, limits: p.limits };
     return { schema_version: p.schema_version, runtimeId: p.runtimeId, role: p.role, kind: p.kind, image: p.image, repository: ref(p.repository)!, clonedInside: true, hostMounts: [], repositoryAccess: p.repositoryAccess, declared: p.declared, observed: p.observed, limits: p.limits };
 }
 function verification(v: any) { return v ? { ...v, evidenceRef: `receipts/${safeId(v.runtimeId, "verification runtime")}` } : null; }
@@ -167,7 +177,7 @@ async function observation(stateDir: string, v: any, plan: ExecutionPlan) {
     if (saved.sha256 !== hashValue(saved.value))
         throw new Error("Verification result seal changed");
     same(saved.value, v, "Journal verification receipt");
-    if (typeof observed.sourceChanged !== "boolean" || observed.sourceTree !== v.candidateTree || observed.provenance?.runtimeId !== v.runtimeId || observed.provenance?.role !== "verifier" || observed.provenance?.repository?.commit !== v.candidateCommit || observed.provenance?.image !== plan.runtime.image)
+    if (typeof observed.sourceChanged !== "boolean" || observed.sourceTree !== v.candidateTree || observed.provenance?.runtimeId !== v.runtimeId || observed.provenance?.role !== "verifier" || observed.provenance?.repository?.commit !== v.candidateCommit || !provenanceMatchesRuntime(observed.provenance, plan.runtime))
         throw new Error("Verification observation contradicts its source/runtime identity");
     if (!Array.isArray(observed.results) || new Set(observed.results.map((r: any) => r.id)).size !== observed.results.length)
         throw new Error("Verification observation duplicates command results");
@@ -177,7 +187,7 @@ async function observation(stateDir: string, v: any, plan: ExecutionPlan) {
     return { ...observed, provenance: provenance(observed.provenance, plan) };
 }
 function validateObservations(v: any, observed: any, plan: ExecutionPlan) {
-    if (typeof observed.sourceChanged !== "boolean" || observed.sourceTree !== v.candidateTree || observed.provenance.runtimeId !== v.runtimeId || observed.provenance.repository.commit !== v.candidateCommit || observed.provenance.image !== plan.runtime.image || observed.provenance.role !== "verifier")
+    if (typeof observed.sourceChanged !== "boolean" || observed.sourceTree !== v.candidateTree || observed.provenance.runtimeId !== v.runtimeId || observed.provenance.repository.commit !== v.candidateCommit || !provenanceMatchesRuntime(observed.provenance, plan.runtime) || observed.provenance.role !== "verifier")
         throw new Error("Check receipts are not bound to the exact source and verifier");
     provenance(observed.provenance, plan);
     same(observed.provenance.observed?.writableDirectories ?? [], plan.environment.writable_directories, "Verifier writable-output policy");
@@ -195,7 +205,7 @@ function validateObservations(v: any, observed: any, plan: ExecutionPlan) {
             same(v.checkEvidence?.find((e: any) => e.checkId === check.id), derived, "Assertion report derived from the exact carried observation");
             missing ||= derived.status === "unavailable";
         }
-        if (!row || !out || !Number.isInteger(out.code) || row.exitCode !== (missing ? null : out.code) || row.status !== (missing ? "unavailable" : out.code === 0 ? "passed" : "failed") || row.outputSha256 !== hashBytes(out.stdout + out.stderr) || row.checkInputsSha256 !== hashValue({ argv: check.argv, cwd: check.cwd, files: check.files, protectedInputs: observed.checkInputsSha256 ?? null, image: plan.runtime.image }))
+        if (!row || !out || !Number.isInteger(out.code) || row.exitCode !== (missing ? null : out.code) || row.status !== (missing ? "unavailable" : out.code === 0 ? "passed" : "failed") || row.outputSha256 !== hashBytes(out.stdout + out.stderr) || row.checkInputsSha256 !== hashValue({ argv: check.argv, cwd: check.cwd, files: check.files, protectedInputs: observed.checkInputsSha256 ?? null, image: runtimeImage(plan.runtime) }))
             throw new Error(`Acceptance check ${check.id} contradicts its command/input/output receipt`);
     }
     if ((v.regressions ?? []).length !== plan.environment.baseline.length)
@@ -316,7 +326,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     if (state.stage !== "ready" || result.status !== "review-ready" || !state.candidate || !state.verification || !state.baseline)
         throw new Error("Delivery requires a validated terminal review-ready journal, not a mutable result view");
     const redactor = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(plan.runtime.env ?? [])]), id = `contained-${hashValue({ version: 2, journey: state.id, head: events.at(-1)!.sha256, source: options.publication.sourceBranch, target: options.publication.targetBranch }).slice(0, 24)}`, directory = join(stateDir, "deliveries", id), bundleDir = join(directory, "bundle"), bundlePath = `.wringer/deliveries/${id}`;
-    const falsify = falsificationRoute(bundlePath);
+    const falsify = falsificationRoute(bundlePath, plan);
     await inside(stateDir, relative(stateDir, bundleDir));
     await mkdir(bundleDir, { recursive: true, mode: 0o700 });
     if (researchPurpose) await immutable(join(bundleDir, "research-purpose.json"), researchPurpose);
@@ -399,7 +409,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         human.push(projection);
         await immutable(join(bundleDir, `human/${safeId(judgement.criterionId, "human criterion")}.json`), clean(projection, redactor, "Human display"));
     }
-    const manifest = { schema_version: "wringer.contained-delivery.v2", id, journeyId: state.id, createdAt: events.at(-1)!.at, source: { url: plan.repository.url, baseCommit: plan.repository.commit, codeCommit: state.candidate.source.commit, tree: state.candidate.tree }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, authoritySha256: hashValue(authority), environmentSha256: environment.map_sha256, journal: { eventCount: projected.length, headSha256: previous, sourceHeadSha256: events.at(-1)!.sha256 }, baseline: verification(state.baseline), verification: verification(state.verification), roles: roleRows.map(r => r.id), humanCriteria: human.map(r => r.judgement.criterionId), judge: state.judge, counts: { checks: plan.acceptance.checks.length, proved: plan.acceptance.checks.length, human: human.length }, publication: { sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch }, evidencePath: bundlePath, auditCommand: `wringer-drive audit --bundle ${bundlePath}`, falsify, limits: limitations, contracts: containedViewContracts };
+    const manifest = { schema_version: "wringer.contained-delivery.v2", id, journeyId: state.id, createdAt: events.at(-1)!.at, source: { url: plan.repository.url, baseCommit: plan.repository.commit, codeCommit: state.candidate.source.commit, tree: state.candidate.tree }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, authoritySha256: hashValue(authority), environmentSha256: environment.map_sha256, journal: { eventCount: projected.length, headSha256: previous, sourceHeadSha256: events.at(-1)!.sha256 }, baseline: verification(state.baseline), verification: verification(state.verification), roles: roleRows.map(r => r.id), humanCriteria: human.map(r => r.judgement.criterionId), judge: state.judge, counts: { checks: plan.acceptance.checks.length, proved: plan.acceptance.checks.length, human: human.length }, publication: { sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch }, evidencePath: bundlePath, auditCommand: `wringer-drive audit --bundle ${bundlePath}`, falsify, limits: runtimeLimitations(plan), contracts: containedViewContracts };
     await verifySource(store, manifest, plan, environment, observations);
     // Inspect exact candidate history, never unrelated or later evidence refs.
     // Inflation is streamed under independent finite inspection bounds;
@@ -407,7 +417,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     const sourceInspection = await inspectCandidateHistory(store, state.candidate.source.commit, redactor, { signal: options.signal, collectFindings: true });
     const sourceReceipt = await sourceReviewReceipt(stateDir, sourceInspection.inventory!);
     const v3 = v4 || !!plan.design || !!sourceReceipt || human.some(row => row.judgement.schema_version === "wringer.contained-human-decision.v1");
-    const currentManifest = { ...manifest, ...(v3 ? { schema_version: v4 ? "wringer.contained-delivery.v4" : "wringer.contained-delivery.v3", contracts: v4 ? containedViewContractsV4 : containedViewContractsV3, sourceReview: sourceReceipt ? { receipt: "source-inspection.json", sha256: hashValue(sourceReceipt), findings: sourceReceipt.approvals.length } : null } : {}), ...(engineering ? { engineering: summarizeEngineering(engineering) } : {}), ...(researchPurpose ? { researchPurpose: { receipt: "research-purpose.json", sha256: researchPurpose.sha256 } } : {}), limits: [...(sourceReceipt ? [...limitations, sourceReviewMarker(sourceReceipt), ...SOURCE_REVIEW_LIMITATIONS] : limitations), ...(engineering?.limits ?? []), ...(researchPurpose ? ["PRIVATE EXPERIMENTAL HANDOVER: research observations are not production approval or permission to publish elsewhere. The original controller-purpose digest is a commitment to a private destination reservation; host paths are intentionally omitted."] : [])] };
+    const currentManifest = { ...manifest, ...(v3 ? { schema_version: v4 ? "wringer.contained-delivery.v4" : "wringer.contained-delivery.v3", contracts: v4 ? containedViewContractsV4 : containedViewContractsV3, sourceReview: sourceReceipt ? { receipt: "source-inspection.json", sha256: hashValue(sourceReceipt), findings: sourceReceipt.approvals.length } : null } : {}), ...(engineering ? { engineering: summarizeEngineering(engineering) } : {}), ...(researchPurpose ? { researchPurpose: { receipt: "research-purpose.json", sha256: researchPurpose.sha256 } } : {}), limits: [...(sourceReceipt ? [...runtimeLimitations(plan), sourceReviewMarker(sourceReceipt), ...SOURCE_REVIEW_LIMITATIONS] : runtimeLimitations(plan)), ...(engineering?.limits ?? []), ...(researchPurpose ? ["PRIVATE EXPERIMENTAL HANDOVER: research observations are not production approval or permission to publish elsewhere. The original controller-purpose digest is a commitment to a private destination reservation; host paths are intentionally omitted."] : [])] };
     const view = deriveContainedDeliveryProjection(plan, currentManifest, human, roleRows), versionedManifest = { ...currentManifest, viewSha256: containedProjectionDigest(view) };
     if (sourceReceipt) await immutable(join(bundleDir, "source-inspection.json"), clean(sourceReceipt, redactor, "Source review receipt"));
     for (const [name, value] of Object.entries({ "plan.json": plan, "authority.json": authority, "environment.json": environment, "manifest.json": versionedManifest, "view.json": view, "certificate.json": renderContainedCertificate(view), "projection.json": { schema_version: "wringer.contained-projection.v2", omitted: ["ACP request prompt bodies", "ACP thought/progress traces and provider stderr", "Worker/planner narrative and patch duplication", "Controller absolute transport paths", "Journal free-form details and feedback duplicates"], sourceJournalHeadSha256: events.at(-1)!.sha256, portableJournalHeadSha256: previous, viewSha256: versionedManifest.viewSha256, limits: limitations } }))
@@ -481,6 +491,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
     try {
         await checkSeal(bundleDir);
         const manifest = await read(bundleDir, "manifest.json"), plan = validateExecutionPlan(await read(bundleDir, "plan.json")), authority = await read(bundleDir, "authority.json"), environment = await read(bundleDir, "environment.json");
+        if (plan.runtime.kind === "trusted-local") report.limits = [...trustedLocalLimitations];
         const v4 = manifest.schema_version === "wringer.contained-delivery.v4", v3 = v4 || manifest.schema_version === "wringer.contained-delivery.v3", v2 = v3 || manifest.schema_version === "wringer.contained-delivery.v2", contractReader = await openReader(schemaDirectory());
         if (v4 !== (measuredLoopPlan(plan))) throw new Error("Plan v3 engineering evidence requires its explicit v4 delivery contract");
         if (v2) {
@@ -650,7 +661,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
                     const result = await contractReader.validate(p, SCHEMA_BY_VERSION[recordVersion(plan, "runtime")]!);
                     if (!result.ok) throw new Error(`Frozen role runtime: ${result.said}`);
                 }
-                if (runtimeIds.has(p.runtimeId) || p.image !== plan.runtime.image || p.kind !== plan.runtime.kind || p.role !== role.role || p.repository.commit !== role.request.repo.commit)
+                if (runtimeIds.has(p.runtimeId) || !provenanceMatchesRuntime(p, plan.runtime) || p.role !== role.role || p.repository.commit !== role.request.repo.commit)
                     throw new Error("Worker/judge/verifier isolation identities overlap or changed");
                 runtimeIds.add(p.runtimeId);
                 if (p.repositoryAccess !== (role.role === "worker" ? "read-write" : "read-only") || role.result.status === "completed" && (!role.result.authentication?.sessionOpened || role.result.protocolVersion !== 1 || !role.result.sessionId))
@@ -688,7 +699,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
             }
             same(last.state.humanJudgements.find((r: any) => r.criterionId === criterion.id), j, "Human judgement");
             const p = provenance(d.measured.provenance, plan);
-            if (p.role !== "verifier" || p.repository.commit !== manifest.source.codeCommit || p.image !== plan.runtime.image || runtimeIds.has(p.runtimeId))
+            if (p.role !== "verifier" || p.repository.commit !== manifest.source.codeCommit || !provenanceMatchesRuntime(p, plan.runtime) || runtimeIds.has(p.runtimeId))
                 throw new Error("Human display did not use a fresh candidate runtime");
             runtimeIds.add(p.runtimeId);
             humanRows.push(row);
@@ -728,7 +739,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         same(manifest.humanCriteria, humanRows.map(row => row.judgement.criterionId), "Human inventory");
         if (manifest.evidencePath !== `.wringer/deliveries/${safeId(manifest.id, "delivery")}` || manifest.auditCommand !== `wringer-drive audit --bundle ${manifest.evidencePath}`)
             throw new Error("Printed audit route differs from the delivered bundle");
-        same(manifest.falsify, (v2 ? falsificationRoute : legacyFalsificationRouteV1)(manifest.evidencePath), "Printed falsification route");
+        same(manifest.falsify, v2 ? falsificationRoute(manifest.evidencePath, plan) : legacyFalsificationRouteV1(manifest.evidencePath), "Printed falsification route");
         view = deriveContainedDeliveryProjection(plan, manifest, humanRows, roles);
         if (v2) {
             same(manifest.contracts, v4 ? containedViewContractsV4 : v3 ? containedViewContractsV3 : containedViewContracts, "Delivery view contract versions");

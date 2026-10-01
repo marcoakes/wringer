@@ -37,6 +37,7 @@ const versions = new Map([
     ["wringer.authored-proposal.v1", "authored-proposal-v1.schema.json"],
     ["wringer.proposal-lineage.v1", "proposal-lineage-v1.schema.json"],
     ["wringer.proposal-supersession.v1", "proposal-supersession-v1.schema.json"],
+    ["wringer.proposal-supersession.v2", "proposal-supersession-v2.schema.json"],
     ["wringer.proposal-destination-policy.v1", "proposal-destination-policy-v1.schema.json"],
     ["wringer.delegation-context.v1", "delegation-context-v1.schema.json"],
     ["wringer.delegation-job.v1", "delegation-job-v1.schema.json"],

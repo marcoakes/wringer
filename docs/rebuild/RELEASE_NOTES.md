@@ -1,59 +1,63 @@
-Wringer 1.0.0-alpha.33 lets the same contained graph run under a second durable
-runtime, Temporal, through an optional Node adapter. The Bun harness, its local
-journal and its records are unchanged.
+Wringer 1.0.0-alpha.34 lets a person delegate work without a container: the
+worker and judge are their own Claude Code or Codex, run on this computer in
+fresh temporary clones. Any of eight named MCP clients can connect, and none is a
+default.
 
 ```sh
-wringer-drive graph init graph.yaml --authority authority.json --state DIR
-node adapters/temporal/src/cli.mjs worker --task-queue wringer-graphs
-node adapters/temporal/src/cli.mjs start --state DIR --task-queue wringer-graphs
+wring setup --repo /absolute/project --client claude-code --mode delegation \
+  --runtime trusted-local --worker-adapter claude-agent-acp --judge-adapter claude-agent-acp \
+  --source local --dependencies none --dry-run --json
 ```
 
-The graph kernel's decisions now sit behind a journal interface, in a module with
-no host imports. The local file journal is one implementation. The
-[Temporal adapter](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.33/docs/native/DURABILITY.md)
-runs the unchanged kernel inside Temporal's deterministic workflow sandbox and
-mirrors every event, create-once, into the graph's state directory. Every
-`wringer-drive graph` command still reads that directory. Each effect is one
-activity with one attempt that runs `wringer-drive graph effect`. That command
-acts only for the durable marker the directory records, at most once per marker.
-Decisions and Sends are workflow updates bound to the exact revision and input.
+**Trusted-local is explicit and stamped.** A plan declares it (execution plan
+v5); it is never a fallback for a missing container. Each role runs through a
+pinned ACP adapter (`@agentclientprotocol/claude-agent-acp@0.65.0` or
+`@agentclientprotocol/codex-acp@1.10.0`) in its own fresh clone of the approved
+commit, with a short fixed environment. The worker's change is captured as a
+patch and the clone removed; your working copy is not touched. Checks run in
+another fresh clone, pinned check inputs are compared before any check runs, and
+the approved scope is enforced at review. Every role and check record, the
+delivery manifest, summary and merge-request text carry one sentence: "Ran on
+this computer under the operator's account; nothing was contained." Network
+deny/allowlist, images and resource limits are refused for it, not recorded as
+enforced. Protected mode, falsification and design inputs refuse it. Its records
+are new siblings (`wringer.runtime.v3`, `wringer.environment-map.v3`), so no
+reader can mistake one for a contained run.
 
-Tested against a local Temporal dev server (Temporal CLI 1.9.1, SDK 1.24.0), on
-deterministic fixtures:
+**Clients are named, not assumed.** `wring connect --client` takes claude-code,
+codex, cursor, gemini-cli, generic, kimi, vscode or windsurf. Each recipe was
+checked against its client's official documentation on 2026-10-01; Windsurf's
+could not be verified, so it gets only the generic stanza. Claude Code and Codex
+entries are applied with review; the others are printed. The MCP server now
+tells a connected agent the loop and the three decisions that stay with the
+person, and to give them each decision link exactly, once.
 
-- The same captured observations give byte-identical event files on both
-  journals with the same clock, for graph versions 1 to 4, a rejected review and a
-  failed check. On Temporal's clock every decision, reservation and outcome
-  matches.
-- A killed worker, or a dispatch that stops heartbeating, leaves the effect
-  uncertain. The workflow observes it and never starts it again. Cancellation
-  does the same, and a new workflow from the directory only observes.
-- Stale, forged, duplicate and credential-bearing decisions record nothing.
-- A second controller on the same directory stops the workflow at its first
-  divergent event.
-- Retained workflow histories replay against the current code. An unguarded
-  change to the workflow's commands fails replay, and the same change under
-  `patched()` continues an open workflow. A history started locally continues on
-  Temporal. Continue-as-new carries the history without repeating work.
+**Rehearsed before release.** The trusted-local journey was run from source with
+the real Codex adapter. A scripted MCP client played the agent. Claude, as the
+delegated tester, approved and sent from the job page. The run went from approval
+to review-ready in about 90 seconds and ended in a passing fresh-clone audit. It
+found eight defects, all fixed and tested here. The Send page now shows what
+changed, and it no longer says a result was accepted when nobody reviewed it. A
+stopped role now says why, and for an expired login how to sign in. Three frozen
+contracts gained trusted-local siblings (`assistant-response-v3`,
+`delegation-setup-v2`, `proposal-supersession-v2`).
 
-Two fixes came from measuring first. Replaying a retained history used to consult
-the reading host's environment for credentials, so a valid record could become
-unreadable on another machine. Replay now checks shapes only. Credentials the
-writing host holds are still refused when a decision, Send, hold reason, plan or
-grant is written. `wringer-drive graph init` admits a graph without running
-anything.
+Also: the README is one screen with two doors, for coding agents and for product
+managers. Installs no longer contain the repository's maintainer instructions
+(`AGENTS.md`). `wring init` proposes Gradle, Maven, .NET, Swift and Elixir tests.
+Root-level history moved to `docs/archive`.
 
-Not measured: a production cluster, Temporal Cloud, live agents or real
-containment under the adapter, and any reliability benefit over the local
-journal. Workers must share the state directory. The adapter is source in the
-repository, not part of the native archives. Published schemas keep their bytes.
+Tested on deterministic fixtures: a trusted-local job through the real assistant
+service, from MCP proposal to approval, fresh-clone worker, judge and checks,
+review, Send to a local bare origin and an offline audit of a fresh clone, with
+fixture ACP agents and no model. Not yet measured: a live journey with real
+Claude Code or Codex adapters, which is the gate for 1.0.0-beta.1.
 
 Native macOS arm64 and Linux x64 archives retain checksums, inventories, signed
-provenance and exact-artifact claim reports. The required release jobs verify
-those archives and their installer/package routes before staging publication.
-GitHub publication does not itself publish an npm package, Homebrew tap or MCP
-registry listing. The documented cooperative-local operator boundary remains.
+provenance and exact-artifact claim reports. GitHub publication does not itself
+publish an npm package, Homebrew tap or MCP registry listing. The documented
+cooperative-local operator boundary remains.
 
-[Durable runtimes](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.33/docs/native/DURABILITY.md)
-· [Capability ledger](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.33/docs/CAPABILITY_LEDGER.md)
-· [Previous release: what is proven, at which level](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.32)
+[Trusted-local](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.34/docs/native/TRUSTED_LOCAL.md)
+· [Clients](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.34/docs/ASSISTANT_COMPATIBILITY.md)
+· [Previous release: a second durable runtime, Temporal](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.33)

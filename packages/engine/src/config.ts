@@ -1,4 +1,4 @@
-import { readFile, writeFile, access, appendFile } from "node:fs/promises";
+import { readFile, writeFile, access, appendFile, readdir } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { parseDocument, stringify } from "yaml";
 import { EngineError, type Config, type Gate, type Phase, type Requirement, type Service, type Step } from "./types";
@@ -521,6 +521,15 @@ export async function init(repo: string, options: { force?: boolean; dryRun?: bo
     }
     const go = await data("go.mod");
     if (go !== null && /^module\s+\S+/m.test(go)) add("test", "go test ./...", ["go.mod", "go.sum", "**/*_test.go"]);
+    // A wrapper the repository commits pins its own build tool; prefer it.
+    const gradle = await data("build.gradle.kts") ?? await data("build.gradle");
+    if (gradle !== null) add("test", await exists(join(repo, "gradlew")) ? "./gradlew test" : "gradle test", ["build.gradle*", "settings.gradle*", "gradle/**", "**/src/test/**"]);
+    if (await data("pom.xml") !== null) add("test", await exists(join(repo, "mvnw")) ? "./mvnw -B test" : "mvn -B test", ["pom.xml", ".mvn/**", "**/src/test/**"]);
+    const top = await readdir(repo), solution = top.filter(name => /\.(?:sln|slnx)$/.test(name)).sort();
+    if (solution.length > 1) suggestions.push(`Several .NET solutions (${solution.join(", ")}); name the one to test in a reviewed check.`);
+    else if (solution.length === 1 || top.some(name => /\.(?:cs|fs|vb)proj$/.test(name))) add("test", solution.length === 1 ? `dotnet test ${solution[0]}` : "dotnet test", ["*.sln*", "**/*.*proj", "**/*Tests/**", "**/*.Tests/**"]);
+    if (await data("Package.swift") !== null) add("test", "swift test", ["Package.swift", "Package.resolved", "Tests/**"]);
+    if (await data("mix.exs") !== null) add("test", "mix test", ["mix.exs", "mix.lock", "test/**"]);
     const template_only = found.length === 0;
     if (template_only) return { schema_version: "wringer.check-proposal.v1", status: "incomplete", config: null, gates: found, template_only, writes: [], suggestions, next_move: "No meaningful checks detected. Propose an explicit .wringer.yaml check command and limits for review. No placeholder or configuration was written." };
     const document = { version: 1, gates: found, evidence: { redact: { env: ["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"] } } };

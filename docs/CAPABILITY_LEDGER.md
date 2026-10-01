@@ -2,17 +2,17 @@
 
 Generated from [capability-ledger.json](capability-ledger.json) by
 `scripts/capability-ledger.ts`; edit the JSON, not this page. Updated
-2026-09-30.
+2026-10-01.
 
 Each capability is judged at four separate levels. A level is raised only by
 evidence of its own kind.
 
 | Level | Meaning | Capabilities at "Yes" |
 | --- | --- | --- |
-| Implemented | The capability exists in the released source and its public command or contract. | 10 of 10 |
-| Fixture-tested | Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved. | 9 of 10 |
-| Live-qualified | A recorded run with a live agent or real counterpart completed it under its declared contract. | 0 of 10 |
-| Comparatively beneficial | A registered comparison with fair baselines and complete denominators found it helps on a named workload. | 0 of 10 |
+| Implemented | The capability exists in the released source and its public command or contract. | 12 of 12 |
+| Fixture-tested | Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved. | 11 of 12 |
+| Live-qualified | A recorded run with a live agent or real counterpart completed it under its declared contract. | 0 of 12 |
+| Comparatively beneficial | A registered comparison with fair baselines and complete denominators found it helps on a named workload. | 0 of 12 |
 
 | Capability | Implemented | Fixture-tested | Live-qualified | Comparatively beneficial |
 | --- | --- | --- | --- | --- |
@@ -25,6 +25,8 @@ evidence of its own kind.
 | Tournaments with a prosecutor | Yes ([GRAPHS.md](native/GRAPHS.md), [release.json](restoration/evidence/phase-6/release.json)) | Yes ([reversions.json](restoration/evidence/phase-6/reversions.json), [reversions.json](restoration/evidence/phase-6/followup/reversions.json), [local-validation.json](restoration/evidence/phase-6/local-validation.json)) | Not established | Not established ([PHASE_6_MEASUREMENTS.md](restoration/PHASE_6_MEASUREMENTS.md)). Constructed candidates only; single candidate versus tournament is a registered secondary comparison. |
 | Durable runtimes: the local journal and Temporal | Yes ([DURABILITY.md](native/DURABILITY.md), [contained-kernel.ts](../packages/scheduler/src/contained-kernel.ts), [graph-temporal-distribution.ts](../scripts/graph-temporal-distribution.ts), [release.json](restoration/evidence/phase-7/release.json)) | Yes ([reversions.json](restoration/evidence/phase-7/reversions/reversions.json), [adapter-tests.log](restoration/evidence/phase-7/adapter-tests.log), [walkthrough.json](restoration/evidence/phase-7/walkthrough.json)). Against a local Temporal dev server with deterministic fixtures: byte-identical records with the local journal on the same recorded inputs and clock, and worker loss, timeout, cancellation, stale and duplicate decisions, divergence and versioned replay. | Not established. No production cluster, Temporal Cloud, live agent or real containment run. | Not established ([PHASE_7_MEASUREMENTS.md](restoration/PHASE_7_MEASUREMENTS.md)). Whether a Temporal controller is more reliable than the local journal is unmeasured. |
 | External A2A tasks, verified locally | Yes ([INTERFACES.md](native/INTERFACES.md), [release.json](restoration/evidence/phase-8/release.json)) | Yes ([reversions.json](restoration/evidence/phase-8/reversions.json), [local-validation.json](restoration/evidence/phase-8/local-validation.json), [phase8-baseline.json](restoration/evidence/phase-8/measurements/phase8-baseline.json)). Against a local reference peer: fixture conformance only. | Not established. No real A2A agent has completed a task. | Not applicable |
+| Trusted-local delegation (worker and judge as the operator's own agents on this computer) | Yes ([TRUSTED_LOCAL.md](native/TRUSTED_LOCAL.md), [trusted-local.ts](../packages/runtime/src/trusted-local.ts), [execution-plan-v5.schema.json](../schema/execution-plan-v5.schema.json), [runtime-v3.schema.json](../schema/runtime-v3.schema.json)) | Yes ([trusted-local.test.ts](../packages/runtime/test/trusted-local.test.ts), [trusted-local-journey.test.ts](../packages/application/test/trusted-local-journey.test.ts), [trusted-local-plan.test.ts](../packages/plan/test/trusted-local-plan.test.ts), [delegation-owner.test.ts](../packages/cli/test/delegation-owner.test.ts), [candidate-change.test.ts](../packages/application/test/candidate-change.test.ts)). Fixture ACP agents with no model: proposal, approval, fresh-clone roles and checks, review, Send to a local bare origin and an offline audit. | Not established. Not qualified. A pre-release rehearsal with the real Codex adapter reached a passing fresh-clone audit with a scripted MCP client (docs/adoption/evidence/alpha34/REHEARSAL_2026-10-01.md); qualification needs the observed journeys with real coding-app clients. | Not applicable |
+| MCP connection recipes for eight named clients | Yes ([client-recipes.ts](../packages/cli/src/client-recipes.ts), [ASSISTANT_COMPATIBILITY.md](ASSISTANT_COMPATIBILITY.md)) | Yes ([client-recipes.test.ts](../packages/cli/test/client-recipes.test.ts)). Recipe shapes checked against each client's official documentation on 2026-10-01; Windsurf could not be verified and gets only the generic stanza. | Not established. A recipe is a connection, not a measured journey. | Not applicable |
 | Contained execution (Apple Container, gVisor on Kubernetes) | Yes ([ARCHITECTURE.md](native/ARCHITECTURE.md), [INTERFACES.md](native/INTERFACES.md)) | Partly. Restoration walkthroughs inject a fixture verifier; containment tests are a separate matrix. | Not established. Live isolation claims need platform-specific measurements. | Not applicable |
 
 The checker refuses a live claim without a record under

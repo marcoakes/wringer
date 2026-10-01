@@ -80,6 +80,7 @@ export async function createDelegationJob(root: string, workspaceId: string, inp
             await writeAssistantRecord(root, contextFile, context);
         }
         const controller = await delegationControllerRoot(root, workspaceId, id), profile = await readAssistantRecord<any>(root, `profiles/${context.profileId}/profile-record.json`);
+        if (workspace.boundary.execution !== (profile.plan.runtime.kind === "trusted-local" ? "trusted-local" : "contained")) throw new Error("The workspace's recorded execution boundary differs from its profile's runtime; nothing was prepared");
         const initialized = await initializeAssistant(controller, { plan: profile.plan, cooperativeLocal: true, ...(context.destination ? { destination: context.destination } : {}), ...(profile.selection.source.kind === "local" ? { localSource: localSourceSiblings(join(root, "profiles", context.profileId, "profile.json")) } : {}) });
         if (context.destination) await writeAssistantRecord(controller, "destination-policy.json", { schema_version: "wringer.proposal-destination-policy.v1", workspaceId: initialized.workspace.id, uniqueProposalBranches: true });
         const service = await createAssistantService(controller);
@@ -91,9 +92,9 @@ export async function createDelegationJob(root: string, workspaceId: string, inp
 }
 export async function delegationJobStatus(root: string, jobId: string) {
     const job = await readDelegationJob(root, jobId), service = await createAssistantService(await delegationControllerRoot(root, job.workspaceId, job.contextId));
-    const view = await service.status(jobId);
+    const view = await service.status(jobId), workspace = await readWorkspace(root, job.workspaceId);
     // The local CLI is an operator-owned observation, not a minted MCP session.
-    return { schema_version: "wringer.delegation-job-status.v1", jobId, workspaceId: job.workspaceId, mode: "delegation", revision: view.revision, outcome: view.outcome, phase: view.stage, uncertainty: view.uncertainty, operationIds: view.operations.map((operation: any) => operation.operationId), stopCodes: view.stop ? [view.stop.reason] : [], approvalExpiresAt: (await service.inspectApproval(jobId))?.authority.expires_at ?? null, candidateIdentity: view.candidateTree, nextAction: view.nextAction, remaining: { ceilings: view.usage.development.limits, measured: view.usage.development.measured, monetaryCost: null }, parentJobId: job.parentJobId, source: job.source, boundary: { approval: "cooperative-local", execution: "contained" } };
+    return { schema_version: "wringer.delegation-job-status.v1", jobId, workspaceId: job.workspaceId, mode: "delegation", revision: view.revision, outcome: view.outcome, phase: view.stage, uncertainty: view.uncertainty, operationIds: view.operations.map((operation: any) => operation.operationId), stopCodes: view.stop ? [view.stop.reason] : [], approvalExpiresAt: (await service.inspectApproval(jobId))?.authority.expires_at ?? null, candidateIdentity: view.candidateTree, nextAction: view.nextAction, remaining: { ceilings: view.usage.development.limits, measured: view.usage.development.measured, monetaryCost: null }, parentJobId: job.parentJobId, source: job.source, boundary: { approval: "cooperative-local", execution: workspace.boundary.execution } };
 }
 export async function inspectDelegationLoop(root: string, jobId: string) {
     const job = await readDelegationJob(root, jobId), controller = await delegationControllerRoot(root, job.workspaceId, job.contextId);

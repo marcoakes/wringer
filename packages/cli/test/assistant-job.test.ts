@@ -129,6 +129,9 @@ test("reopening a job preserves an uncertain send as a stop, not another handove
     const service = fixtureService({ root, workspace: { profile }, inspectProposal: async () => ({ plan: profile, intent: profile.intent, questions: [], assumptions: [] }), status: async () => view, inspectApproval: async () => ({ authority: { actor: "Fixture person", expires_at: new Date(Date.now() + 60000).toISOString() }, destination: { remote: "/tmp/fixture-origin.git", sourceBranch: "review/example", targetBranch: "main" } }), list: async () => [view] });
     const first = createAssistantJobFlow(service); flows.push(first);
     const shown = await first.read(jobId); expect(shown.phase).toBe("send"); first.stop();
+    // Check-only requirements: nobody accepted this result, and the page must not say so.
+    expect(profile.acceptance.criteria.every(c => c.kind === "check")).toBe(true);
+    expect(shown.nextAction).toContain("No one has reviewed it for you"); expect(shown.nextAction).not.toContain("accepted");
     const commandId = purposeId(jobId, candidate, `send/${preparedId}`);
     await recordCommand(state, commandId, "publish", "uncertain", revision, candidate, preparedId);
     const reopened = createAssistantJobFlow(service); flows.push(reopened);

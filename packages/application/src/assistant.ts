@@ -84,8 +84,14 @@ interface Capability {
     expiresAt: string;
 }
 const jobFile = (id: string, name: string) => `jobs/${assistantId(id)}/${name}.json`;
+/** v1 embeds plans v1-v4; a revision whose successor names trusted-local (plan v5) is its v2 sibling. */
+const supersessionVersion = (plan: { schema_version?: string } | null | undefined) => plan?.schema_version === "wringer.execution-plan.v5" ? "wringer.proposal-supersession.v2" : "wringer.proposal-supersession.v1";
 export function assistantControllerState(root: string, jobId: string) { return join(root, "jobs", assistantId(jobId), "controller"); }
 export async function initializeAssistant(root: string, input: { plan: ExecutionPlan; cooperativeLocal: boolean; destination?: WorkspaceCommand["payload"]; localSource?: { record: string; bundle: string } }) {
+    // Protected mode will establish an OS boundary; a run on the operator's own account
+    // can never be part of it, so this refusal comes first and stays when protected mode
+    // exists. Only the labelled cooperative-local lane accepts trusted-local.
+    insist(input.cooperativeLocal || (input.plan as { runtime?: { kind?: unknown } } | undefined)?.runtime?.kind !== "trusted-local", "trusted-local-refused", "Protected mode refuses a trusted-local runtime: it runs on this computer under the operator's account and nothing is contained.");
     insist(input.cooperativeLocal, "protected-mode-unavailable", "Protected assistant mode is not available: the controller and human-confirmation OS boundary is not established. An operator may explicitly select --cooperative-local for the labelled engineering preview.");
     const plan = validateExecutionPlan(input.plan);
     insist(clean.scrub(JSON.stringify(plan)) === JSON.stringify(plan), "secret-refused", "The profile contains a detected credential; nothing was installed.");
@@ -196,7 +202,7 @@ async function proposalDestination(root: string, p: AssistantProposal, workspace
         insist(lineage.schema_version === "wringer.proposal-lineage.v1" && lineage.jobId === current.id && lineage.proposalIdentity === hashValue(current), "lineage-changed", "The proposal lineage differs from this reviewed proposal");
         roots.add(assistantId(lineage.rootJobId));
         const parent = await proposal(root, assistantId(lineage.parentJobId), workspace), transition = await readAssistantRecord(root, jobFile(parent.id, "supersession"));
-        insist(lineage.parentRevision === hashValue(parent) && transition.schema_version === "wringer.proposal-supersession.v1" && transition.parentJobId === parent.id && transition.parentRevision === hashValue(parent) && hashValue(transition.successor) === hashValue(current) && current.intent === parent.intent, "lineage-changed", "The predecessor does not bind this exact successor");
+        insist(lineage.parentRevision === hashValue(parent) && transition.schema_version === supersessionVersion(transition.successor?.plan) && transition.parentJobId === parent.id && transition.parentRevision === hashValue(parent) && hashValue(transition.successor) === hashValue(current) && current.intent === parent.intent, "lineage-changed", "The predecessor does not bind this exact successor");
         current = parent;
     }
     insist([...roots].every(id => id === current.id), "lineage-changed", "The proposal lineage names a different root");
@@ -252,7 +258,7 @@ export async function createAssistantService(root: string, options: { dependenci
     async function readSupersession(p: AssistantProposal) {
         if (!await assistantExists(root, jobFile(p.id, "supersession"))) return null;
         const value = await readAssistantRecord(root, jobFile(p.id, "supersession"));
-        insist(value.schema_version === "wringer.proposal-supersession.v1" && value.parentJobId === p.id && value.parentRevision === hashValue(p) && value.successor?.workspaceId === workspace.id && value.successor.intent === p.intent, "lineage-changed", "The retained proposal transition no longer matches this request");
+        insist(value.schema_version === supersessionVersion(value.successor?.plan) && value.parentJobId === p.id && value.parentRevision === hashValue(p) && value.successor?.workspaceId === workspace.id && value.successor.intent === p.intent, "lineage-changed", "The retained proposal transition no longer matches this request");
         assistantId(value.successor.id); assistantId(value.requestId);
         return value;
     }
@@ -291,7 +297,7 @@ export async function createAssistantService(root: string, options: { dependenci
         const digest = hashValue({ workspaceId: workspace.id, requestId }), id = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
         insist(id !== parent.id, "identity-reused", "Use a new idempotency key for the successor");
         let successor: AssistantProposal = { schema_version: "wringer.assistant-proposal.v1", id, workspaceId: workspace.id, requestId, intent: parent.intent, plan: next.plan, assumptions: next.assumptions, questions: next.questions };
-        let transition = { schema_version: "wringer.proposal-supersession.v1", parentJobId: parent.id, parentRevision: hashValue(parent), requestId, inputIdentity: hashValue(args.proposal), successor };
+        let transition = { schema_version: supersessionVersion(next.plan), parentJobId: parent.id, parentRevision: hashValue(parent), requestId, inputIdentity: hashValue(args.proposal), successor };
         await withAssistantProposalLock(root, async () => {
             const existing = await readSupersession(parent);
             if (existing) {

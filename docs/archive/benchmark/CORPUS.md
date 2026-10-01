@@ -76,7 +76,7 @@ proven only on tasks nobody selected:
 |---|---|---|---|
 | `demo-narrow.yaml` | scripted | nothing | the harness, and a **Wringer loss** — precision is bounded by the repo's own gates |
 | `demo-covering.yaml` | scripted | nothing | the harness, and the claim demonstrated |
-| `smoke-real-agent.yaml` | **real agent, one repo we control** | **$0.135 measured** | that the agent path works end to end — **RUN 2026-08-13**, both arms `true_confidence`, see [docs/benchmark-first-run.md](../docs/benchmark-first-run.md). **Not a corpus task and not evidence about agents** — one draw on a planted bug |
+| `smoke-real-agent.yaml` | **real agent, one repo we control** | **$0.135 measured** | that the agent path works end to end — **RUN 2026-08-13**, both arms `true_confidence`, see [docs/benchmark-first-run.md](../../benchmark-first-run.md). **Not a corpus task and not evidence about agents** — one draw on a planted bug |
 
 `smoke-real-agent.yaml` is the first thing to run when the account has credit,
 and it exists so that the $80–400 is not the first time a real model meets this
@@ -89,7 +89,7 @@ without supervision, so the task discriminates nothing and the cell that decides
 the claim stayed empty. That is the correct outcome for an easy task and it is why
 §3 is a selection criterion rather than a hope. Full record, including the three
 defects the run found:
-[docs/benchmark-first-run.md](../docs/benchmark-first-run.md).
+[docs/benchmark-first-run.md](../../benchmark-first-run.md).
 
 Worth carrying into selection: the two most interesting cells this project has
 produced still come from a worker *written* to be dishonest. Whether a real agent
@@ -98,7 +98,7 @@ ever lands in them is unmeasured, and a corpus of easy tasks will never find out
 ## 5a. IT RAN — 2026-08-13, twice
 
 **13 tasks, 2 full passes, 52 rows, $76.99.** The record is
-[docs/corpus-2026-08-13.md](../docs/corpus-2026-08-13.md); the rows are in
+[docs/corpus-2026-08-13.md](../../corpus-2026-08-13.md); the rows are in
 `corpus/results/`.
 
 **The claim lost.** `wring deliver` said yes on 26 of 26 arm-B rows including

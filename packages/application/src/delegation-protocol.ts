@@ -20,7 +20,9 @@ const opaque = (value: unknown) => { const h = hashValue(value); return `${h.sli
 /** Versioned adapter over the existing authority engine. Legacy v1 responses
  * retain their meaning. Evidence identities cover exactly the returned bytes. */
 export function createDelegationProtocol(service: Service) {
-    const redactor = new Redactor(), boundary = { approval: "cooperative-local", execution: "contained" };
+    const redactor = new Redactor(), boundary = { approval: "cooperative-local", execution: service.workspace.profile.runtime.kind === "trusted-local" ? "trusted-local" : "contained" };
+    // The earlier versions pin a contained boundary; a trusted-local workspace answers in their siblings.
+    const trusted = boundary.execution === "trusted-local", RESPONSE = trusted ? "wringer.assistant-response.v3" : "wringer.assistant-response.v2", SETUP = trusted ? "wringer.delegation-setup.v2" : "wringer.delegation-setup.v1";
     async function snapshots(jobId: string, view: any) {
         const proposal = await service.inspectProposal(jobId);
         const report = structuredClone(view);
@@ -56,7 +58,7 @@ export function createDelegationProtocol(service: Service) {
         const phase = view.outcome === "awaiting-approval" ? "approval" : view.outcome === "needs-decision" ? "questions" : view.outcome === "superseded" ? "superseded" : view.decision?.phase ?? view.stage;
         const page = view.decision?.pageUrl;
         const safePage = typeof page === "string" && /^http:\/\/127\.0\.0\.1:[0-9]+\/\?jobId=[a-f0-9-]{36}$/.test(page) ? page : null;
-        return { schema_version: "wringer.assistant-response.v2", jobId: view.jobId, workspaceId: service.workspace.id, mode: "delegation", revision: view.revision, candidateIdentity: view.candidateTree, eventId: view.eventId ?? hashValue({ revision: view.revision, outcome: view.outcome, candidate: view.candidateTree, operations: view.operations, publication: view.publication }), phase, outcome: view.outcome, uncertainty: view.uncertainty, nextAction: action,
+        return { schema_version: RESPONSE, jobId: view.jobId, workspaceId: service.workspace.id, mode: "delegation", revision: view.revision, candidateIdentity: view.candidateTree, eventId: view.eventId ?? hashValue({ revision: view.revision, outcome: view.outcome, candidate: view.candidateTree, operations: view.operations, publication: view.publication }), phase, outcome: view.outcome, uncertainty: view.uncertainty, nextAction: action,
             decision: { kind: action.actor === "operator" ? action.code : null, page: safePage }, remaining: { ceilings: view.usage.development.limits, measured: view.usage.development.measured, monetaryCost: null, codingAppCost: null }, operation: view.operations.length ? { operationId: view.operations.at(-1).operationId, status: view.operations.at(-1).status, message: view.operations.at(-1).message } : null, evidence, boundary, lineage: view.lineage ? { parentJobId: view.lineage.parentJobId, rootJobId: view.lineage.rootJobId } : null, supersededBy: view.supersededBy ?? null };
     }
     return { async call(token: string, name: string, raw: unknown, signal?: AbortSignal): Promise<Record<string, any>> {
@@ -76,7 +78,7 @@ export function createDelegationProtocol(service: Service) {
                 if (authenticated.isError) return refusal(String(authenticated.code), String(authenticated.message));
                 if (name === "wringer.inspect_setup") {
                     const p = service.workspace.profile;
-                    return { schema_version: "wringer.delegation-setup.v1", mode: "delegation", workspaceId: service.workspace.id, profileIdentity: p.plan_sha256, checks: p.acceptance.checks.map(check => ({ id: check.id, argv: check.argv, cwd: check.cwd, timeout_seconds: check.timeout_seconds, files: check.files, evidence: check.evidence ?? null })), writable: p.scope.writable, protectedPaths: p.acceptance.protected_paths, ceilings: p.budget, boundary, authority: "none", untrustedContent: true };
+                    return { schema_version: SETUP, mode: "delegation", workspaceId: service.workspace.id, profileIdentity: p.plan_sha256, checks: p.acceptance.checks.map(check => ({ id: check.id, argv: check.argv, cwd: check.cwd, timeout_seconds: check.timeout_seconds, files: check.files, evidence: check.evidence ?? null })), writable: p.scope.writable, protectedPaths: p.acceptance.protected_paths, ceilings: p.budget, boundary, authority: "none", untrustedContent: true };
                 }
                 const offset = args.offset ?? 0, limit = args.limit ?? 20;
                 if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 50) return refusal("page-bounds", "Read at most 50 retained jobs using a nonnegative offset");

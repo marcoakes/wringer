@@ -67,7 +67,7 @@ async function fixture(settings: {
         verifyCandidate: async (request) => {
             serviceCalls.push({ kind: request.phase, effectId: request.effectId });
             const failed = request.phase === "baseline" || ++candidateVerifications <= (settings.failedVerifications ?? 0);
-            return { schema_version: "wringer.contained-verification.v1", status: failed ? "failed" : "passed", candidateCommit: request.source.commit, candidateTree: request.phase === "baseline" ? "a".repeat(40) : workerCount.toString(16).padStart(40, "c"), acceptanceSha256: plan.acceptance_sha256, runtimeId: randomUUID(), image: plan.runtime.image, checks: plan.acceptance.checks.map(c => ({ id: c.id, status: failed ? "failed" : "passed", exitCode: failed ? 1 : 0, checkInputsSha256: "d".repeat(64), outputSha256: "e".repeat(64) })), regressions: plan.environment.baseline.map(c => ({ id: c.id, status: "passed", exitCode: 0, outputSha256: "e".repeat(64) })), evidenceRef: `fixture/${request.effectId}` } as CandidateVerification;
+            return { schema_version: "wringer.contained-verification.v1", status: failed ? "failed" : "passed", candidateCommit: request.source.commit, candidateTree: request.phase === "baseline" ? "a".repeat(40) : workerCount.toString(16).padStart(40, "c"), acceptanceSha256: plan.acceptance_sha256, runtimeId: randomUUID(), image: plan.runtime.image!, checks: plan.acceptance.checks.map(c => ({ id: c.id, status: failed ? "failed" : "passed", exitCode: failed ? 1 : 0, checkInputsSha256: "d".repeat(64), outputSha256: "e".repeat(64) })), regressions: plan.environment.baseline.map(c => ({ id: c.id, status: "passed", exitCode: 0, outputSha256: "e".repeat(64) })), evidenceRef: `fixture/${request.effectId}` } as CandidateVerification;
         },
     };
     const executeRole = async (request: RoleExecutionRequest): Promise<RoleExecutionResult> => {
@@ -87,7 +87,7 @@ async function fixture(settings: {
             judgeCount++;
             answer = JSON.stringify({ criteria: plan.acceptance.criteria.filter(c => c.kind === "check").map(c => ({ id: c.id, met: judgeCount > (settings.judgeFails ?? 0), reason: "Fixture independent inspection" })), note: "Fixture only" });
         }
-        return { status: "completed", text: answer, sessionId: randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, ...(settings.unknownUsage ? {} : { usage: { inputTokens: 10, outputTokens: 5 } }), events: [], stderr: "", provenance: { schema_version: runtimeProvenanceVersion(request.repo.url), runtimeId: settings.sharedRuntime ? "reused-role-runtime" : randomUUID(), role: request.role, kind: request.runtime.kind, image: request.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: request.role === "worker" ? "read-write" : "read-only", declared: request.runtime, observed: { fixture: true }, limits: ["No real runtime or provider"] } };
+        return { status: "completed", text: answer, sessionId: randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, ...(settings.unknownUsage ? {} : { usage: { inputTokens: 10, outputTokens: 5 } }), events: [], stderr: "", provenance: { schema_version: runtimeProvenanceVersion(request.repo.url), runtimeId: settings.sharedRuntime ? "reused-role-runtime" : randomUUID(), role: request.role, kind: request.runtime.kind, image: request.runtime.image!, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: request.role === "worker" ? "read-write" : "read-only", declared: request.runtime, observed: { fixture: true }, limits: ["No real runtime or provider"] } };
     };
     const options: ContainedJourneyOptions = { controllerDir, plan, authority, environment: environment(plan), services, executeRole };
     return { options, requests, serviceCalls };
@@ -96,7 +96,7 @@ describe("contained ACP production journey", () => {
     async function decision(f: Awaited<ReturnType<typeof fixture>>, criterionId = "readable", success = true): Promise<CandidateHumanDecision> {
         const history = await readValidatedContainedState(f.options.controllerDir), { plan, authority, state } = history, candidate = state.candidate!, criterion = plan.acceptance.criteria.find(c => c.id === criterionId)!;
         const id = randomUUID(), body = { schema_version: "wringer.contained-display.v1", id, criterionId, candidateTree: candidate.tree, acceptanceSha256: plan.acceptance_sha256, at: new Date().toISOString(), success,
-            measured: { sourceChanged: false, sourceTree: candidate.tree, results: [...plan.environment.setup.map(c => `setup/${c.id}`), criterion.show!.id].map(id => ({ id, code: success ? 0 : 1, stdout: "Synthetic display", stderr: "" })), provenance: { role: "verifier", kind: plan.runtime.kind, image: plan.runtime.image, repository: candidate.source, clonedInside: true, hostMounts: [], observed: { writableDirectories: plan.environment.writable_directories } } } };
+            measured: { sourceChanged: false, sourceTree: candidate.tree, results: [...plan.environment.setup.map(c => `setup/${c.id}`), criterion.show!.id].map(id => ({ id, code: success ? 0 : 1, stdout: "Synthetic display", stderr: "" })), provenance: { role: "verifier", kind: plan.runtime.kind, image: plan.runtime.image!, repository: candidate.source, clonedInside: true, hostMounts: [], observed: { writableDirectories: plan.environment.writable_directories } } } };
         const sha256 = hashValue(body);
         await mkdir(join(f.options.controllerDir, "displays"), { recursive: true });
         await writeFile(join(f.options.controllerDir, "displays", `${id}.json`), JSON.stringify({ ...body, sha256 }));
@@ -501,6 +501,7 @@ describe("contained ACP production journey", () => {
         } return result; };
         const first = await runContainedJourney(f.options);
         expect(first.stop!.reason).toBe("worker-stopped");
+        expect(first.stop!.message).toBe("The worker stopped (Fixture external precondition was missing).");
         expect(first.stop!.next_move).toContain("--retry-stopped");
         await runContainedJourney(f.options);
         expect(f.requests).toHaveLength(1);
@@ -767,7 +768,7 @@ describe("contained ACP production journey", () => {
         expect(proposal.plan!.repository).toEqual(request.repository);
         expect(f.requests.map(r => [r.role, r.repo.url])).toEqual([["planner", `local://${"a".repeat(40)}`]]);
         // The same turn with a hosted runtime receipt: the planner boundary refuses to mix source kinds, and nothing is proposed.
-        const hostedReceipt = await proposeContainedPlan({ controllerDir: await mkdtemp(join(tmpdir(), "wringer-contained-")), request, authority, source: request.repository, executeRole: async r => { const result = await reply(r); return { ...result, provenance: { ...result.provenance!, schema_version: "wringer.runtime.v1" } }; } });
+        const hostedReceipt = await proposeContainedPlan({ controllerDir: await mkdtemp(join(tmpdir(), "wringer-contained-")), request, authority, source: request.repository, executeRole: async r => { const result = await reply(r); return { ...result, provenance: { ...result.provenance!, schema_version: "wringer.runtime.v1" } as RoleExecutionResult["provenance"] }; } });
         expect(hostedReceipt.status).toBe("stopped");
         expect(hostedReceipt.plan).toBeNull();
         expect(hostedReceipt.stopReason).toBe("planner-boundary-unestablished: no accepted contained ACP result");
@@ -803,7 +804,7 @@ describe("contained ACP production journey", () => {
     test("discovery measures declared versions once and charges its preparation wall clock", async () => {
         const f = await fixture();
         let calls = 0;
-        const observations = f.options.plan.environment.tools.map(t => ({ kind: "tool" as const, id: t.name, status: "passed" as const, exit_code: 0, output: t.version + "\n", source_commit: f.options.plan.repository.commit, runtime_id: "fixture-discovery", image: f.options.plan.runtime.image, command_sha256: hashValue(t.probe) }));
+        const observations = f.options.plan.environment.tools.map(t => ({ kind: "tool" as const, id: t.name, status: "passed" as const, exit_code: 0, output: t.version + "\n", source_commit: f.options.plan.repository.commit, runtime_id: "fixture-discovery", image: f.options.plan.runtime.image!, command_sha256: hashValue(t.probe) }));
         const options = { controllerDir: f.options.controllerDir, plan: f.options.plan, authority: f.options.authority, environment: f.options.environment, measure: async () => { calls++; return { observations, preparation: { status: "passed" as const } }; } };
         expect(environmentReadiness(options.environment, options.plan).ready).toBe(false);
         const first = await runContainedDiscovery(options);
@@ -818,7 +819,7 @@ describe("contained ACP production journey", () => {
     test("discovery retains unavailable and uncertain attempts and never silently retries", async () => {
         const f = await fixture();
         let calls = 0;
-        const rows = f.options.plan.environment.tools.map(t => ({ kind: "tool" as const, id: t.name, status: "passed" as const, exit_code: 0, output: "wrong version", source_commit: f.options.plan.repository.commit, runtime_id: "fixture-discovery", image: f.options.plan.runtime.image, command_sha256: hashValue(t.probe) }));
+        const rows = f.options.plan.environment.tools.map(t => ({ kind: "tool" as const, id: t.name, status: "passed" as const, exit_code: 0, output: "wrong version", source_commit: f.options.plan.repository.commit, runtime_id: "fixture-discovery", image: f.options.plan.runtime.image!, command_sha256: hashValue(t.probe) }));
         const options = { controllerDir: f.options.controllerDir, plan: f.options.plan, authority: f.options.authority, environment: f.options.environment, measure: async () => { calls++; return { observations: rows, preparation: { status: "passed" as const } }; } };
         expect((await runContainedDiscovery(options)).status).toBe("unavailable");
         await runContainedDiscovery(options);

@@ -4,6 +4,54 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.34 — delegate on this computer, from any named client
+
+- **Trusted-local runtime (ruling R-1).** A plan can declare
+  `runtime: {kind: trusted-local}` (execution plan v5). The worker and judge run
+  as the operator's own Claude Code or Codex, through pinned ACP adapters
+  (`@agentclientprotocol/claude-agent-acp@0.65.0`,
+  `@agentclientprotocol/codex-acp@1.10.0`), each in a fresh temporary clone of
+  the exact commit. Checks run in another fresh clone; pinned check inputs and
+  source changes are checked as for contained work, and the approved scope is
+  enforced at review. Every role and check record (`wringer.runtime.v3`), the
+  environment map (`wringer.environment-map.v3`), the delivery manifest, summary
+  and merge-request text say: "Ran on this computer under the operator's
+  account; nothing was contained." Deny and allowlist network policies, images
+  and resource limits are refused for it rather than recorded as enforced.
+  Protected mode, falsification and design inputs refuse it. It is never a
+  fallback for a missing container. See [trusted-local](docs/native/TRUSTED_LOCAL.md).
+- A pre-release rehearsal with the real adapters, driven through the owner and
+  MCP as an agent and the job page as the person, found five defects before
+  release, each now tested: the frozen `assistant-response-v2`,
+  `delegation-setup-v1` and `proposal-supersession-v1` contracts could not carry
+  a trusted-local job, so its siblings `v3`, `v2` and `v2` were added; job status
+  reported a contained boundary; the approval page said "contained roles"; and a
+  stopped role showed only "agent-error". A stopped role now gives the agent's own
+  reported error and, for an expired login, how to sign in.
+- `wring setup --mode delegation --runtime trusted-local --worker-adapter …
+  --judge-adapter …` creates the profile and workspace; providers, models,
+  provisions and network flags are refused there.
+- **Client recipes (R-7).** `wring connect` and `wringer-assistant connect` take
+  any of eight named clients, listed alphabetically with no default:
+  claude-code, codex, cursor, gemini-cli, generic, kimi, vscode, windsurf. Each
+  recipe was checked against its client's official documentation on
+  2026-10-01. Windsurf's could not be verified and gets only the generic stanza.
+- The MCP server's instructions now tell a connected agent the loop and the
+  three human decisions, and to give the person each decision link exactly,
+  once.
+- `wring init` detection adds Gradle, Maven, .NET, Swift and Elixir test
+  commands, preferring a committed wrapper. Two .NET solutions are named rather
+  than guessed.
+- The distribution no longer ships `AGENTS.md` or `CLAUDE.md` under any name.
+  They instruct whichever agent works in that tree, so a copy in an install
+  would instruct an agent working in the user's project. Links to them become
+  named omissions; the docs check refuses an inventory that contains one.
+- The README is 258 words with two doors (coding agents, product managers). Its
+  previous body is [docs/OVERVIEW.md](docs/OVERVIEW.md). Root-level history
+  (`benchmark/`, `board.html`, `m3/`, `tests/`) moved to
+  [docs/archive](docs/archive/README.md) (R-6). New: `bun run check:fast`,
+  `CODE_OF_CONDUCT.md`.
+
 ## 1.0.0-alpha.33 — a second durable runtime: Temporal
 
 - The contained-graph kernel's decisions sit behind a `GraphJournal`, in a module

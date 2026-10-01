@@ -61,5 +61,10 @@ describe("assistant HTTP and independent process lifecycle (no models)", () => {
         expect((await readAssistantConnection(path)).token).not.toBe(firstConnection.token);
         expect((await protocol(path, { name: "wringer.get_status", arguments: {} })).structuredContent.jobs[0].jobId).toBe(jobId);
         expect(await readFile(join(root, "jobs", jobId, "proposal.json"), "utf8")).toBe(proposalBefore); expect(await service.runner.list()).toEqual([]);
+        // R-7: every client gets its own recipe for the same server command; none is a default.
+        const claude = await cli(root, "connect", "--client", "claude-code");
+        expect(claude.client).toBe("claude-code"); expect(claude.addCommand).toContain("claude mcp add --scope user wringer -- ");
+        expect(claude.argv.slice(-3)).toEqual(["mcp", "--connection", path]); expect(claude.compatibility).toContain("unmeasured");
+        expect((await readAssistantConnection(path)).token).toBe((await readAssistantConnection(path)).token);
     }, 30000);
 });

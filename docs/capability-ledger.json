@@ -1,6 +1,6 @@
 {
   "schema_version": "wringer.capability-ledger.v1",
-  "updated": "2026-09-30",
+  "updated": "2026-10-01",
   "levels": {
     "implemented": "The capability exists in the released source and its public command or contract.",
     "fixtureTested": "Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved.",
@@ -267,6 +267,66 @@
         "status": "not-established",
         "evidence": [],
         "note": "No real A2A agent has completed a task."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-applicable",
+        "evidence": []
+      }
+    },
+    {
+      "id": "trusted-local",
+      "name": "Trusted-local delegation (worker and judge as the operator's own agents on this computer)",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "docs/native/TRUSTED_LOCAL.md",
+          "packages/runtime/src/trusted-local.ts",
+          "schema/execution-plan-v5.schema.json",
+          "schema/runtime-v3.schema.json"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "packages/runtime/test/trusted-local.test.ts",
+          "packages/application/test/trusted-local-journey.test.ts",
+          "packages/plan/test/trusted-local-plan.test.ts",
+          "packages/cli/test/delegation-owner.test.ts",
+          "packages/application/test/candidate-change.test.ts"
+        ],
+        "note": "Fixture ACP agents with no model: proposal, approval, fresh-clone roles and checks, review, Send to a local bare origin and an offline audit."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "Not qualified. A pre-release rehearsal with the real Codex adapter reached a passing fresh-clone audit with a scripted MCP client (docs/adoption/evidence/alpha34/REHEARSAL_2026-10-01.md); qualification needs the observed journeys with real coding-app clients."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-applicable",
+        "evidence": []
+      }
+    },
+    {
+      "id": "client-recipes",
+      "name": "MCP connection recipes for eight named clients",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "packages/cli/src/client-recipes.ts",
+          "docs/ASSISTANT_COMPATIBILITY.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "packages/cli/test/client-recipes.test.ts"
+        ],
+        "note": "Recipe shapes checked against each client's official documentation on 2026-10-01; Windsurf could not be verified and gets only the generic stanza."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "A recipe is a connection, not a measured journey."
       },
       "comparativelyBeneficial": {
         "status": "not-applicable",

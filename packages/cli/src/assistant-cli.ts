@@ -14,6 +14,7 @@ import type { Answer } from "./app";
 import { createAssistantConsole } from "./assistant-console";
 import { createAssistantTransport, readAssistantConnection, parseAssistantConnection, validateAssistantEndpoint, callAssistantConnection, type AssistantConnection } from "./assistant-transport";
 import { assistantMaintenanceRecipe, inspectAssistantSetup, prepareAssistantProfile, renderAssistantSetup } from "./assistant-setup";
+import { clientRecipe, MCP_CLIENTS, parseMcpClient, renderClientRecipe } from "./client-recipes";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 export interface AssistantCliOptions { cwd?: string; signal?: AbortSignal; write?: (text: string) => void }
@@ -31,7 +32,7 @@ Operator setup:
   start --root ABS_DIRECTORY --cooperative-local
   serve --root ABS_DIRECTORY --cooperative-local
   status --root ABS_DIRECTORY [--operator]
-  connect --root ABS_DIRECTORY --client codex [--renew]
+  connect --root ABS_DIRECTORY --client CLIENT [--renew]
   stop --root ABS_DIRECTORY
   recover --root ABS_DIRECTORY --acknowledge-uncertain
   reconcile --root ABS_DIRECTORY --job JOB_ID --operation OPERATION_ID --acknowledge-uncertain
@@ -57,8 +58,9 @@ keeps it for the whole job through handover to your local bare origin.
 The operator console records execution approval. Human review and sending need
 their own source-bound decisions. The assistant cannot grant either authority.
 
-connect prints a reviewed Codex command/configuration; it does not install or
-overwrite client settings. --renew explicitly replaces only the scoped local
+connect --client NAME prints a reviewed connection recipe for that client
+(claude-code, codex, cursor, gemini-cli, generic, kimi, vscode, windsurf; none is
+a default); it does not install or overwrite client settings. --renew explicitly replaces only the scoped local
 connection capability. Existing keys and logins are reused, never shown here.
 revoke disables assistant access and requests owner shutdown; evidence is kept.
 Session/time limits are not a cash cap. Coding-app usage remains unknown.
@@ -69,7 +71,7 @@ retention/attachment. Guide: docs/native/FIGMA_CONNECT.md. A registered-app HTTP
 broker is required; a Figma personal token is not remote MCP authentication.
 
 Guide: ASSISTANT_START.md
-Codex connection reference: https://learn.chatgpt.com/docs/extend/mcp?surface=cli
+Each recipe names its client's official connection reference.
 `;
 
 function parse(argv: string[]): Args {
@@ -281,7 +283,7 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
         while (Date.now() < deadline) {
             options.signal?.throwIfAborted();
             const current = await manifest(service);
-            if (current && await reachable(current)) return { value: { outcome: "ready", alreadyRunning: !!before.owner, connectionPath: current.connectionPath, boundary: "cooperative-local" }, text: `${ASSISTANT_WARNING}\n${before.owner ? "Existing" : "Independent"} local owner is ready.\nPrivate operator link (keep it out of assistant chat): ${current.operatorUrl}\nScoped client connection: ${current.connectionPath}\nNext: ${assistantExecutableCommand().map(quote).join(" ")} connect --root ${quote(root)} --client codex` };
+            if (current && await reachable(current)) return { value: { outcome: "ready", alreadyRunning: !!before.owner, connectionPath: current.connectionPath, boundary: "cooperative-local" }, text: `${ASSISTANT_WARNING}\n${before.owner ? "Existing" : "Independent"} local owner is ready.\nPrivate operator link (keep it out of assistant chat): ${current.operatorUrl}\nScoped client connection: ${current.connectionPath}\nNext: ${assistantExecutableCommand().map(quote).join(" ")} connect --root ${quote(root)} --client CLIENT  (one of ${MCP_CLIENTS.join(", ")}; none is a default)` };
             await Bun.sleep(50);
         }
         throw new Error(`Owner startup was not confirmed. No second owner or paid retry was attempted. Inspect status, or run foreground serve --root ${quote(root)} --cooperative-local for the exact local stop.`);
@@ -294,7 +296,7 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
     }
     if (a.command === "connect") {
         allowed(a, ["root", "client", "renew"]);
-        if (required(a, "client") !== "codex") throw new Error("Only the Codex connection recipe is currently provided; no other client has been measured as compatible.");
+        const client = parseMcpClient(required(a, "client"));
         const root = absolute(a, "root"), service = await createAssistantService(root), current = await manifest(service);
         if (!current || !await reachable(current)) throw new Error("Start the independent owner first with --cooperative-local. Connecting the client never starts or recovers it automatically.");
         if (flag(a, "renew")) {
@@ -302,7 +304,11 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
             await installConnection(root, { schema_version: "wringer.assistant-connection.v1", endpoint: current.endpoint, token: capability.token });
         }
         const connection = await readAssistantConnection(current.connectionPath), inspection = await service.call(connection.token, "wringer.inspect_setup", {});
-        if (inspection.outcome === "refused") throw new Error("The scoped connection is revoked or expired. An operator can explicitly renew it with connect --root ABS_DIRECTORY --client codex --renew. No execution approval is renewed.");
+        if (inspection.outcome === "refused") throw new Error(`The scoped connection is revoked or expired. An operator can explicitly renew it with connect --root ABS_DIRECTORY --client ${client} --renew. No execution approval is renewed.`);
+        if (client !== "codex") {
+            const recipe = clientRecipe(client, [...assistantExecutableCommand(), "mcp", "--connection", current.connectionPath]);
+            return { value: { ...recipe, compatibility: "connection-recipe-only; complete PM journey unmeasured", connectionPath: current.connectionPath, inspected: "not inspected: this client's configuration is not read" }, text: `${ASSISTANT_WARNING}\n${renderClientRecipe(recipe)}${flag(a, "renew") ? "\nOnly the scoped local connection capability was renewed; execution approval was not renewed." : ""}\nNo client configuration, login or provider key was read or changed.` };
+        }
         const recipe = codexConnectionRecipe(current.connectionPath), configPath = join(process.env.CODEX_HOME ?? join(homedir(), ".codex"), "config.toml");
         const userEntry = await readCodexConnection(configPath, recipe.argv), projectEntry = await readCodexConnection(join(options.cwd ?? process.cwd(), ".codex", "config.toml"), recipe.argv), version = await codexVersion();
         const entries = [userEntry, projectEntry], entry = entries.find(e => e.state === "different" || e.state === "unreadable") ?? entries.find(e => e.state === "matching") ?? userEntry;

@@ -156,7 +156,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         const profilePath = join(root, "profile.json");
         if (local) {
             await writeFile(join(root, "selected-profile.json"), canonicalPlanJson(selected));
-            await prepareAssistantProfile({ fromPlan: join(root, "selected-profile.json"), repo: source, local: true, image: selected.runtime.image, output: profilePath, root: controller, command: [process.execPath] });
+            await prepareAssistantProfile({ fromPlan: join(root, "selected-profile.json"), repo: source, local: true, image: selected.runtime.image!, output: profilePath, root: controller, command: [process.execPath] });
         }
         const plan = local ? await loadExecutionPlan(profilePath) : selected;
         if (local) await record({ localSource: { url: plan.repository.url, commit: plan.repository.commit, plan: plan.schema_version } });
@@ -164,7 +164,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         const initialized = await initializeAssistant(controller, { plan, destination, cooperativeLocal: true, ...(local ? { localSource: localSourceSiblings(profilePath) } : {}) });
         const capability = await issueAssistantCapability(controller, new Date(Date.now() + (scenario ? 900000 : 600000)).toISOString());
         let workerTurns = 0, loseStartReply = !guided, failNextDisplay = false;
-        const provenance = (role: "worker" | "judge" | "verifier", requestSource: ExecutionPlan["repository"], runtime = plan.runtime) => ({ schema_version: runtimeProvenanceVersion(requestSource.url), runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: requestSource.url, commit: requestSource.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: [limits[1]!] });
+        const provenance = (role: "worker" | "judge" | "verifier", requestSource: ExecutionPlan["repository"], runtime = plan.runtime) => ({ schema_version: runtimeProvenanceVersion(requestSource.url), runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image!, repository: { url: requestSource.url, commit: requestSource.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: [limits[1]!] });
         const runCommands = scenario ? (request: ContainedCommandRequest) => scenario.runCommands({ ...request, signal: boundedSignal(request.signal) }) : (async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
             const pinned = request.repo as PreparedRepositorySource;
             const tree = (await git(["--git-dir", pinned.objectStore, "rev-parse", `${pinned.commit}^{tree}`])).trim();

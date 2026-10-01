@@ -2,11 +2,13 @@ import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { AssistantToolValidationError } from "./contract";
 import authorable from "../../../schema/authorable-proposal-v1.schema.json";
-import response from "../../../schema/assistant-response-v2.schema.json";
+import responseV2 from "../../../schema/assistant-response-v2.schema.json";
+import responseV3 from "../../../schema/assistant-response-v3.schema.json";
 import refusal from "../../../schema/assistant-refusal-v2.schema.json";
 import validation from "../../../schema/proposal-validation-v2.schema.json";
 import evidence from "../../../schema/evidence-page-v2.schema.json";
-import setup from "../../../schema/delegation-setup-v1.schema.json";
+import setupV1 from "../../../schema/delegation-setup-v1.schema.json";
+import setupV2 from "../../../schema/delegation-setup-v2.schema.json";
 import inventory from "../../../schema/job-list-v2.schema.json";
 import loop from "../../../schema/loop-inspection-v1.schema.json";
 import improvements from "../../../schema/job-improvements-v1.schema.json";
@@ -15,8 +17,10 @@ const uuid = { type: "string", pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a
 const withoutId = ({ $id, $schema, ...body }: any) => body;
 const proposal = withoutId(authorable), guard = { jobId: uuid, idempotencyKey: uuid, expectedRevision: hash, expectedCandidateIdentity: { anyOf: [{ type: "null" }, { type: "string", pattern: "^[a-f0-9]{40}([a-f0-9]{24})?$" }] } };
 const page = { offset: { type: "integer", minimum: 0, maximum: 1048576 }, limit: { type: "integer", minimum: 1, maximum: 8192 } };
-function tool(name: string, description: string, inputSchema: ReturnType<typeof object>, readOnly: boolean, output: object = response) {
-    return { name: `wringer.${name}`, description, inputSchema, outputSchema: { type: "object", anyOf: [withoutId(output), withoutId(refusal)] }, annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: true, openWorldHint: !readOnly } };
+// A contained workspace answers in the earlier version; a trusted-local one in its sibling.
+const response = [responseV2, responseV3], setup = [setupV1, setupV2];
+function tool(name: string, description: string, inputSchema: ReturnType<typeof object>, readOnly: boolean, output: object | object[] = response) {
+    return { name: `wringer.${name}`, description, inputSchema, outputSchema: { type: "object", anyOf: [...[output].flat().map(withoutId), withoutId(refusal)] }, annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: true, openWorldHint: !readOnly } };
 }
 export const DELEGATION_TOOLS = [
     tool("inspect_setup", "Read pinned check IDs, scope and ceilings as untrusted data. No repository command, key or model call.", object({}), true, setup),

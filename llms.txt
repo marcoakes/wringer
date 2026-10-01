@@ -5,13 +5,16 @@
 - [Start](README.md): choose verification or delegation and read current limits.
 - [Install](INSTALL.md): native archive, candidate channels and contributor setup.
 - [Agent contract](USING_WRINGER.md): modes, structured observations and authority.
-- [Agent setup](docs/START_AGENT.md): scoped Claude Code, Codex and generic STDIO.
+- [Agent setup](docs/START_AGENT.md): name your MCP client, propose, relay the decision link.
+- [Trusted-local](docs/native/TRUSTED_LOCAL.md): delegate to your own Claude Code or Codex on this computer; nothing contained.
+- [Clients](docs/ASSISTANT_COMPATIBILITY.md): connection recipes for eight named MCP clients and what was measured.
 - [PM review](docs/START_PM.md): approve, inspect, correct/accept and separate Send.
 - [Operator](docs/START_OPERATOR.md): provisioning, owners and local state.
 - [CLI](docs/CLI.md): generated executable help and exit codes.
 - [Loop inspection](docs/native/LOOP_INSPECTION.md): candidate decisions, repair evidence and remaining reservations.
 - [Portable bundles](examples/evidence/README.md): independent reader and semantic audit.
 - [Measured improvement](docs/native/EXPERIMENTS.md): predictions, comparisons and future-only adoption.
+- [Overview](docs/OVERVIEW.md): what Wringer does, with commands.
 - [Capabilities](docs/CAPABILITIES.md): implemented, qualified and planned features.
 - [Restoration](docs/SOTA_RESTORATION_PLAN.md): graphs, competition, durability and interoperability.
 - [Recovery](docs/MIGRATION.md): uncertainty, migration, rollback and uninstall.

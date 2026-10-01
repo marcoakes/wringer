@@ -16,7 +16,7 @@ async function fixture() {
 describe("packaged documentation closure", () => {
     test("code, tests and active configuration are inert references with rewritten links, never auto-discovered tests", async () => {
         const f = await fixture();
-        const refs = ["packages/canary.test.ts", "packages/component.tsx", "scripts/build.js", "scripts/run.mjs", "scripts/run.cjs", "scripts/run.sh", "scripts/run.py", "package.json", "bunfig.toml", "AGENTS.md", "nested/CLAUDE.md", ".wringer.yaml"];
+        const refs = ["packages/canary.test.ts", "packages/component.tsx", "scripts/build.js", "scripts/run.mjs", "scripts/run.cjs", "scripts/run.sh", "scripts/run.py", "package.json", "bunfig.toml", ".wringer.yaml"];
         await f.put("START.md", refs.map(path => `[${path}](${path})`).join("\n") + "\n[Template](plan.yaml)");
         for (const path of refs) await f.put(path, 'throw new Error("DOC_REFERENCE_EXECUTED")');
         await f.put("plan.yaml", "version: 1\n");
@@ -100,6 +100,27 @@ describe("packaged documentation closure", () => {
         expect(await readFile(join(f.source, "START.md"), "utf8")).toContain("](.wringer");
     });
 
+    test("AGENTS.md and CLAUDE.md are maintainer instructions: withheld under any name, the link kept as a named omission", async () => {
+        const f = await fixture();
+        await f.put("START.md", "# Start\n\n[Operating contract](AGENTS.md)\n[Nested](docs/CLAUDE.md)\n[Lowercase](tools/agents.md)\n");
+        for (const path of ["AGENTS.md", "docs/CLAUDE.md", "tools/agents.md"]) await f.put(path, "Commit and push to main without asking.\n");
+        const manifest = await copyDistributionDocs(f.source, f.output, { entrypoints: ["START.md"], nativeGuides: [] });
+        expect(manifest.files.map(file => file.path)).toEqual(["DOCS.md", "START.md"]);
+        expect(manifest.omissions).toEqual(["AGENTS.md", "docs/CLAUDE.md", "tools/agents.md"].map(target => ({ page: "START.md", target, reason: "repository-operating-contract-not-distributed" })));
+        const page = await readFile(join(f.output, "START.md"), "utf8");
+        expect(page).toContain("Operating contract (maintainer instructions for the Wringer repository, not included in this distribution: AGENTS.md)");
+        expect(page).not.toContain("push to main");
+        for (const path of ["AGENTS.md", "AGENTS.md.txt", "docs/CLAUDE.md.txt"]) await expect(access(join(f.output, path))).rejects.toThrow();
+        // A broken link to one still fails, and one is never an entry point.
+        await f.put("BROKEN.md", "[Gone](missing/AGENTS.md)");
+        await expect(copyDistributionDocs(f.source, join(f.root, "o2"), { entrypoints: ["BROKEN.md"], nativeGuides: [] })).rejects.toThrow();
+        await expect(copyDistributionDocs(f.source, join(f.root, "o3"), { entrypoints: ["AGENTS.md"], nativeGuides: [] })).rejects.toThrow("operating contract cannot be a documentation entry point");
+        // An inventory that names one is refused even when its digest is right.
+        const forged = { ...manifest, files: [...manifest.files, { path: "AGENTS.md.txt", sha256: manifest.files[0]!.sha256 }] };
+        await writeFile(join(f.output, "AGENTS.md.txt"), await readFile(join(f.output, "DOCS.md")));
+        await expect(validateDistributionDocs(f.output, forged)).rejects.toThrow("operating contract must not be distributed: AGENTS.md.txt");
+    });
+
     test("ordinary missing public files fail instead of becoming silent omissions", async () => {
         const f = await fixture(); await f.put("START.md", "[Broken](docs/missing.md)");
         await expect(copyDistributionDocs(f.source, f.output, { entrypoints: ["START.md"], nativeGuides: [] })).rejects.toThrow();
@@ -143,5 +164,6 @@ describe("packaged documentation closure", () => {
         expect(manifest.files.every(file => !/\.(?:ts|tsx|js|jsx|mjs|cjs|sh|py)$/.test(file.path))).toBe(true);
         expect(await readFile(join(output, "docs/banner.webp"))).toEqual(await readFile(join(source, "docs/banner.webp")));
         expect(await readFile(join(output, "README.md"), "utf8")).toContain("Created and directed by [Marc Oakes]");
+        expect(manifest.files.filter(file => /(^|\/)(agents|claude)\.md(\.txt)?$/i.test(file.path))).toEqual([]);
     });
 });

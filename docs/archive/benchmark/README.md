@@ -5,13 +5,13 @@
 > they remain recoverable at Git baseline `7b79c58`. The commands and measurements
 > below describe that earlier implementation and are not current instructions.
 > Held-out target tests and committed result data remain unchanged. Start with
-> the current [Bun product](../README.md) and its [release gates](../ROADMAP.md).
+> the current [Bun product](../../../README.md) and its [release gates](../../../ROADMAP.md).
 
 **This runs Wringer. It is not Wringer.** It lives outside `src/wringer/` on
 purpose and is pruned from the distribution: nothing here is importable from the
 package, and the package does not need it.
 
-Contract: [docs/specs/SPEC_BENCHMARK_V0.md](../docs/specs/SPEC_BENCHMARK_V0.md). Design legwork:
+Contract: [docs/specs/SPEC_BENCHMARK_V0.md](../../specs/SPEC_BENCHMARK_V0.md). Design legwork:
 `~/Claude/WRINGER_BENCHMARK_DOSSIER.md`.
 
 ## The claim, stated so it can lose
@@ -160,7 +160,7 @@ tasks can pick the result.
 
 **A real model HAS now run through it, once** — 2026-08-13, both arms
 `true_confidence`, $0.135 reported, recorded in
-[docs/benchmark-first-run.md](../docs/benchmark-first-run.md). What that
+[docs/benchmark-first-run.md](../../benchmark-first-run.md). What that
 established is that the plumbing works with a real model at both ends. What it did
 NOT establish is anything about the claim: both arms landed in the same cell, so
 the task discriminated nothing.

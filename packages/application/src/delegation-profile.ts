@@ -10,23 +10,49 @@ import { readRuntimeReadiness } from "./runtime-readiness";
 import { safeWorkspaceSnapshot } from "./workspaces";
 import { ACCEPTANCE_ADAPTER, readAcceptancePreparation } from "./acceptance-preparation";
 export interface RoleChoice { provider: "openai" | "anthropic"; model: string }
+/** Trusted-local agents: ACP adapters run by npx at a pinned version, on this computer,
+ * under the operator's own login. Alphabetical; none is a default. */
+export const ACP_ADAPTERS = { "claude-agent-acp": "@agentclientprotocol/claude-agent-acp@0.65.0", "codex-acp": "@agentclientprotocol/codex-acp@1.10.0" } as const;
+export type AcpAdapter = keyof typeof ACP_ADAPTERS;
+export interface AdapterChoice { adapter: AcpAdapter }
 export interface DelegationSelection {
-    provisionId: string; readinessId?: string; acceptanceId?: string; worker: RoleChoice; judge: RoleChoice;
+    /** trusted-local: an explicit operator choice to run on this computer; contained when absent. */
+    runtime?: "trusted-local";
+    provisionId?: string; readinessId?: string; acceptanceId?: string; worker: RoleChoice | AdapterChoice; judge: RoleChoice | AdapterChoice;
     source: { kind: "local" } | { kind: "remote"; remote: string };
-    dependencies: "none" | "bun-frozen"; network: NetworkPolicy;
+    dependencies: "none" | "bun-frozen"; network?: NetworkPolicy;
     writable?: string[]; outputDirectories?: string[]; gates?: string[];
     budget?: Partial<ExecutionBudget>;
 }
 const ceilings: ExecutionBudget = { max_sessions: 8, max_worker_turns: 4, max_judge_turns: 4, max_planner_turns: 0, wall_clock_seconds: 3600, session_timeout_seconds: 900 };
+function adapter(choice: AdapterChoice) {
+    if (!choice || Object.keys(choice).length !== 1 || !Object.hasOwn(ACP_ADAPTERS, choice.adapter)) throw new Error(`Choose an explicit ACP adapter for each role: ${Object.keys(ACP_ADAPTERS).join(" or ")}`);
+    // npx resolves the exact pinned version; the adapter uses the operator's own login, so no key is forwarded.
+    return { protocol: "acp" as const, command: "npx", args: ["-y", ACP_ADAPTERS[choice.adapter]], env: [] as string[] };
+}
+/** Versions measured on this computer, for tools a trusted-local check may use. */
+function hostTools() {
+    const probes = [{ name: "bun", probe: ["bun", "--version"] }, { name: "node", probe: ["node", "-p", "process.versions.node"] }];
+    return probes.flatMap(tool => {
+        if (!Bun.which(tool.probe[0]!)) return [];
+        const result = Bun.spawnSync(tool.probe, { stdout: "pipe", stderr: "ignore", timeout: 10000 }), version = result.stdout.toString().trim();
+        return result.exitCode === 0 && /^[0-9][0-9A-Za-z.+-]{0,63}$/.test(version) ? [{ name: tool.name, version, probe: tool.probe }] : [];
+    });
+}
 function role(choice: RoleChoice) {
     if (!choice || Object.keys(choice).some(key => !["provider", "model"].includes(key)) || !["openai", "anthropic"].includes(choice.provider) || typeof choice.model !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,159}$/.test(choice.model)) throw new Error("Choose an explicit provider and exact model for each role");
     return { protocol: "acp" as const, command: "bun", args: ["/opt/wringer-agents/model-launch.ts", choice.provider, choice.model], env: [choice.provider === "openai" ? "CODEX_API_KEY" : "ANTHROPIC_API_KEY"], ...(choice.provider === "openai" ? { authMethod: "api-key" } : {}) };
 }
 /** Reads manifests, tracked bytes and Git metadata only. No check, setup command,
- * source bundle, credential retrieval, runtime allocation or durable write. */
+ * source bundle, credential retrieval, runtime allocation or durable write. A
+ * trusted-local profile also reads the host's bun and node versions. */
 export async function inspectDelegationProfile(root: string, repoPath: string, selection: DelegationSelection) {
-    if (!selection || Object.keys(selection).some(key => !["provisionId", "readinessId", "acceptanceId", "worker", "judge", "source", "dependencies", "network", "writable", "outputDirectories", "gates", "budget"].includes(key))) throw new Error("Unknown contained setup selection");
-    const agents = { worker: role(selection.worker), judge: role(selection.judge) }, originalRepo = await realpath(repoPath);
+    if (!selection || Object.keys(selection).some(key => !["runtime", "provisionId", "readinessId", "acceptanceId", "worker", "judge", "source", "dependencies", "network", "writable", "outputDirectories", "gates", "budget"].includes(key))) throw new Error("Unknown contained setup selection");
+    const trustedLocal = selection.runtime === "trusted-local";
+    if (selection.runtime !== undefined && !trustedLocal) throw new Error("A delegation runtime is contained (by provision) or explicitly trusted-local");
+    if (trustedLocal && (selection.provisionId || selection.readinessId || selection.network)) throw new Error("A trusted-local profile has no provision, readiness or network policy: it runs on this computer, where none can be enforced");
+    if (!trustedLocal && (!selection.provisionId || !selection.network)) throw new Error("A contained profile needs its completed provision and an explicit network policy");
+    const agents = trustedLocal ? { worker: adapter(selection.worker as AdapterChoice), judge: adapter(selection.judge as AdapterChoice) } : { worker: role(selection.worker as RoleChoice), judge: role(selection.judge as RoleChoice) }, originalRepo = await realpath(repoPath);
     let repo = originalRepo;
     const distance = relative(repo, resolve(root));
     if (!distance || distance !== ".." && !distance.startsWith(`..${sep}`) && !distance.startsWith(sep)) throw new Error("Application state must stay outside the target repository");
@@ -41,7 +67,7 @@ export async function inspectDelegationProfile(root: string, repoPath: string, s
         repo = prepared.sourceRepo; source = await safeWorkspaceSnapshot(repo);
     }
     if (source.dirty || source.head_sha === null) throw new Error("The prepared source must remain clean and committed");
-    const provision = await readAssistantRecord<any>(root, `provisions/${assistantId(selection.provisionId)}/result.json`);
+    const provision = trustedLocal ? null : await readAssistantRecord<any>(root, `provisions/${assistantId(selection.provisionId!)}/result.json`);
     if (!selection.source || !["local", "remote"].includes(selection.source.kind)) throw new Error("Explicitly choose local-only bundle or a named remote source");
     const files = (await git(repo, ["ls-tree", "-r", "-z", "--name-only", source.head_sha])).stdout.split("\0").filter(Boolean), tracked = new Set(files);
     if (files.length > 20000) throw new Error("This guided profile supports at most 20,000 tracked paths; select a separately reviewed bounded source");
@@ -101,13 +127,13 @@ export async function inspectDelegationProfile(root: string, repoPath: string, s
         const bytes = await readFile(join(repo, "package.json")); if (bytes.length > 1024 ** 2) throw new Error("Project package manifest exceeds its inspection bound");
         const manifest = JSON.parse(bytes.toString()); packageRequirements = { packageManager: manifest.packageManager ?? null, engines: manifest.engines ?? {}, dependencyCount: Object.keys(manifest.dependencies ?? {}).length + Object.keys(manifest.devDependencies ?? {}).length };
     }
-    if (!["wringer.runtime-provisioned.v1", "wringer.gvisor-provisioned.v1"].includes(provision.schema_version) || provision.id !== selection.provisionId) throw new Error("Select a completed contained runtime provision");
-    const readiness = selection.readinessId ? await readRuntimeReadiness(root, selection.provisionId, selection.readinessId, provision.image) : null;
-    const inventory = readiness?.inventory ?? provision.inventory;
-    if (!/^24\.[0-9]+\.[0-9]+$/.test(inventory?.node) || inventory?.bun !== "1.4.2") throw new Error("This profile needs an observed Node 24/Bun 1.4.2 image inventory. Complete wring runtime measure and select its --readiness ID first");
+    if (provision && (!["wringer.runtime-provisioned.v1", "wringer.gvisor-provisioned.v1"].includes(provision.schema_version) || provision.id !== selection.provisionId)) throw new Error("Select a completed contained runtime provision");
+    const readiness = provision && selection.readinessId ? await readRuntimeReadiness(root, selection.provisionId!, selection.readinessId, provision.image) : null;
+    const inventory = readiness?.inventory ?? provision?.inventory;
+    if (provision && (!/^24\.[0-9]+\.[0-9]+$/.test(inventory?.node) || inventory?.bun !== "1.4.2")) throw new Error("This profile needs an observed Node 24/Bun 1.4.2 image inventory. Complete wring runtime measure and select its --readiness ID first");
     const env = [...new Set(Object.values(agents).flatMap(agent => agent.env))].sort();
     let runtimeSelection: Record<string, unknown> = { kind: "apple-container" };
-    if (provision.schema_version === "wringer.gvisor-provisioned.v1") {
+    if (provision?.schema_version === "wringer.gvisor-provisioned.v1") {
         const { plan: installation } = await readAssistantRecord<any>(root, `provisions/${selection.provisionId}/plan.json`);
         if (installation.sha256 !== provision.planSha256 || installation.context !== provision.context || installation.namespace !== provision.namespace || installation.runtimeClass !== provision.runtimeClass) throw new Error("The selected cluster installation changed");
         const secretRefs = Object.fromEntries(env.map(name => [name, installation.secretReferences[name]]));
@@ -115,17 +141,18 @@ export async function inspectDelegationProfile(root: string, repoPath: string, s
         runtimeSelection = { kind: "gvisor-kubernetes", context: provision.context, namespace: provision.namespace, runtimeClass: provision.runtimeClass, secretRefs };
         if (readiness?.report.runtime?.kind !== "gvisor-kubernetes" || readiness.report.runtime.context !== provision.context || readiness.report.runtime.namespace !== provision.namespace || readiness.report.runtime.runtimeClass !== provision.runtimeClass) throw new Error("Runtime readiness was measured in another cluster boundary");
     }
-    const runtime = parseRuntimePolicy({ ...runtimeSelection, image: provision.image, cpus: 2, memoryMiB: 2048, network: selection.network, env });
+    const runtime = trustedLocal ? parseRuntimePolicy({ kind: "trusted-local", network: { policy: "unenforced" }, env }) : parseRuntimePolicy({ ...runtimeSelection, image: provision!.image, cpus: 2, memoryMiB: 2048, network: selection.network, env });
+    const tools = trustedLocal ? hostTools() : [{ name: "bun", version: inventory.bun, probe: ["bun", "--version"] }, { name: "node", version: inventory.node, probe: ["node", "-p", "process.versions.node"] }];
     const budget = { ...ceilings, ...selection.budget };
     for (const [key, value] of Object.entries(budget)) if (!(key in ceilings) || value > ceilings[key as keyof ExecutionBudget]) throw new Error("Requested budgets exceed this catalogue's finite ceilings");
     const intent = criteria.map(row => row.quote).join("\n");
-    const plan = compileDeclaration({ version: selection.source.kind === "local" ? 4 : 3, name: "Reviewed repository check profile", intent, repository: { url, commit: source.head_sha }, runtime, agents, environment: { context: ["README.md", "package.json"].filter(path => tracked.has(path)), tools: [{ name: "bun", version: inventory.bun, probe: ["bun", "--version"] }, { name: "node", version: inventory.node, probe: ["node", "-p", "process.versions.node"] }], setup: selection.dependencies === "bun-frozen" ? [{ id: "dependencies", argv: ["bun", "install", "--frozen-lockfile", "--ignore-scripts"], cwd: ".", timeout_seconds: 300 }] : [], baseline: [], writable_directories: outputs }, scope: { writable: scope.writable }, acceptance: { criteria, checks, protected_paths: protectedPaths }, budget, loop: { repeatCandidate: "stop", repeatedOutcomeWarning: 2 } });
+    const plan = compileDeclaration({ version: trustedLocal ? 5 : selection.source.kind === "local" ? 4 : 3, name: "Reviewed repository check profile", intent, repository: { url, commit: source.head_sha }, runtime, agents, environment: { context: ["README.md", "package.json"].filter(path => tracked.has(path)), tools, setup: selection.dependencies === "bun-frozen" ? [{ id: "dependencies", argv: ["bun", "install", "--frozen-lockfile", "--ignore-scripts"], cwd: ".", timeout_seconds: 300 }] : [], baseline: [], writable_directories: outputs }, scope: { writable: scope.writable }, acceptance: { criteria, checks, protected_paths: protectedPaths }, budget, loop: { repeatCandidate: "stop", repeatedOutcomeWarning: 2 } });
     const after = await safeWorkspaceSnapshot(repo);
     if (after.fingerprint !== source.fingerprint || after.head_sha !== source.head_sha || after.dirty) throw new Error("Source changed during setup inspection; review a fresh proposal");
     if (prepared && (await safeWorkspaceSnapshot(originalRepo)).fingerprint !== originalSource.fingerprint) throw new Error("Original source changed during prepared profile inspection");
     const safe = new Redactor(); if (safe.scrub(JSON.stringify({ plan, packageRequirements })) !== JSON.stringify({ plan, packageRequirements })) throw new Error("A detected credential was refused from the setup proposal");
     const identity = hashValue({ repo: originalRepo, selection, plan });
-    return { schema_version: "wringer.delegation-profile-preview.v1", identity, repo: originalRepo, sourceRepo: repo, selection, plan, packageRequirements, source: { commit: source.head_sha, fingerprint: source.fingerprint, transport: selection.source.kind, bundleLimitBytes: 64 * 1024 ** 2, remoteCommitAvailable: "unmeasured" }, authority: "none", readiness: { imageInventory: "observed", containment: readiness ? "measured-with-stated-limits" : "unmeasured", providerAcceptance: "unmeasured" }, eligibility: { productAcceptance: "needs-job-requirements" }, limits: ["This reusable profile records existing check behavior, not proof of a new product requirement. A job needs original words, requirement/check mappings and supported human displays before approval.", "Declared check inputs are measured; transitive dependencies are not inferred from script names. Review this coverage.", "No source bundle, setup command, check, key retrieval, runtime allocation or model prompt occurred.", "Acceptance and policy paths plus their parents remain read-only. New tests require a separately reviewed inert preparation step."] };
+    return { schema_version: "wringer.delegation-profile-preview.v1", identity, repo: originalRepo, sourceRepo: repo, selection, plan, packageRequirements, source: { commit: source.head_sha, fingerprint: source.fingerprint, transport: selection.source.kind, bundleLimitBytes: 64 * 1024 ** 2, remoteCommitAvailable: "unmeasured" }, authority: "none", readiness: trustedLocal ? { hostTools: "observed on this computer", containment: "none: trusted-local runs on this computer under the operator's account", providerAcceptance: "unmeasured" } : { imageInventory: "observed", containment: readiness ? "measured-with-stated-limits" : "unmeasured", providerAcceptance: "unmeasured" }, eligibility: { productAcceptance: "needs-job-requirements" }, limits: ["This reusable profile records existing check behavior, not proof of a new product requirement. A job needs original words, requirement/check mappings and supported human displays before approval.", "Declared check inputs are measured; transitive dependencies are not inferred from script names. Review this coverage.", trustedLocal ? "No source bundle, setup command, check, key retrieval or model prompt occurred. Tool versions were read by running bun --version and node on this computer; no repository code ran." : "No source bundle, setup command, check, key retrieval, runtime allocation or model prompt occurred.", "Acceptance and policy paths plus their parents remain read-only. New tests require a separately reviewed inert preparation step."] };
 }
 type Preview = Awaited<ReturnType<typeof inspectDelegationProfile>>;
 /** Explicit setup only: source transport is Git objects, never a checkout or
@@ -170,7 +197,7 @@ export async function applyDelegationProfile(root: string, preview: Preview, dec
             await verifyLocalSource(preview.plan, siblings);
         }
     }
-    const value = { schema_version: "wringer.delegation-profile.v1", id, previewIdentity: preview.identity, repo: preview.repo, selection: preview.selection, plan: preview.plan, source: preview.source, actor: decision.actor, createdAt: new Date().toISOString(), boundary: { approval: "cooperative-local", execution: "contained" }, executionApproved: false, productAcceptance: "needs-job-requirements" };
+    const value = { schema_version: "wringer.delegation-profile.v1", id, previewIdentity: preview.identity, repo: preview.repo, selection: preview.selection, plan: preview.plan, source: preview.source, actor: decision.actor, createdAt: new Date().toISOString(), boundary: { approval: "cooperative-local", execution: preview.plan.runtime.kind === "trusted-local" ? "trusted-local" : "contained" }, executionApproved: false, productAcceptance: "needs-job-requirements" };
     await writeAssistantRecord(root, `${prefix}/profile-record.json`, value); return value;
     } finally { await lock.close(); await unlink(lockPath); }
     });

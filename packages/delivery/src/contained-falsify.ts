@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile, lstat, realpath } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile, lstat, realpath, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -130,6 +130,9 @@ export async function falsifyContained(options: ContainedFalsifyOptions, service
     if (audit.status !== "passed")
         throw new Error(`Contained delivery must audit before falsification: ${audit.claims.filter(c => c.status === "failed").map(c => c.reason).join("; ")}`);
     const manifest = JSON.parse(await readFile(join(carried, "manifest.json"), "utf8")), plan = validateExecutionPlan(JSON.parse(await readFile(join(carried, "plan.json"), "utf8"))), bundlePath = join(carried, "candidate.bundle"), redactor = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(plan.runtime.env ?? [])]), scratch = await mkdtemp(join(tmpdir(), "wringer-contained-falsify-objects-")), store = join(scratch, "objects.git");
+    // Falsification reruns the delivered checks to try to break them; that needs a verifier the
+    // candidate cannot reach. A trusted-local run had none, so it is refused, not reproduced.
+    if (plan.runtime.kind === "trusted-local") { await rm(scratch, { recursive: true, force: true }); throw new Error("Falsification needs an isolated verifier: this delivery ran trusted-local, on the operator's computer, so nothing was contained to reproduce. Audit it with wring audit; falsify needs a contained plan."); }
     await git(store, ["init", "--bare", ...(manifest.source.codeCommit.length === 64 ? ["--object-format=sha256"] : []), store], options.signal);
     await git(store, ["bundle", "verify", bundlePath], options.signal);
     await git(store, ["fetch", "--no-tags", bundlePath, `${manifest.source.codeCommit}:refs/heads/candidate`], options.signal);

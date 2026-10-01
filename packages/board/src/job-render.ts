@@ -147,13 +147,14 @@ function jobClientRuntime() {
             reports.append(card);
         }
     };
+    let changeShown: string | null = null;
     const render = () => {
         if (!job) { clearVisuals(); el("reports").replaceChildren(); for (const id of ["engineering-approach", "engineering-checks", "engineering-history", "engineering-limits"]) el(id).replaceChildren(); el("job-engineering").hidden = true; el("job-workspace").hidden = true; controls(); return; }
         const value = job;
         el("job-workspace").hidden = false; el("job-empty").hidden = true;
         document.title = `${value.name} · Wringer`;
         el("job-name").textContent = value.name; el("phase-title").textContent = pmJobHeading(value); el("job-next-action").textContent = value.nextAction;
-        el("job-mode").textContent = value.mode === "verification" ? "Verification · trusted-local checks" : "Delegation · contained roles";
+        el("job-mode").textContent = value.mode === "verification" ? "Verification · trusted-local checks" : value.execution === "trusted-local" ? "Delegation · on this computer, nothing contained" : "Delegation · contained roles";
         el("job-error").textContent = value.error ?? ""; el("job-error").hidden = !value.error;
         el("approval-panel").hidden = value.phase !== "approval";
         el("review-panel").hidden = value.phase !== "review" || chooseCorrection;
@@ -175,6 +176,7 @@ function jobClientRuntime() {
         const minutes = value.budget.wallSeconds / 60;
         el("approval-budget").textContent = value.mode === "verification" && value.verification
             ? `Verification · trusted-local. Up to ${value.verification.repetitions} runs (${value.verification.remaining} remaining), ${value.verification.runSeconds} seconds per run, and ${value.budget.wallSeconds} seconds including downtime. These commands execute changing repository code under your OS account; they are not contained workers.\n` + value.verification.checks.map(check => `${check.id}: ${check.command}`).join("\n")
+            : value.execution === "trusted-local" ? `Delegation · trusted-local. Your own coding agents run on this computer under your account, each in a fresh copy of the repository; nothing is contained and the network is not restricted. Up to ${value.budget.sessions} agent sessions and ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} minutes for this job. Your coding agent's plan is billed as usual; session/time limits are not a cash cap.`
             : `Delegation · contained roles. Up to ${value.budget.sessions} agent sessions and ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} minutes for this job. Session/time limits are not a cash cap.`;
         el("approval-expiry").textContent = value.budget.expiresAt ? `Approval ends ${new Date(value.budget.expiresAt).toLocaleString()}. Downtime counts.` : "The controller sets a finite approval deadline within this job's time limit; it is not an open-ended grant.";
         if (value.actor && !field("approval-actor").value) field("approval-actor").value = value.actor;
@@ -183,6 +185,17 @@ function jobClientRuntime() {
         for (const requirement of value.requirements.filter(r => r.kind === "human" && r.required && r.state === "unknown")) reviewItems.append(node("li", requirement.title));
         showDestination("approval-destination", value.destination); showDestination("send-destination", value.destination);
         el("send-source").textContent = value.candidateTree ? `This sends the exact reviewed result: ${value.candidateTree}` : "No reviewed source is recorded.";
+        const change = value.change, changePanel = el("job-change-panel") as HTMLDetailsElement;
+        changePanel.hidden = !change;
+        if (change) {
+            el("job-change-summary").textContent = `What changed: ${change.files.length}${change.truncated ? "+" : ""} file${change.files.length === 1 ? "" : "s"}`;
+            const files = el("job-change-files"); files.replaceChildren();
+            for (const file of change.files) files.append(node("li", `${file.path} · ${file.added === null ? "binary" : `+${file.added} −${file.removed}`}`));
+            el("job-change-patch").textContent = change.patch;
+            el("job-change-note").textContent = `${change.truncated ? "Longer than this page shows; the full change is in the delivery bundle. " : ""}Compared with the approved source ${change.baseCommit.slice(0, 12)}. Shown as text; nothing here was run.`;
+            // Open it once per result at a decision; the person's own toggle is kept after that.
+            if (["review", "send"].includes(value.phase) && changeShown !== change.candidateCommit) { changePanel.open = true; changeShown = change.candidateCommit; }
+        }
         renderReports(value);
         const engineering = value.engineering, approachFacts = el("engineering-approach"), checkFacts = el("engineering-checks"), historyFacts = el("engineering-history"), engineeringLimits = el("engineering-limits");
         el("job-engineering").hidden = !engineering;
@@ -394,7 +407,7 @@ export function renderPmJobWorkspace(options: { nonce?: string } = {}): string {
 <header><div class="brand">wringer <span class="muted">/ your work</span></div><div class="top-actions"><span id="job-connection" class="muted" role="status">Connecting…</span><button id="refresh-job" class="secondary" type="button">Refresh progress</button><button id="stop-job" class="secondary" type="button" disabled>Stop this job</button><button id="lock-job-page" class="secondary" type="button">Lock</button></div></header>
 <main><div id="job-selection" class="job-selection"><label for="job-picker">Your work</label><select id="job-picker"><option value="">Loading…</option></select></div>
 <p id="job-message" class="message" role="status" aria-live="polite" aria-atomic="true"></p><p id="job-empty">Connecting to your recorded work…</p>
-<section id="job-workspace" tabindex="-1" hidden aria-busy="false"><p class="eyebrow" id="job-name"></p><p id="job-mode" class="muted"></p><h1 id="phase-title"></h1><p id="job-next-action" class="lead"></p><p id="job-error" class="error" hidden></p><section id="job-questions-panel" class="panel" hidden><h2>Questions to answer in your coding app</h2><ul id="job-questions"></ul></section><details id="job-assumptions-panel" class="panel" hidden><summary>Assumptions to check</summary><ul id="job-assumptions"></ul></details>
+<section id="job-workspace" tabindex="-1" hidden aria-busy="false"><p class="eyebrow" id="job-name"></p><p id="job-mode" class="muted"></p><h1 id="phase-title"></h1><p id="job-next-action" class="lead"></p><p id="job-error" class="error" hidden></p><section id="job-questions-panel" class="panel" hidden><h2>Questions to answer in your coding app</h2><ul id="job-questions"></ul></section><details id="job-assumptions-panel" class="panel" hidden><summary>Assumptions to check</summary><ul id="job-assumptions"></ul></details><details id="job-change-panel" class="panel" hidden><summary id="job-change-summary">What changed</summary><ul id="job-change-files"></ul><pre id="job-change-patch"></pre><p id="job-change-note" class="muted"></p></details>
 <section id="approval-panel" class="panel decision-panel" hidden><h2>The work you are approving</h2><blockquote id="approval-intent" class="request-quote"></blockquote><h3>Required outcomes</h3><ul id="approval-requirements"></ul><dl id="approval-source"></dl><details><summary>Exact allowed and protected file scope</summary><pre id="approval-scope"></pre></details><p id="approval-budget"></p><p id="approval-expiry" class="muted"></p><details><summary>Registered handover destination</summary><dl id="approval-destination"></dl></details><label for="approval-actor">Your name</label><input id="approval-actor" autocomplete="name" maxlength="200" required><p class="note-help">The button approves this exact request, requirements and finite limits. It does not accept the result or send a change.</p><button id="approve-job" type="button" disabled>Approve this bounded work</button></section>
 <section id="progress-panel" class="panel stage-note" hidden><span class="activity" aria-hidden="true"></span><p>Your assistant and Wringer handle the next steps within the existing approval. You do not need to keep clicking Continue.</p></section>
 <section id="send-panel" class="panel decision-panel" hidden><h2>Send the reviewed change</h2><dl id="send-destination"></dl><p id="send-source" class="muted"></p><p>This sends the prepared branch and its evidence to the registered destination. It does not merge or deploy.</p><button id="send-job" type="button" disabled>Send this reviewed change</button></section>

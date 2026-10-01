@@ -20,7 +20,7 @@ async function fixture(options: { noDiscoveryCommands?: boolean } = {}) {
     const requests: ContainedCommandRequest[] = [];
     const runCommands = async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
         requests.push(request);
-        return { provenance: { schema_version: "wringer.runtime.v1", runtimeId: crypto.randomUUID(), role: "verifier", kind: request.runtime.kind, image: request.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: "read-only", declared: request.runtime, observed: { writableDirectories: request.writableDirectories }, limits: ["Fixture only"] }, sourceChanged: false, sourceTree: map.source_tree, results: request.commands.map(c => ({ id: c.id, code: 0, stdout: c.id.startsWith("tool/") ? plan.environment.tools.find(t => `tool/${t.name}` === c.id)!.version + "\n" : "fixture observation", stderr: "", durationMs: 1 })) };
+        return { provenance: { schema_version: "wringer.runtime.v1", runtimeId: crypto.randomUUID(), role: "verifier", kind: request.runtime.kind, image: request.runtime.image!, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: "read-only", declared: request.runtime, observed: { writableDirectories: request.writableDirectories }, limits: ["Fixture only"] }, sourceChanged: false, sourceTree: map.source_tree, results: request.commands.map(c => ({ id: c.id, code: 0, stdout: c.id.startsWith("tool/") ? plan.environment.tools.find(t => `tool/${t.name}` === c.id)!.version + "\n" : "fixture observation", stderr: "", durationMs: 1 })) };
     };
     return { state, plan, authority, source, map, requests, runCommands };
 }

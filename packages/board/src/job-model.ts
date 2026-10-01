@@ -26,6 +26,10 @@ export interface PmJob {
     schema_version: "wringer.pm-job.v1" | "wringer.pm-job.v2" | "wringer.pm-job.v3" | "wringer.pm-job.v4";
     loop?: import("../../application/src/loop-inspection").LoopInspection;
     mode?: "verification" | "delegation";
+    /** Present only for a delegation that runs on this computer; nothing is contained. */
+    execution?: "trusted-local";
+    /** What the candidate changed against the approved source, shown before review and Send. */
+    change?: { baseCommit: string; candidateCommit: string; files: { path: string; added: number | null; removed: number | null }[]; patch: string; truncated: boolean };
     verification?: { repetitions: number; remaining: number; runSeconds: number; checks: { id: string; command: string }[] };
     engineering?: PmEngineering;
     jobId: string;
@@ -86,6 +90,9 @@ export function validatePmJob(value: unknown): PmJob {
         && (x.repair === null || x.repair.schema_version === "wringer.repair-packet.v1" && x.repair.planSha256 === x.planSha256 && hash(x.repair.sha256) && list(x.repair.checks, 32, c => c && id(c.id) && text(c.stdout, 2052) && text(c.stderr, 2052) && count(c.omittedBytes)))
         && (x.engineering === null ? v.engineering === undefined : engineering(x.engineering) && JSON.stringify(x.engineering) === JSON.stringify(v.engineering));
     if (!v || !["wringer.pm-job.v1", "wringer.pm-job.v2", "wringer.pm-job.v3", "wringer.pm-job.v4"].includes(v.schema_version) || (v.schema_version === "wringer.pm-job.v4" ? !loop(v.loop) : v.loop !== undefined || (v.schema_version === "wringer.pm-job.v2" ? !engineering(v.engineering) : v.engineering !== undefined)) || (v.schema_version === "wringer.pm-job.v3" ? v.mode !== "verification" || !v.verification || !count(v.verification.repetitions) || !count(v.verification.remaining) || !count(v.verification.runSeconds) || !list(v.verification.checks, 256, c => id(c.id) && text(c.command, 16384)) : v.mode !== undefined || v.verification !== undefined) || !uuid(v.jobId) || !hash(v.revision) || !hash(v.readyRevision) || !(v.candidateTree === null || tree(v.candidateTree))
+        || !(v.execution === undefined || v.execution === "trusted-local" && v.mode !== "verification")
+        || !(v.change === undefined || exact(v.change, ["baseCommit", "candidateCommit", "files", "patch", "truncated"]) && tree(v.change.baseCommit) && tree(v.change.candidateCommit) && text(v.change.patch, 65536) && typeof v.change.truncated === "boolean"
+            && list(v.change.files, 200, (f: any) => exact(f, ["path", "added", "removed"]) && text(f.path, 4096) && f.path.length > 0 && (f.added === null || count(f.added)) && (f.removed === null || count(f.removed))))
         || !["approval", "working", "review", "preparing", "send", "sent", "blocked", "correction"].includes(v.phase)
         || !text(v.name, 1000) || !text(v.intent) || !text(v.nextAction, 16000) || !(v.error === null || text(v.error, 16000))
         || !(v.revisionAdvanced === undefined || typeof v.revisionAdvanced === "boolean") || v.revisionAdvanced === true && !["working", "sent"].includes(v.phase)

@@ -373,7 +373,7 @@ describe("assistant application narrow authority and inert intake", () => {
         const changes: { alter: (p: ReturnType<typeof declaration>) => void; code: string }[] = [
             { alter: p => { p.repository.commit = "a".repeat(40); }, code: "profile-changed" },
             { alter: p => { p.repository.url = "https://example.org/other/repository.git"; }, code: "profile-changed" },
-            { alter: p => { p.runtime.cpus++; }, code: "profile-changed" },
+            { alter: p => { p.runtime.cpus!++; }, code: "profile-changed" },
             { alter: p => { p.agents.worker.command = "other-agent"; }, code: "profile-changed" },
             { alter: p => { p.environment.context = []; }, code: "profile-changed" },
             { alter: p => { p.budget.max_sessions++; }, code: "budget-increase-refused" },

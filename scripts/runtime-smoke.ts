@@ -2,7 +2,7 @@ import { mkdir, writeFile, readFile, lstat } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { isIP } from "node:net";
 import { randomUUID } from "node:crypto";
-import { appleContainerIds, openSandbox, parseRuntimePolicy, preflightAgentRole, processDriver, runtimeRedactor, type RuntimeDriver, type RuntimePolicy, type Sandbox, type RepositorySource } from "../packages/runtime/src/index";
+import { appleContainerIds, openSandbox, parseRuntimePolicy, preflightAgentRole, processDriver, runtimeRedactor, type RuntimeDriver, type RuntimePolicy, type ContainedRuntimePolicy, type Sandbox, type RepositorySource } from "../packages/runtime/src/index";
 
 export interface SmokeProfile { runtime: RuntimePolicy; networkProbe: { address: string; port: number }; timeoutMs: number }
 export function parseSmokeProfile(value: unknown): SmokeProfile {
@@ -71,7 +71,7 @@ export async function runtimeSmoke(profile: SmokeProfile, output: string, signal
     const commit = await git("rev-parse", "HEAD"); await git("bundle", "create", bundlePath, "HEAD");
     source = { url: "https://example.invalid/wringer-local-smoke.git", commit, bundlePath };
     await record({ id: "source", status: "pass", detail: { commit, localBareOrigin: "origin.git", transportedBundle: "source.bundle", liveRemoteUsed: false } });
-    const allocate = async (role: "worker" | "judge" | "verifier", policy = profile.runtime) => {
+    const allocate = async (role: "worker" | "judge" | "verifier", policy = profile.runtime as ContainedRuntimePolicy) => {
       const sandbox = await openSandbox({ role, repo: source!, policy, timeoutMs: remaining(), signal, driver, redact, ...(role === "worker" ? { scope: { writable: ["src"], protected: ["tests/protected.txt"], writableDirectories: ["node_modules"] } } : {}) });
       active.add(sandbox);
       await record({ id: `allocation-${role}-${sequence}`, status: "pass", detail: sandbox.provenance });
@@ -89,8 +89,8 @@ export async function runtimeSmoke(profile: SmokeProfile, output: string, signal
     if (await readFile(sentinel, "utf8") !== marker) throw Error("Host sentinel was modified by contained process");
     await record({ id: "host-sentinel-unchanged", status: "pass", detail: "Host bytes unchanged after contained read/write attempts at the same absolute path" });
     const resources = await checked("resource-observations", worker, [...fixture, "resources"]);
-    await record({ id: "resource-policy", status: "pass", detail: { declared: { cpus: profile.runtime.cpus, memoryMiB: profile.runtime.memoryMiB }, admissionValidated: true, guest: JSON.parse(resources.stdout), limitation: "Inspect/admission and guest counters measured; no OOM/CPU stress test, kernel escape or hardware side-channel proof" } });
-    const controlPolicy = parseRuntimePolicy({ ...profile.runtime, network: { policy: "allowlist", allow: [{ cidr: `${profile.networkProbe.address}/32`, ports: [profile.networkProbe.port] }] } });
+    await record({ id: "resource-policy", status: "pass", detail: { declared: { cpus: profile.runtime.cpus!, memoryMiB: profile.runtime.memoryMiB! }, admissionValidated: true, guest: JSON.parse(resources.stdout), limitation: "Inspect/admission and guest counters measured; no OOM/CPU stress test, kernel escape or hardware side-channel proof" } });
+    const controlPolicy = parseRuntimePolicy({ ...profile.runtime, network: { policy: "allowlist", allow: [{ cidr: `${profile.networkProbe.address}/32`, ports: [profile.networkProbe.port] }] } }) as ContainedRuntimePolicy;
     const control = await allocate("verifier", controlPolicy), networkCommand = ["bun", "/opt/wringer-smoke/network-probe.ts", profile.networkProbe.address, String(profile.networkProbe.port)];
     const reachable = await run(control, networkCommand), denied = await run(worker, networkCommand);
     const networkStatus = reachable.code !== 0 ? "inconclusive" : denied.code === 3 && /TCP_HANDSHAKE_(TIMEOUT|REFUSED)/.test(denied.stdout) ? "pass" : "fail";
@@ -108,7 +108,7 @@ export async function runtimeSmoke(profile: SmokeProfile, output: string, signal
     for (const sandbox of active) try { await sandbox.close(); } catch (error) { await record({ id: "cleanup-error", status: "fail", detail: redact(String(error)) }); }
     for (const id of runtimes) {
       try {
-        const policy = profile.runtime;
+        const policy = profile.runtime as ContainedRuntimePolicy;
         const argv = policy.kind === "apple-container" ? [policy.binary ?? "container", "list", "--all", "--format", "json"] : [policy.binary ?? "kubectl", "--context", policy.context, "--namespace", policy.namespace, "get", "pods,networkpolicies", "-o", "json"];
         const result = await processDriver.command(argv, { timeoutMs: 15000 });
         if (result.code !== 0) throw Error("Platform listing unavailable after cleanup");

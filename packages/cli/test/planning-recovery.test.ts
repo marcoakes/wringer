@@ -24,7 +24,7 @@ async function fixture(reply: string) {
         prepareSource: async (source: any) => { preparations++; return { ...source, objectStore: join(repo, "fixture.git") }; },
         propose: (options: Parameters<typeof proposeContainedPlan>[0]) => proposeContainedPlan({ ...options, executeRole: async request => {
             calls++;
-            return { status: "completed", text: reply, sessionId: crypto.randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: crypto.randomUUID(), role: "planner", kind: request.runtime.kind, image: request.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: "read-only", declared: request.runtime, observed: {}, limits: ["Synthetic, no provider/runtime"] } };
+            return { status: "completed", text: reply, sessionId: crypto.randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: crypto.randomUUID(), role: "planner", kind: request.runtime.kind, image: request.runtime.image!, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: "read-only", declared: request.runtime, observed: {}, limits: ["Synthetic, no provider/runtime"] } };
         } }),
     };
     return { repo, argv, expires, dependencies, calls: () => calls, preparations: () => preparations };

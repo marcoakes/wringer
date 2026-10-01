@@ -1,6 +1,6 @@
 {
   "name": "@wringer/temporal-adapter",
-  "version": "1.0.0-alpha.33",
+  "version": "1.0.0-alpha.34",
   "private": true,
   "description": "An optional Node worker that runs Wringer's contained-graph kernel as Temporal workflows. The Bun harness does not need it.",
   "type": "module",

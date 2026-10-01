@@ -22,6 +22,10 @@ The binding architecture is in [docs/REWRITE_PLAN.md](docs/REWRITE_PLAN.md):
    writable storage. The worker cannot change the judge's authority or evidence.
 5. Apple container locally and gVisor-backed Kubernetes contain execution, with
    the repository cloned inside. Never silently downgrade to host execution.
+   The one host route is the explicitly declared `trusted-local` runtime (plan v5,
+   ruled R-1 on 2026-10-01): roles and checks run as the operator's own processes
+   in fresh temporary clones, every record says nothing was contained, and
+   protected mode, falsification and design inputs refuse it.
 
 ## Three pillars
 

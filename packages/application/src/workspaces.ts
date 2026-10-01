@@ -25,7 +25,7 @@ export async function inspectWorkspaceSetup(repo: string, mode: OperatingMode | 
     const checks = await init(directory, { dryRun: true });
     return { schema_version: "wringer.setup-proposal.v1", repo: directory, mode: mode ?? null, client, checks, execution: mode === "delegation" ? "contained" : mode === "verification" ? "trusted-local" : "not-selected", authority: "none", nextAction: mode ? "Review proposed changes before applying setup. A job needs its own execution approval." : "Choose verification to check existing agent work, or delegation for a contained managed job.", limits: ["Inspection reads manifests as data. It executes no repository commands, retrieves no keys, and grants no work or sending.", "Check proposals are not a translation of CI conditions, services, secrets, matrices, or working directories."] };
 }
-export async function registerWorkspace(root: string, input: { repo: string; mode: OperatingMode; client: RegisteredWorkspace["client"]; applyChecks?: boolean; destination?: RegisteredWorkspace["preferences"]["destination"]; profileId?: string; credentialReferences?: string[] }) {
+export async function registerWorkspace(root: string, input: { repo: string; mode: OperatingMode; client: RegisteredWorkspace["client"]; /** A delegation workspace whose profile runs trusted-local. */ execution?: "trusted-local"; applyChecks?: boolean; destination?: RegisteredWorkspace["preferences"]["destination"]; profileId?: string; credentialReferences?: string[] }) {
     const preview = await inspectWorkspaceSetup(input.repo, input.mode, input.client), canonical = resolve(root), inside = relative(preview.repo, canonical);
     if (!inside || inside !== ".." && !inside.startsWith(`..${sep}`) && !inside.startsWith(sep)) throw new Error("Application state must live outside the target repository");
     const references = input.credentialReferences ?? [];
@@ -40,13 +40,13 @@ export async function registerWorkspace(root: string, input: { repo: string; mod
         if (existing.repo === preview.repo && existing.mode === input.mode && existing.client === input.client && hashValue(existing.preferences) === hashValue(preferences)) return existing;
     }
     if (input.applyChecks && preview.checks.status === "proposed") await init(preview.repo);
-    const workspace: RegisteredWorkspace = { schema_version: "wringer.workspace.v2", id: crypto.randomUUID(), repo: preview.repo, mode: input.mode, client: input.client, preferences, boundary: { approval: "cooperative-local", execution: input.mode === "verification" ? "trusted-local" : "contained" }, createdAt: new Date().toISOString() };
+    const workspace: RegisteredWorkspace = { schema_version: "wringer.workspace.v2", id: crypto.randomUUID(), repo: preview.repo, mode: input.mode, client: input.client, preferences, boundary: { approval: "cooperative-local", execution: input.mode === "verification" || input.execution === "trusted-local" ? "trusted-local" : "contained" }, createdAt: new Date().toISOString() };
     await writeAssistantRecord(canonical, `workspaces/${workspace.id}.json`, workspace);
     return workspace;
 }
 export async function readWorkspace(root: string, id: string) {
     const workspace = await readAssistantRecord<RegisteredWorkspace>(root, `workspaces/${assistantId(id)}.json`);
-    if (workspace.schema_version !== "wringer.workspace.v2" || workspace.id !== id || !["verification", "delegation"].includes(workspace.mode) || workspace.boundary.execution !== (workspace.mode === "verification" ? "trusted-local" : "contained")) throw new Error("Unsupported or inconsistent workspace record");
+    if (workspace.schema_version !== "wringer.workspace.v2" || workspace.id !== id || !["verification", "delegation"].includes(workspace.mode) || (workspace.mode === "verification" ? workspace.boundary.execution !== "trusted-local" : !["contained", "trusted-local"].includes(workspace.boundary.execution))) throw new Error("Unsupported or inconsistent workspace record");
     return workspace;
 }
 export async function listWorkspaces(root: string, cursor = 0, limit = 50) {

@@ -4,7 +4,7 @@ import type { AcpTransport, AgentDeclaration, AgentRole } from "@wringer/acp";
 import { firewallScript, quote, runtimeProvenanceVersion, validateRepository } from "./policy";
 import { parseWorkerScope, repositoryPermissionsScript } from "./filesystem";
 import { validateAppleImageInspection, validateAppleInspection, validateKubernetesPod, validateKubernetesNetworkPolicies } from "./observations";
-import { RuntimeError, type RuntimePolicy, type RuntimeDriver, type RepositorySource, type RuntimeProvenance, type RuntimeCommandOptions, type CommandResult, type KubernetesPolicy, type WorkerScope } from "./types";
+import { RuntimeError, type ContainedRuntimePolicy, type RuntimeDriver, type RepositorySource, type ContainedRuntimeProvenance, type RuntimeProvenance, type RuntimeCommandOptions, type CommandResult, type KubernetesPolicy, type WorkerScope } from "./types";
 export const REPO = "/workspace/repo";
 /** Apple 1.3.1 list is an array of snapshots. Unknown rows are not proof of absence. */
 export function appleContainerIds(value: unknown): string[] {
@@ -47,7 +47,7 @@ export function kubernetesPod(policy: KubernetesPolicy, id: string, role: AgentR
 export async function openSandbox(input: {
     role: AgentRole | "verifier";
     repo: RepositorySource;
-    policy: RuntimePolicy;
+    policy: ContainedRuntimePolicy;
     timeoutMs: number;
     signal?: AbortSignal;
     driver: RuntimeDriver;
@@ -168,7 +168,7 @@ export async function openSandbox(input: {
         await must(["/bin/sh", "-c", repositoryPermissionsScript(REPO, scope)]);
         observed.filesystem = { mode: readonly ? "read-only-source" : "scoped-worker", ...(scope ? { scope } : {}), gitMetadata: "controller-owned-read-only", protectedParents: "read-only", limitation: "New siblings cannot be created in a locked parent. Declare existing scoped paths and explicit untracked output directories in the approved plan." };
         observed.executionIdentity = redact((await must([...dropPrivileges, ...agentEnvironment, "/bin/sh", "-c", "set -eu; test \"$(id -u)\" = 1000; test \"$(id -g)\" = 1000; awk '/^Cap(Eff|Bnd):/ { if ($2 !~ /^0+$/) exit 1; seen++ } /^NoNewPrivs:/ { if ($2 != \"1\") exit 1; seen++ } END { if (seen != 3) exit 1 }' /proc/self/status; id; awk '/^(Uid|Gid|CapEff|CapBnd|NoNewPrivs):/' /proc/self/status"])).stdout.trim());
-        const provenance: RuntimeProvenance = { schema_version: runtimeProvenanceVersion(repo.url), runtimeId: id, role, kind: policy.kind, image: policy.image, repository: { url: repo.url, commit: repo.commit }, clonedInside: true, hostMounts: [], repositoryAccess: readonly ? "read-only" : "read-write", declared: policy, observed: JSON.parse(redact(JSON.stringify(observed))), limits: ["Platform isolation and network enforcement require the live platform release gate; configuration and inspect records are not escape-proof evidence.", "Only explicitly declared environment names cross; no host home, agent socket, login directory, or publication credential is mounted."] };
+        const provenance: ContainedRuntimeProvenance = { schema_version: runtimeProvenanceVersion(repo.url), runtimeId: id, role, kind: policy.kind, image: policy.image, repository: { url: repo.url, commit: repo.commit }, clonedInside: true, hostMounts: [], repositoryAccess: readonly ? "read-only" : "read-write", declared: policy, observed: JSON.parse(redact(JSON.stringify(observed))), limits: ["Platform isolation and network enforcement require the live platform release gate; configuration and inspect records are not escape-proof evidence.", "Only explicitly declared environment names cross; no host home, agent socket, login directory, or publication credential is mounted."] };
         return { provenance, exec, run: async (argv, options) => exec([...dropPrivileges, ...agentEnvironment, "/bin/sh", "-c", `cd ${quote(REPO)}; exec "$@"`, "wringer-command", ...argv], options), connect: async (agent) => driver.connect([...connectPrefix, ...dropPrivileges, ...agentEnvironment, "/bin/sh", "-c", `cd ${quote(REPO)}; exec "$@"`, "wringer-agent", agent.command, ...(agent.args ?? [])], { env, signal: input.signal, timeoutMs: deadline - Date.now() }), importSource, close };
     }
     catch (error) {

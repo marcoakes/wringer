@@ -1,6 +1,7 @@
 /** Frozen delivery views. This module is pure and imports no board/orchestration services. */
 import { createHash } from "node:crypto";
 import type { ExecutionPlan } from "@wringer/plan";
+import { runtimeImage } from "@wringer/runtime";
 import type { EngineeringSummary } from "./engineering";
 export interface ContainedDeliveryProjection {
     schema_version: "wringer.contained-delivery-view.v1" | "wringer.contained-delivery-view.v2";
@@ -43,7 +44,7 @@ export function deriveContainedDeliveryProjection(plan: ExecutionPlan, manifest:
             const green = checkIds.length > 0 && checkIds.every(id => manifest.verification.checks.find((r: any) => r.id === id)?.status === "passed");
             return { id: c.id, title: c.title, kind: c.kind, required: c.required, state: c.kind === "human" ? judgement ? judgement.verdict === "met" ? "met" as const : "not-met" as const : "unknown" as const : finding?.met === true && green ? "met" as const : finding?.met === false || !green ? "not-met" as const : "unknown" as const, checkIds, note: c.kind === "human" ? judgement?.note ?? null : finding?.reason ?? null, by: c.kind === "human" ? judgement?.by ?? null : null };
         }),
-        usage: { sessions: roles.length, reportedSessions: roles.filter(r => Number.isSafeInteger(r.result?.usage?.inputTokens) && r.result.usage.inputTokens >= 0 && Number.isSafeInteger(r.result?.usage?.outputTokens) && r.result.usage.outputTokens >= 0).length, inputTokens: reported("inputTokens"), outputTokens: reported("outputTokens"), costUsd: null }, agents: roles.map(r => ({ effectId: r.id, role: r.role, command: r.request.agent.command, protocolVersion: r.result?.protocolVersion ?? null, image: r.request.runtime.image, agentInfo: r.result?.agentInfo ?? null, model: null })), auditCommand: manifest.auditCommand, falsifyCommand: manifest.falsify.command,
+        usage: { sessions: roles.length, reportedSessions: roles.filter(r => Number.isSafeInteger(r.result?.usage?.inputTokens) && r.result.usage.inputTokens >= 0 && Number.isSafeInteger(r.result?.usage?.outputTokens) && r.result.usage.outputTokens >= 0).length, inputTokens: reported("inputTokens"), outputTokens: reported("outputTokens"), costUsd: null }, agents: roles.map(r => ({ effectId: r.id, role: r.role, command: r.request.agent.command, protocolVersion: r.result?.protocolVersion ?? null, image: runtimeImage(r.request.runtime), agentInfo: r.result?.agentInfo ?? null, model: null })), auditCommand: manifest.auditCommand, falsifyCommand: manifest.falsify.command,
         limits: [...manifest.limits, "Usage is reported by agent adapters. Missing token counts and unmeasured monetary cost remain unknown; this is not a billing statement."]
     };
 }

@@ -20,6 +20,9 @@ Validate mutable fields using `wringer.validate_proposal`, then record with
 same lineage. The profile pins source, runtime, protected acceptance and upper
 limits; a proposal may narrow those limits. It cannot change its own containment,
 credentials or authority. Missing containment is a setup refusal, never host work.
+A profile the operator explicitly declared `trusted-local` runs the worker and
+judge as their own coding agents on this computer, each in a fresh clone; every
+record says nothing was contained. You cannot choose or change that runtime.
 
 Use `wringer.inspect_loop` to inspect the retained candidate decisions, check
 outcomes, repair excerpts and remaining reservations. This is a read-only

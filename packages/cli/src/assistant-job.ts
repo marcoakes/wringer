@@ -7,6 +7,8 @@ import { activeWorkspaceCommand, queueWorkspaceCommand, readWorkspaceCommand, ty
 import { readController, controllerStatus, type ApplicationOptions } from "../../application/src/controller";
 import { projectDesignDisplay } from "./design-assets";
 import { readLoopInspection } from "../../application/src/loop-inspection";
+import { readCandidateChange, type CandidateChange } from "../../application/src/candidate-change";
+import { readValidatedContainedState } from "@wringer/workflow";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`; };
@@ -23,6 +25,21 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
     let stopped = false, sweeping = false;
     const assertRunning = () => { if (stopped || options.isStopping?.() || options.signal?.aborted) throw new Error("The owner is stopping. No new work or decision is allowed."); };
     const stateOf = (jobId: string) => assistantControllerState(service.root, jobId);
+    // A result's change is fixed once it exists; read it from its bundle once per candidate.
+    const changes = new Map<string, Promise<CandidateChange | null>>();
+    function changeOf(jobId: string, candidateTree: string, baseCommit: string) {
+        const key = `${jobId}:${candidateTree}`;
+        let value = changes.get(key);
+        if (!value) {
+            if (changes.size >= 64) changes.delete(changes.keys().next().value!);
+            value = (async () => {
+                const candidate = (await readValidatedContainedState(stateOf(jobId))).state.candidate;
+                return candidate && candidate.tree === candidateTree && candidate.source.bundlePath ? readCandidateChange(candidate.source.bundlePath, baseCommit, candidate.source.commit) : null;
+            })().catch(() => null);
+            changes.set(key, value);
+        }
+        return value;
+    }
     const purposeId = (jobId: string, candidate: string | null, purpose: string, attempt: number) => id({ schema: "wringer.pm-convenience.v1", jobId, candidate, purpose, attempt });
     async function retryCount(jobId: string, candidate: string | null) {
         const names = await assistantInventory(service.root, `jobs/${jobId}/pm-retries`);
@@ -155,9 +172,11 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         else if (failed || failedDisplay || observedTransient !== null) { phase = "blocked"; error = failed?.error ?? displays.find(d => !d.success)?.error ?? observedTransient ?? "This step did not complete."; }
         else if (needCorrection) { phase = "correction"; nextAction = "Your No is recorded. Say what should change; correction uses only the remaining approved allowance."; }
         else if (status.outcome === "review-ready") {
-            if (preparation?.status === "completed") { phase = "send"; nextAction = "Your result is accepted. Send this exact prepared change to the destination below?"; }
+            // With no requirement for a person to review, nobody accepted it: the checks and the independent review agreed.
+            const settled = human.length ? "Your result is accepted." : "Every requirement was checked: its checks passed and the independent review agreed. No one has reviewed it for you; look at what changed.";
+            if (preparation?.status === "completed") { phase = "send"; nextAction = `${settled} Send this exact prepared change to the destination below?`; }
             else if (!destination) { phase = "blocked"; error = "No handover destination was selected during setup. Nothing can be sent."; }
-            else { phase = "preparing"; nextAction = "Your result is accepted. Preparing its handover proof; nothing is being sent."; }
+            else { phase = "preparing"; nextAction = `${settled} Preparing its handover proof; nothing is being sent.`; }
         } else if (status.outcome === "human-hold" && human.length && displays.length === human.length && displays.every(d => d.success) && board?.actions.some(a => a.id === "review" && a.enabled)) { phase = "review"; nextAction = "Your result is ready. Does it meet the requirements shown below?"; }
         else if (status.outcome === "human-hold") { phase = "preparing"; nextAction = "Opening the actual result for your review. No decision has been recorded."; }
         else if (!["approved", "running"].includes(status.outcome)) { phase = "blocked"; error = status.nextAction; }
@@ -167,7 +186,9 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         const publication = status.publication ? { ...status.publication, ...(destination && typeof destination.remote === "string" ? { cloneCommand: `git clone --no-local --branch ${quote(status.publication.sourceBranch)} -- ${quote(destination.remote)} 'reviewed-change'` } : {}) } : null;
         const revision = status.revision, retryable = phase === "blocked" && !send && attempt < 3 && (failed?.status === "failed" || failedDisplay) && !status.uncertainty && !!approval && Date.parse(approval.authority.expires_at) > Date.now();
         const readyRevision = hashValue({ jobId, revision, candidateTree: status.candidateTree, phase, attempt, displays: displays.map(d => ({ id: d.displayId, success: d.success })), preparedId: phase === "send" ? prepareId : null, publication });
-        return redactor.deep({ schema_version: loop ? "wringer.pm-job.v4" : "wringer.pm-job.v1", ...(loop ? { loop } : {}), ...(engineering ? { engineering } : {}), jobId, revision, readyRevision, candidateTree: status.candidateTree, revisionAdvanced, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
+        const trustedLocal = (p.plan ?? service.workspace.profile).runtime.kind === "trusted-local";
+        const change = status.candidateTree && p.plan && ["review", "correction", "preparing", "send", "sent"].includes(phase) ? await changeOf(jobId, status.candidateTree, p.plan.repository.commit) : null;
+        return redactor.deep({ schema_version: loop ? "wringer.pm-job.v4" : "wringer.pm-job.v1", ...(loop ? { loop } : {}), ...(engineering ? { engineering } : {}), ...(trustedLocal ? { execution: "trusted-local" } : {}), ...(change ? { change } : {}), jobId, revision, readyRevision, candidateTree: status.candidateTree, revisionAdvanced, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
             scope: { repository: p.plan?.repository.url ?? service.workspace.profile.repository.url, sourceCommit: p.plan?.repository.commit ?? service.workspace.profile.repository.commit, writable: p.plan?.scope.writable ?? [], protected: p.plan?.acceptance.protected_paths ?? [] }, questions: p.questions, assumptions: p.assumptions,
             requirements: (p.plan?.acceptance.criteria ?? []).map(c => {
                 const visual = p.plan?.design?.reviews.find(row => row.criterionId === c.id);

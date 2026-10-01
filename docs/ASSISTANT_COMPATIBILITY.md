@@ -1,11 +1,24 @@
-# Adoption client compatibility — 28 September 2026
+# Adoption client compatibility — 1 October 2026
 
-| Client/surface | Transport | Configuration measurement | Full journey | Boundary |
+Every client is named with `--client`; none is a default (ruling R-7). A recipe is
+a connection, checked against the client's official documentation on
+2026-10-01. It is not a measured journey: that column says what was observed.
+
+| Client | Connection | Recipe source | Full journey | Notes |
 | --- | --- | --- | --- | --- |
-| Codex CLI 0.153.4 on macOS arm64 | Local STDIO | Installed CLI accepted exact generated launcher via explicit overrides; scoped TOML/skill fixture install/update/remove passes | Unmeasured for this candidate | Cooperative-local outer client; contained managed roles are separate |
-| Codex desktop | Local STDIO recipe | Separate surface, unmeasured | Unmeasured | Desktop discovery/trust/reload cannot be inferred from CLI |
-| Claude Code | Local STDIO | Scoped JSON/skill fixture tests pass; client executable absent here | Unavailable on this host | No claim from Claude's ACP worker adapter |
-| Generic MCP client | Local STDIO | Exact mode-derived contracts and no-model bridge probe | No named-client claim | No model approval/verdict/Send tool |
+| Claude Code | `wring connect --client claude-code` applies a reviewed project or user entry (`claude mcp add` / `.mcp.json`) | Official docs | Unmeasured for this candidate | Distinct from Claude as an ACP worker |
+| Codex CLI 0.153.4 | `wring connect --client codex` applies a reviewed TOML entry | Official docs | Unmeasured for this candidate | Codex desktop is a separate, unmeasured surface |
+| Cursor | Printed `mcpServers` entry for `~/.cursor/mcp.json` or `.cursor/mcp.json` | Official docs | Unmeasured | No add command |
+| Gemini CLI | Printed `mcpServers` entry for `settings.json` | Official docs | Unmeasured | Its add command is not printed |
+| Kimi CLI | Printed `kimi mcp add` command | Official docs | Unmeasured | |
+| VS Code | Printed `code --add-mcp` command or `.vscode/mcp.json` (`servers` key) | Official docs | Unmeasured | |
+| Windsurf | Generic stanza only | Not verified | Unmeasured | Its MCP documentation could not be checked |
+| Generic MCP client | `wring mcp --connection PATH` over STDIO | MCP docs | No named-client claim | No approval, verdict or Send tool |
+
+The worker and judge are chosen separately from the client. A
+[trusted-local](native/TRUSTED_LOCAL.md) profile runs them through
+`@agentclientprotocol/claude-agent-acp@0.65.0` or
+`@agentclientprotocol/codex-acp@1.10.0` on this computer, with nothing contained.
 
 Use [START_AGENT](START_AGENT.md) for preview/apply/remove. Standard scoped config
 locations are supported; custom CODEX_HOME/CLAUDE_CONFIG_DIR configurations refuse
@@ -13,12 +26,7 @@ rather than writing unused defaults. The client may still require project trust
 and reload. These are client decisions, not setup side effects.
 
 The complete live procedure is [LIVE_ACCEPTANCE.md](rebuild/LIVE_ACCEPTANCE.md).
-It records disconnect/recovery, correction, declined Send, explicit Send,
-fresh-clone audit and a second job. No model/provider calls are authorized by the
-implementation checks. Finite live allowance and a person's actual judgments are
-separate prerequisites. Historical successful stages and failed review remain
-below; they cannot qualify this changed candidate. Other client brands are outside
-the adoption scope.
+Historical stages remain below; they cannot qualify this changed candidate.
 
 ---
 

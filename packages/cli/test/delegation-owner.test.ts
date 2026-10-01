@@ -92,3 +92,35 @@ test("T16 a partial owned connection write is cleaned up without deleting a pre-
     await expect(createDelegationOwner(root, id)).rejects.toThrow();
     expect(await Bun.file(path).text()).toBe("unrelated existing bytes");
 });
+
+test("R-1 a trusted-local workspace answers through the owner in the sibling versions that admit its boundary", async () => {
+    const { applyDelegationProfile, createDelegationJob, inspectDelegationProfile, registerWorkspace } = await import("@wringer/application");
+    const { git } = await import("@wringer/engine");
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-owner-trusted-local-"))); cleanup.push(() => rm(root, { recursive: true, force: true }));
+    const repo = join(root, "repo"), app = join(root, "app"); await mkdir(join(repo, "src"), { recursive: true }); await mkdir(join(repo, "tests"));
+    await git(repo, ["init", "--initial-branch=main"]); await git(repo, ["config", "user.name", "Automated fixture"]); await git(repo, ["config", "user.email", "fixture@example.invalid"]);
+    await writeFile(join(repo, "src/value.ts"), "export const value = 1;\n"); await writeFile(join(repo, "tests/check.ts"), 'throw new Error("Inspection must not run me");\n');
+    await writeFile(join(repo, "package.json"), JSON.stringify({ packageManager: "bun@1.4.2", scripts: { test: "bun tests/check.ts" } }));
+    await git(repo, ["add", "."]); await git(repo, ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "commit", "-m", "fixture"]);
+    await createAssistantDirectory(app);
+    const preview = await inspectDelegationProfile(app, repo, { runtime: "trusted-local", worker: { adapter: "claude-agent-acp" }, judge: { adapter: "codex-acp" }, source: { kind: "local" }, dependencies: "none" } as any);
+    const profile = await applyDelegationProfile(app, preview, { expectedIdentity: preview.identity, actor: "Automated fixture operator", cooperativeLocal: true });
+    const workspace = await registerWorkspace(app, { repo, mode: "delegation", client: "claude-code", execution: "trusted-local", profileId: profile.id });
+    const job = await createDelegationJob(app, workspace.id, { intent: "Return the value as 5.", idempotencyKey: crypto.randomUUID() });
+    const owner = await createDelegationOwner(app, workspace.id); cleanup.push(() => owner.stop());
+    // Each answer passes the owner's own output validation; none is refused for its boundary.
+    const setup = await callAssistantConnection(owner.connectionPath, "wringer.inspect_setup", {});
+    expect(setup.schema_version).toBe("wringer.delegation-setup.v2"); expect(setup.boundary).toEqual({ approval: "cooperative-local", execution: "trusted-local" });
+    const status: any = await callAssistantConnection(owner.connectionPath, "wringer.get_status", { jobId: job.id });
+    expect(status.schema_version).toBe("wringer.assistant-response.v3"); expect(status.outcome).toBe("needs-decision"); expect(status.boundary.execution).toBe("trusted-local");
+    const listed: any = await callAssistantConnection(owner.connectionPath, "wringer.list_jobs", {}); expect(listed.jobs.map((row: any) => row.jobId)).toContain(job.id);
+    const validation = await callAssistantConnection(owner.connectionPath, "wringer.validate_proposal", { workspaceId: workspace.id, proposal: { intent: "Return the value as 5.", title: "Return five", criteria: [{ id: "test", title: "The existing test passes", quote: "Return the value as 5.", kind: "check", required: true }], checks: [{ id: "test", criteria: ["test"] }], scope: { writable: ["src"] } } });
+    expect(validation.valid).toBeTrue();
+    // Answering the job's questions supersedes its proposal with a v5 plan: the transition is the v2 sibling.
+    const revised = await callAssistantConnection(owner.connectionPath, "wringer.revise_proposal", { jobId: job.id, idempotencyKey: crypto.randomUUID(), expectedRevision: status.revision, proposal: { intent: "Return the value as 5.", title: "Return five", criteria: [{ id: "test", title: "The existing test passes", quote: "Return the value as 5.", kind: "check", required: true }], checks: [{ id: "test", criteria: ["test"] }], scope: { writable: ["src"] } } });
+    expect(revised.outcome).toBe("awaiting-approval"); expect(revised.schema_version).toBe("wringer.assistant-response.v3");
+    const request = await callAssistantConnection(owner.connectionPath, "wringer.get_approval_request", { jobId: revised.jobId });
+    expect(request.outcome).toBe("awaiting-approval");
+    expect(JSON.stringify(await callAssistantConnection(owner.connectionPath, "wringer.get_status", { jobId: job.id }))).toContain("superseded");
+}, 30000);

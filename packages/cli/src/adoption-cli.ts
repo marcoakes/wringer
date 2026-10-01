@@ -14,6 +14,8 @@ import { inspectDelegationImprovements } from "@wringer/application";
 import { compactVerificationStatus } from "@wringer/application";
 import { applyAcceptancePreparation, inspectAcceptancePreparation } from "@wringer/application";
 import { parseMcpJson } from "@wringer/mcp";
+import { clientRecipe, parseMcpClient, type McpClient } from "./client-recipes";
+import { renderClientRecipe } from "./client-recipes";
 import { inspectWorkspaceRecovery, applyWorkspaceRecovery } from "@wringer/application";
 import { inspectVerificationSendRecovery, applyVerificationSendRecovery } from "@wringer/application";
 import { inspectVerificationRecovery, applyVerificationRecovery } from "@wringer/application";
@@ -25,10 +27,16 @@ import { previewClientConnection, applyClientConnection, detectClient, probeRest
 
 export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
 
-  wring setup --repo PATH --client claude-code|codex|generic [--mode verification|delegation] [--dry-run --json]
+  wring setup --repo PATH --client CLIENT [--mode verification|delegation] [--dry-run --json]
   wring setup --repo PATH --client CLIENT --mode verification --apply
   wring setup --repo PATH --prepare-acceptance INPUT.json [--dry-run --json]
   wring setup --repo PATH --prepare-acceptance INPUT.json --apply --expected HASH --actor NAME
+  wring setup --repo PATH --client CLIENT --mode delegation --runtime trusted-local
+      --worker-adapter claude-agent-acp|codex-acp --judge-adapter claude-agent-acp|codex-acp
+      --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
+      [--writable PATH] [--output-dir PATH] [--acceptance UUID] --dry-run --json
+      Trusted-local runs your coding agents on this computer under your account,
+      each role in a fresh clone; nothing is contained and protected mode refuses it.
   wring setup --repo PATH --client CLIENT --mode delegation --provision UUID
       --worker-provider openai|anthropic --worker-model MODEL
       --judge-provider openai|anthropic --judge-model MODEL
@@ -45,6 +53,8 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
   wring job open --workspace ID [--job ID]
   wring job serve --workspace ID
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
+      CLIENT: claude-code, codex, cursor, gemini-cli, generic, kimi, vscode or windsurf (none is a default).
+      claude-code and codex can be applied with review; the others print their documented recipe.
   wring connect ... --apply --expected DIGEST [--replace] [--auto-approve]
   wring connect ... --remove [--apply --expected DIGEST]
   wring connect ... --verify-client
@@ -65,7 +75,8 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
 Setup inspection executes no project code and retrieves no credentials. Applying
 setup creates only the displayed configuration and workspace registration. Opening
 the operator page starts no job by itself. Verification runs repository commands
-trusted-local, under a finite operator grant. Delegation never falls back to it.
+on this computer, under a finite operator grant. Delegation never falls back to
+this computer; --runtime trusted-local is its own explicit, stamped choice.
 An approval, human acceptance, and sending are separate decisions.
 `;
 export function installedLauncher(executable = process.execPath, modulePath = import.meta.url) {
@@ -118,7 +129,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         return { value: flag(a, "apply") ? await applyWorkspaceRecovery(root, workspace, { expectedIdentity: required(a, "expected"), actor: required(a, "actor") }) : await inspectWorkspaceRecovery(root, workspace) };
     }
     if (a.command === "setup") {
-        allowed(a, ["app-dir", "client", "mode", "dry-run", "apply", "remote", "base", "profile", "provision", "readiness", "acceptance", "prepare-acceptance", "worker-provider", "worker-model", "judge-provider", "judge-model", "source", "source-remote", "dependencies", "network", "egress", "dns", "writable", "output-dir", "gate", "expected", "actor", "cooperative-local"]); positionals(a, 0);
+        allowed(a, ["app-dir", "client", "mode", "dry-run", "apply", "remote", "base", "profile", "runtime", "worker-adapter", "judge-adapter", "provision", "readiness", "acceptance", "prepare-acceptance", "worker-provider", "worker-model", "judge-provider", "judge-model", "source", "source-remote", "dependencies", "network", "egress", "dns", "writable", "output-dir", "gate", "expected", "actor", "cooperative-local"]); positionals(a, 0);
         if (flag(a, "apply") && flag(a, "dry-run")) throw new Error("Choose preview or apply, not both");
         if (string(a, "prepare-acceptance")) {
             const input = await readFile(resolve(required(a, "prepare-acceptance")), "utf8");
@@ -126,12 +137,26 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
             const preparation = await inspectAcceptancePreparation(root, repo, parseMcpJson(input) as any);
             return { value: flag(a, "apply") ? await applyAcceptancePreparation(root, preparation, { expectedIdentity: required(a, "expected"), actor: required(a, "actor") }) : preparation };
         }
-        const client = required(a, "client") as RegisteredWorkspace["client"], mode = string(a, "mode") as RegisteredWorkspace["mode"] | undefined;
+        // R-7: any named MCP client; those Wringer cannot manage are registered as generic.
+        const named = parseMcpClient(required(a, "client")), client = (["claude-code", "codex"].includes(named) ? named : "generic") as RegisteredWorkspace["client"], mode = string(a, "mode") as RegisteredWorkspace["mode"] | undefined;
         const preview = await inspectWorkspaceSetup(repo, mode, client);
+        if (mode === "delegation" && string(a, "runtime") === "trusted-local") {
+            // R-1: an explicit operator choice to run on this computer; nothing is contained.
+            if (["provision", "readiness", "network", "egress", "dns", "worker-provider", "worker-model", "judge-provider", "judge-model"].some(key => string(a, key) !== undefined || values(a, key) !== undefined)) throw new Error("A trusted-local profile names ACP adapters, not providers, models, a provision or a network policy: it runs on this computer under your account, where none of those is enforced");
+            const source = required(a, "source"); if (!["local", "remote"].includes(source)) throw new Error("Choose --source local or remote explicitly");
+            const selection: DelegationSelection = { runtime: "trusted-local", ...(string(a, "acceptance") ? { acceptanceId: string(a, "acceptance") } : {}), worker: { adapter: required(a, "worker-adapter") as any }, judge: { adapter: required(a, "judge-adapter") as any }, source: source === "local" ? { kind: "local" } : { kind: "remote", remote: required(a, "source-remote") }, dependencies: required(a, "dependencies") as any, ...(values(a, "writable") ? { writable: values(a, "writable") } : {}), ...(values(a, "output-dir") ? { outputDirectories: values(a, "output-dir") } : {}), ...(values(a, "gate") ? { gates: values(a, "gate") } : {}) };
+            const trusted = await inspectDelegationProfile(root, repo, selection);
+            if (!flag(a, "apply")) return { value: trusted, text: `${JSON.stringify(trusted, null, 2)}\nIts roles and checks will run on this computer under your account; nothing is contained. Repeat with --apply --expected ${trusted.identity} --actor NAME --cooperative-local to keep this profile.` };
+            const remote = string(a, "remote"), base = string(a, "base"); if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
+            const profile = await applyDelegationProfile(root, trusted, { expectedIdentity: required(a, "expected"), actor: required(a, "actor"), cooperativeLocal: flag(a, "cooperative-local") });
+            const workspace = await registerWorkspace(root, { repo, mode, client, execution: "trusted-local", applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(remote && base ? { destination: { remote, base } } : {}) });
+            return { value: { workspace, profile }, text: `Registered trusted-local workspace ${workspace.id} and reviewed profile ${profile.id}.\nIts roles and checks will run on this computer under your account; nothing is contained.\nNo work or Send was approved. Next: wring job new --workspace ${workspace.id} --intent 'YOUR REQUEST'` };
+        }
         if (mode === "delegation") {
+            if (string(a, "runtime") !== undefined && string(a, "runtime") !== "contained") throw new Error("Choose --runtime contained (the default, by provision) or --runtime trusted-local");
             if (!string(a, "provision")) {
                 if (flag(a, "apply")) throw new Error("Select the completed --provision and explicit role/source choices before applying contained setup. Run wring runtime catalogue and provision first");
-                return { value: { ...preview, nextAction: "Inspect wring runtime catalogue, preview a contained runtime provision, then select its ID plus explicit worker/judge providers, models, source transport, dependencies and network. See wring setup --help." } };
+                return { value: { ...preview, nextAction: "Choose a runtime. Contained: inspect wring runtime catalogue, preview a provision, then select its ID plus explicit worker/judge providers, models, source transport, dependencies and network. Or --runtime trusted-local with --worker-adapter and --judge-adapter (claude-agent-acp or codex-acp): it runs on this computer under your account and nothing is contained. See wring setup --help." } };
             }
             const source = required(a, "source"); if (!["local", "remote"].includes(source)) throw new Error("Choose --source local or remote explicitly");
             const network = required(a, "network"); if (!["deny", "allowlist"].includes(network)) throw new Error("Choose an explicit deny or allowlist network policy");
@@ -153,10 +178,16 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
     }
     if (a.command === "connect") {
         allowed(a, ["app-dir", "workspace", "client", "scope", "dry-run", "apply", "expected", "replace", "remove", "auto-approve", "verify-client", "probe-tools"]); positionals(a, 0);
-        const workspace = await readWorkspace(root, required(a, "workspace")), client = required(a, "client");
-        if (!["claude-code", "codex", "generic"].includes(client)) throw new Error("Select claude-code, codex, or generic");
+        const workspace = await readWorkspace(root, required(a, "workspace")), client = parseMcpClient(required(a, "client"));
         const connectionPath = join(root, "owners", workspace.id, "connection.json");
         const command = [...installedLauncher(), "mcp", "--connection", connectionPath];
+        // R-7: Claude Code and Codex have reviewed, scoped configuration management; every
+        // other client gets its documented recipe to apply by hand.
+        if (!["claude-code", "codex", "generic"].includes(client)) {
+            if (["apply", "remove", "replace", "auto-approve", "verify-client", "probe-tools"].some(key => flag(a, key))) throw new Error(`${client} gets a printed recipe only; Wringer does not edit its configuration. Apply the recipe yourself, or use claude-code or codex for scoped management`);
+            const recipe = clientRecipe(client as Exclude<McpClient, "codex">, command);
+            return { value: { schema_version: "wringer.connection-proposal.v1", workspaceId: workspace.id, ...recipe, applied: false, compatibility: "unmeasured" }, text: `${renderClientRecipe(recipe)}\nStart the owner with wring job open before connecting. No client configuration was read or changed.` };
+        }
         if (client === "generic") {
             if (["apply", "remove", "replace", "auto-approve", "verify-client", "probe-tools"].some(key => flag(a, key))) throw new Error("Generic STDIO provides a recipe only; select a supported client for scoped management");
             return { value: { schema_version: "wringer.connection-proposal.v1", workspaceId: workspace.id, client, command: command[0], args: command.slice(1), applied: false, compatibility: "unmeasured" }, text: `Generic STDIO recipe:\n${command.map(quote).join(" ")}\nStart the owner with wring job open before connecting. No client compatibility is implied.` };

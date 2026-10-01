@@ -24,12 +24,14 @@ __pycache__/
 # (docs/benchmark-first-run.md); the tree is not committable anyway, because
 # the worktrees' .git files are absolute paths into one machine.
 /benchmark/results/
+/docs/archive/benchmark/results/
 /results/
 
 # corpus — generated task files name absolute clone and venv paths, so they are
 # a machine's, not the project's. The reviewable artifacts (corpus.yaml, the
 # held-out tests, the upstream statements) are all committed.
 /benchmark/corpus/tasks/
+/docs/archive/benchmark/corpus/tasks/
 
 # env & secrets
 .env

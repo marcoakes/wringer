@@ -18,7 +18,7 @@ export async function planningFixture(reply: string, ceiling = 1) {
     let calls = 0;
     const executeRole = async (r: RoleExecutionRequest): Promise<RoleExecutionResult> => {
         calls++;
-        return { status: "completed", text: reply, sessionId: crypto.randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: crypto.randomUUID(), role: "planner", kind: r.runtime.kind, image: r.runtime.image, repository: r.repo, clonedInside: true, hostMounts: [], repositoryAccess: "read-only", declared: r.runtime, observed: {}, limits: ["Synthetic result; no model or runtime was called"] } };
+        return { status: "completed", text: reply, sessionId: crypto.randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: crypto.randomUUID(), role: "planner", kind: r.runtime.kind, image: r.runtime.image!, repository: r.repo, clonedInside: true, hostMounts: [], repositoryAccess: "read-only", declared: r.runtime, observed: {}, limits: ["Synthetic result; no model or runtime was called"] } };
     };
     return { options: { controllerDir, request, authority, source: request.repository, executeRole }, plan, calls: () => calls };
 }

@@ -34,6 +34,8 @@ test("a local identity is refused outside v4, and v4 refuses every other source 
         expect(() => compileDeclaration(declaration(4, url)), url).toThrow("A version 4 plan names a local-only source: repository.url must be local:// followed by the 40-character root commit of its history. Hosted sources use plan version 1, 2 or 3.");
     const plan = compileDeclaration(declaration(4, local));
     expect((await reader.validate(tamper(plan, "https://example.com/operator/source.git"), "execution-plan-v4.schema.json")).ok).toBe(false);
-    expect(() => compileDeclaration({ ...declaration(4, local), version: 5 } as unknown as PlanDeclaration)).toThrow("Plan version must be 1, 2, 3 or 4");
+    // Version 5 exists only for a trusted-local runtime: it cannot carry a contained profile.
+    expect(() => compileDeclaration({ ...declaration(4, local), version: 5 } as unknown as PlanDeclaration)).toThrow("A version 5 plan names a trusted-local runtime");
+    expect(() => compileDeclaration({ ...declaration(4, local), version: 6 } as unknown as PlanDeclaration)).toThrow("Plan version must be 1, 2, 3, 4 or 5");
 });
 

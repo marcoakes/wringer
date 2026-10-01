@@ -59,7 +59,7 @@ test("adoption changes only a future unapproved template; stale source and evide
         const changed = compileDeclaration({ version: 3, ...data, repository: { ...profile.repository, commit: "f".repeat(40) } });
         expect((await futureImprovementTemplate(controller, changed)).plan).toEqual(changed);
         for (const change of [
-            { runtime: { ...profile.runtime, cpus: profile.runtime.cpus + 1 } },
+            { runtime: { ...profile.runtime, cpus: profile.runtime.cpus! + 1 } },
             { agents: { ...profile.agents, worker: { ...profile.agents.worker, args: [...(profile.agents.worker.args ?? []), "--fixture-model-change"] } } },
             { environment: { ...profile.environment, context: [...profile.environment.context, "OTHER.md"] } },
             { acceptance: { ...profile.acceptance, checks: profile.acceptance.checks.map(check => ({ ...check, argv: [...check.argv, "--fixture-check-change"] })) } }

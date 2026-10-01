@@ -99,3 +99,30 @@ test("gVisor profile binds the measured cluster boundary and references without 
     expect(preview.readiness.providerAcceptance).toBe("unmeasured"); expect(preview.plan.runtime.env).toEqual(["ANTHROPIC_API_KEY", "CODEX_API_KEY"]);
     await expect(application.inspectDelegationProfile(f.app, f.repo, { ...f.selection, provisionId } as any)).rejects.toThrow("inventory");
 });
+test("R-1 a trusted-local profile names pinned ACP adapters, no provision or network, and runs on this computer", async () => {
+    const f = await fixture(), selection = { runtime: "trusted-local", worker: { adapter: "claude-agent-acp" }, judge: { adapter: "codex-acp" }, source: { kind: "local" }, dependencies: "none" };
+    const preview = await application.inspectDelegationProfile(f.app, f.repo, selection as any);
+    expect(preview.plan.schema_version).toBe("wringer.execution-plan.v5");
+    expect(preview.plan.runtime).toEqual({ kind: "trusted-local", network: { policy: "unenforced" }, env: [] });
+    expect(preview.plan.agents.worker).toEqual({ protocol: "acp", command: "npx", args: ["-y", "@agentclientprotocol/claude-agent-acp@0.65.0"], env: [] });
+    expect(preview.plan.agents.judge).toEqual({ protocol: "acp", command: "npx", args: ["-y", "@agentclientprotocol/codex-acp@1.10.0"], env: [] });
+    expect(preview.plan.environment.tools.map(tool => tool.name)).toContain("bun");
+    expect(preview.readiness.containment).toContain("none: trusted-local");
+    expect(preview.limits.join(" ")).toContain("Tool versions were read by running bun --version and node on this computer");
+    await expect(application.inspectDelegationProfile(f.app, f.repo, { ...selection, provisionId: f.selection.provisionId } as any)).rejects.toThrow("A trusted-local profile has no provision");
+    await expect(application.inspectDelegationProfile(f.app, f.repo, { ...selection, network: { policy: "deny" } } as any)).rejects.toThrow("A trusted-local profile has no provision, readiness or network policy");
+    await expect(application.inspectDelegationProfile(f.app, f.repo, { ...selection, worker: { adapter: "gemini" } } as any)).rejects.toThrow("claude-agent-acp or codex-acp");
+    await expect(application.inspectDelegationProfile(f.app, f.repo, { ...selection, runtime: "host" } as any)).rejects.toThrow("explicitly trusted-local");
+    const profile = await application.applyDelegationProfile(f.app, preview, { expectedIdentity: preview.identity, actor: "Automated fixture operator", cooperativeLocal: true });
+    expect(profile.boundary).toEqual({ approval: "cooperative-local", execution: "trusted-local" });
+    // A workspace whose recorded boundary says contained cannot run a trusted-local profile.
+    const create = (application as any).createDelegationJob, request = { intent: "Return the value as 5.", idempotencyKey: crypto.randomUUID() };
+    const mislabelled = await application.registerWorkspace(f.app, { repo: f.repo, mode: "delegation", client: "generic", profileId: profile.id });
+    expect(mislabelled.boundary.execution).toBe("contained");
+    await expect(create(f.app, mislabelled.id, request)).rejects.toThrow("recorded execution boundary differs");
+    const workspace = await application.registerWorkspace(f.app, { repo: f.repo, mode: "delegation", client: "claude-code", execution: "trusted-local", profileId: profile.id });
+    expect(workspace.boundary.execution).toBe("trusted-local");
+    const job = await create(f.app, workspace.id, { ...request, idempotencyKey: crypto.randomUUID() });
+    const status = await (application as any).delegationJobStatus(f.app, job.id);
+    expect(status.outcome).toBe("needs-decision"); expect(status.boundary).toEqual({ approval: "cooperative-local", execution: "trusted-local" });
+}, 30000);

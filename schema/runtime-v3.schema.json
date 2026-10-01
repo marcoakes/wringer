@@ -1,0 +1,155 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wringer.dev/schema/runtime-v3.schema.json",
+ "title": "Trusted-local runtime provenance v3",
+ "description": "Sibling of the contained runtime provenance for a trusted-local role or check: it ran on the operator's computer, under the operator's account, in a fresh temporary clone of its exact source commit that was removed afterwards. No boundary was established; it records no image, no cloned-inside claim and no host-mount list, because none applies. Hosted and local-only sources share this one version. Frozen structural contract; semantic validators are mandatory.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema_version",
+  "runtimeId",
+  "role",
+  "kind",
+  "boundary",
+  "established",
+  "repository",
+  "workspace",
+  "repositoryAccess",
+  "declared",
+  "observed",
+  "limits"
+ ],
+ "properties": {
+  "schema_version": {
+   "const": "wringer.runtime.v3"
+  },
+  "runtimeId": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 1048576
+  },
+  "role": {
+   "enum": [
+    "planner",
+    "worker",
+    "judge",
+    "verifier"
+   ]
+  },
+  "kind": {
+   "const": "trusted-local"
+  },
+  "boundary": {
+   "const": "trusted-local"
+  },
+  "established": {
+   "const": "none"
+  },
+  "repository": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "url",
+    "commit"
+   ],
+   "properties": {
+    "url": {
+     "type": "string",
+     "pattern": "^((https|ssh)://[^\\s]+|local://[a-f0-9]{40})$"
+    },
+    "commit": {
+     "type": "string",
+     "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "bundlePath": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 1048576
+    }
+   }
+  },
+  "workspace": {
+   "const": "fresh-temporary-clone"
+  },
+  "repositoryAccess": {
+   "enum": [
+    "read-only",
+    "read-write"
+   ]
+  },
+  "declared": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "kind",
+    "network",
+    "env"
+   ],
+   "properties": {
+    "kind": {
+     "const": "trusted-local"
+    },
+    "network": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "policy"
+     ],
+     "properties": {
+      "policy": {
+       "const": "unenforced"
+      }
+     }
+    },
+    "env": {
+     "type": "array",
+     "minItems": 0,
+     "maxItems": 4096,
+     "items": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+     },
+     "uniqueItems": true
+    }
+   }
+  },
+  "observed": {
+   "type": "object"
+  },
+  "limits": {
+   "type": "array",
+   "minItems": 1,
+   "maxItems": 4096,
+   "items": {
+    "type": "string",
+    "minLength": 1,
+    "maxLength": 1048576
+   }
+  }
+ },
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "role": {
+      "const": "worker"
+     }
+    }
+   },
+   "then": {
+    "properties": {
+     "repositoryAccess": {
+      "const": "read-write"
+     }
+    }
+   },
+   "else": {
+    "properties": {
+     "repositoryAccess": {
+      "const": "read-only"
+     }
+    }
+   }
+  }
+ ]
+}

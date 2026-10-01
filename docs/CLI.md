@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.33
+Wringer · Bun/TypeScript · 1.0.0-alpha.34
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -203,10 +203,16 @@ Next: wringer-drive --help
 ```text
 Wringer workspace setup and retained jobs
 
-  wring setup --repo PATH --client claude-code|codex|generic [--mode verification|delegation] [--dry-run --json]
+  wring setup --repo PATH --client CLIENT [--mode verification|delegation] [--dry-run --json]
   wring setup --repo PATH --client CLIENT --mode verification --apply
   wring setup --repo PATH --prepare-acceptance INPUT.json [--dry-run --json]
   wring setup --repo PATH --prepare-acceptance INPUT.json --apply --expected HASH --actor NAME
+  wring setup --repo PATH --client CLIENT --mode delegation --runtime trusted-local
+      --worker-adapter claude-agent-acp|codex-acp --judge-adapter claude-agent-acp|codex-acp
+      --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
+      [--writable PATH] [--output-dir PATH] [--acceptance UUID] --dry-run --json
+      Trusted-local runs your coding agents on this computer under your account,
+      each role in a fresh clone; nothing is contained and protected mode refuses it.
   wring setup --repo PATH --client CLIENT --mode delegation --provision UUID
       --worker-provider openai|anthropic --worker-model MODEL
       --judge-provider openai|anthropic --judge-model MODEL
@@ -223,6 +229,8 @@ Wringer workspace setup and retained jobs
   wring job open --workspace ID [--job ID]
   wring job serve --workspace ID
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
+      CLIENT: claude-code, codex, cursor, gemini-cli, generic, kimi, vscode or windsurf (none is a default).
+      claude-code and codex can be applied with review; the others print their documented recipe.
   wring connect ... --apply --expected DIGEST [--replace] [--auto-approve]
   wring connect ... --remove [--apply --expected DIGEST]
   wring connect ... --verify-client
@@ -243,7 +251,8 @@ Wringer workspace setup and retained jobs
 Setup inspection executes no project code and retrieves no credentials. Applying
 setup creates only the displayed configuration and workspace registration. Opening
 the operator page starts no job by itself. Verification runs repository commands
-trusted-local, under a finite operator grant. Delegation never falls back to it.
+on this computer, under a finite operator grant. Delegation never falls back to
+this computer; --runtime trusted-local is its own explicit, stamped choice.
 An approval, human acceptance, and sending are separate decisions.
 ```
 
@@ -295,7 +304,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.33
+Wringer assistant entry point — 1.0.0-alpha.34
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.
@@ -307,7 +316,7 @@ Operator setup:
   start --root ABS_DIRECTORY --cooperative-local
   serve --root ABS_DIRECTORY --cooperative-local
   status --root ABS_DIRECTORY [--operator]
-  connect --root ABS_DIRECTORY --client codex [--renew]
+  connect --root ABS_DIRECTORY --client CLIENT [--renew]
   stop --root ABS_DIRECTORY
   recover --root ABS_DIRECTORY --acknowledge-uncertain
   reconcile --root ABS_DIRECTORY --job JOB_ID --operation OPERATION_ID --acknowledge-uncertain
@@ -333,8 +342,9 @@ keeps it for the whole job through handover to your local bare origin.
 The operator console records execution approval. Human review and sending need
 their own source-bound decisions. The assistant cannot grant either authority.
 
-connect prints a reviewed Codex command/configuration; it does not install or
-overwrite client settings. --renew explicitly replaces only the scoped local
+connect --client NAME prints a reviewed connection recipe for that client
+(claude-code, codex, cursor, gemini-cli, generic, kimi, vscode, windsurf; none is
+a default); it does not install or overwrite client settings. --renew explicitly replaces only the scoped local
 connection capability. Existing keys and logins are reused, never shown here.
 revoke disables assistant access and requests owner shutdown; evidence is kept.
 Session/time limits are not a cash cap. Coding-app usage remains unknown.
@@ -345,7 +355,7 @@ retention/attachment. Guide: docs/native/FIGMA_CONNECT.md. A registered-app HTTP
 broker is required; a Figma personal token is not remote MCP authentication.
 
 Guide: ASSISTANT_START.md
-Codex connection reference: https://learn.chatgpt.com/docs/extend/mcp?surface=cli
+Each recipe names its client's official connection reference.
 ```
 
 ## wring drive

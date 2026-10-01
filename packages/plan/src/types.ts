@@ -81,7 +81,7 @@ export interface PlaybookAdoptionReceipt {
     sha256: string;
 }
 export interface PlanDeclaration {
-    version: 1 | 2 | 3 | 4;
+    version: 1 | 2 | 3 | 4 | 5;
     name: string;
     intent: string;
     repository: RepositoryRef;
@@ -120,7 +120,7 @@ export interface ExecutionPlan extends Omit<PlanDeclaration, "version"> {
     environment: PlanDeclaration["environment"] & {
         writable_directories: string[];
     };
-    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2" | "wringer.execution-plan.v3" | "wringer.execution-plan.v4";
+    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2" | "wringer.execution-plan.v3" | "wringer.execution-plan.v4" | "wringer.execution-plan.v5";
     intent_sha256: string;
     acceptance_sha256: string;
     plan_sha256: string;
@@ -148,7 +148,7 @@ export interface EnvironmentObservation {
     command_sha256: string;
 }
 export interface EnvironmentMap {
-    schema_version: "wringer.environment-map.v1" | "wringer.environment-map.v2";
+    schema_version: "wringer.environment-map.v1" | "wringer.environment-map.v2" | "wringer.environment-map.v3";
     repository: RepositoryRef;
     plan_sha256: string;
     source_tree: string;

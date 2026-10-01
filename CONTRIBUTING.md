@@ -18,6 +18,11 @@ provisioned contained runtime for production design jobs.
 
 Run from the repository root. Use the root lockfile and scripts; do not create a parallel package tree or a Python runtime fallback. Dependencies needed by test fixtures and runtime adapters are separate from a promise that the host is provisioned for a live isolated run.
 
+For a change that touches no browser capture, `bun run check:fast` runs the same
+type and generated-record checks and every test except the three that drive a real
+Chromium (visual evidence, the Figma console and the rehearsal Send). It is a
+development lane, not the release gate: run `bun run check` before handoff.
+
 For a targeted test during development:
 
 ```sh

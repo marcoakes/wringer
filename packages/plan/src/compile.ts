@@ -79,10 +79,19 @@ function agent(v: unknown): AgentDeclaration {
         result.mode = text(a.mode, "agent.mode");
     return result;
 }
-function runtime(v: unknown): RuntimeDeclaration {
+function runtime(v: unknown, version: number): RuntimeDeclaration {
     const r = record(v, "runtime", ["kind", "image", "cpus", "memoryMiB", "network", "env", "context", "namespace", "runtimeClass", "secretRefs"]);
+    // Version 5 exists only to name a trusted-local runtime, and no other version can:
+    // an explicit operator choice, recorded as such, never a fallback.
+    if (version === 5) {
+        if (r.kind !== "trusted-local")
+            throw new Error("A version 5 plan names a trusted-local runtime: runtime.kind must be trusted-local. Contained runtimes use plan version 1–4.");
+        return parseRuntimePolicy({ kind: "trusted-local", ...Object.fromEntries(Object.entries(r).filter(([key]) => key !== "kind")), env: envNames(r.env) });
+    }
+    if (r.kind === "trusted-local")
+        throw new Error("A trusted-local runtime needs a version 5 plan; it runs on this computer and nothing is contained, so it is never implied by an older plan");
     if (r.kind !== "apple-container" && r.kind !== "gvisor-kubernetes")
-        throw new Error("Runtime must be apple-container or gvisor-kubernetes; no trusted-local production fallback exists");
+        throw new Error("Runtime must be apple-container, gvisor-kubernetes or, in a version 5 plan, trusted-local; nothing falls back to the host");
     const image = text(r.image, "runtime.image");
     if (!/^\S+@sha256:[a-f0-9]{64}$/.test(image))
         throw new Error("runtime.image must be pinned by an explicit sha256 digest");
@@ -197,8 +206,10 @@ export interface PlanValidationOptions { credentialEnvironment?: NodeJS.ProcessE
 export function compileDeclaration(value: unknown, options: PlanValidationOptions = {}): ExecutionPlan {
     canonicalJson(value); // Reject executable/exotic input even through the programmatic API.
     const p = record(value, "plan", ["version", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "acceptance", "budget", "design", "loop", "playbook", "approachAdoption"]);
-    if (p.version !== 1 && p.version !== 2 && p.version !== 3 && p.version !== 4)
-        throw new Error("Plan version must be 1, 2, 3 or 4");
+    if (p.version !== 1 && p.version !== 2 && p.version !== 3 && p.version !== 4 && p.version !== 5)
+        throw new Error("Plan version must be 1, 2, 3, 4 or 5");
+    if (p.version === 5 && p.design !== undefined)
+        throw new Error("Design references need a contained runtime; a version 5 trusted-local plan cannot declare design");
     if (p.version < 3 && (p.loop !== undefined || p.playbook !== undefined || p.approachAdoption !== undefined)) throw new Error("Loop policy and playbook selection require plan version 3");
     if (p.version === 1 && p.design !== undefined || p.version === 2 && p.design === undefined)
         throw new Error("Design inputs require a version 2 plan with an explicit design declaration");
@@ -207,8 +218,8 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
     const url = text(repository.url, "repository.url"), commit = text(repository.commit, "repository.commit");
     if (!/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(commit))
         throw new Error("repository.commit must be a full immutable Git object id");
-    // Version 4 exists only to name a local-only source, and no other version can.
-    if (p.version === 4) {
+    // Version 4 exists only to name a local-only source; version 5 may name either kind.
+    if (p.version === 4 || p.version === 5 && LOCAL_SOURCE_URL.test(url)) {
         if (!LOCAL_SOURCE_URL.test(url))
             throw new Error("A version 4 plan names a local-only source: repository.url must be local:// followed by the 40-character root commit of its history. Hosted sources use plan version 1, 2 or 3.");
     }
@@ -247,7 +258,7 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
     if (playbook && paths(env.context, "environment.context").includes(playbook.path)) throw new Error("Worker playbooks use their dedicated role context, never shared planner/judge context");
     if (playbook && design?.snapshotPath === playbook.path) throw new Error("Design snapshot and worker playbook must be distinct source artifacts");
     const normalized: Omit<ExecutionPlan, "plan_sha256"> = {
-        schema_version: `wringer.execution-plan.v${p.version}` as ExecutionPlan["schema_version"], name, intent, intent_sha256: hashBytes(intent), repository: { url, commit }, runtime: runtime(p.runtime),
+        schema_version: `wringer.execution-plan.v${p.version}` as ExecutionPlan["schema_version"], name, intent, intent_sha256: hashBytes(intent), repository: { url, commit }, runtime: runtime(p.runtime, p.version),
         agents: { worker: agent(agents.worker), judge: agent(agents.judge), ...(agents.planner === undefined ? {} : { planner: agent(agents.planner) }) },
         environment: { context: paths(env.context, "environment.context"), tools: distinct(list(env.tools, "environment.tools", v => { const t = record(v, "tool", ["name", "version", "probe"]); return { name: identifier(t.name, "tool.name"), version: text(t.version, "tool.version"), probe: argv(t.probe) }; }), t => t.name, "tools").sort((a, b) => a.name.localeCompare(b.name)), setup: distinct(list(env.setup, "environment.setup", command), c => c.id, "setup commands"), baseline: distinct(list(env.baseline, "environment.baseline", command), c => c.id, "baseline commands"), writable_directories: parseWritableDirectories(env.writable_directories ?? [], contract.protected_paths) },
         scope: { writable }, acceptance: contract, acceptance_sha256: hashValue(design ? { acceptance: contract, design } : contract), budget: readBudget(p.budget), ...(design ? { design } : {}), ...(loop ? { loop } : {}), ...(playbook ? { playbook } : {}), ...(approachAdoption ? { approachAdoption } : {}),
@@ -265,10 +276,10 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
         throw new Error("Plan contains a detected credential. Remove secret values and declare environment-variable names; no plan was retained");
     return freezeData({ ...normalized, plan_sha256: hashValue(normalized) });
 }
-const PLAN_VERSIONS: Record<ExecutionPlan["schema_version"], 1 | 2 | 3 | 4> = { "wringer.execution-plan.v1": 1, "wringer.execution-plan.v2": 2, "wringer.execution-plan.v3": 3, "wringer.execution-plan.v4": 4 };
+const PLAN_VERSIONS: Record<ExecutionPlan["schema_version"], 1 | 2 | 3 | 4 | 5> = { "wringer.execution-plan.v1": 1, "wringer.execution-plan.v2": 2, "wringer.execution-plan.v3": 3, "wringer.execution-plan.v4": 4, "wringer.execution-plan.v5": 5 };
 /** The declaration version a canonical plan recompiles from. Every site that
  * re-derives a plan asks here, so a new version cannot be missed at one of them. */
-export function planVersion(plan: { readonly schema_version?: unknown }): 1 | 2 | 3 | 4 {
+export function planVersion(plan: { readonly schema_version?: unknown }): 1 | 2 | 3 | 4 | 5 {
     if (typeof plan.schema_version !== "string" || !Object.hasOwn(PLAN_VERSIONS, plan.schema_version))
         throw new Error("Unsupported canonical execution-plan version");
     return PLAN_VERSIONS[plan.schema_version as ExecutionPlan["schema_version"]];

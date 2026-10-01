@@ -2,7 +2,7 @@ import { mkdir, lstat, readFile, writeFile, link, unlink } from "node:fs/promise
 import { join, resolve } from "node:path";
 import { createExecutionAuthority, discoverEnvironment, hashValue, validateExecutionAuthority, validateExecutionPlan, type ExecutionPlan, type ExecutionAuthority, type EnvironmentMap } from "@wringer/plan";
 import { runContainedJourney, readValidatedContainedState, recordContainedHumanJudgement, recordContainedHumanDecisions, queryContainedJourney, assertContainedHumanReviewEligible, type LegacyCandidateHumanJudgement, type CandidateHumanDecision, type ContainedJourneyOptions } from "@wringer/workflow";
-import type { PreparedRepositorySource } from "@wringer/runtime";
+import { provenanceMatchesRuntime, type PreparedRepositorySource } from "@wringer/runtime";
 import { Redactor } from "@wringer/engine";
 import { containedServices, prepareContainedSource, showContainedCandidate, type ContainedServiceOptions } from "./services";
 import { measureControllerEnvironment } from "./discovery";
@@ -97,7 +97,7 @@ export async function controllerStatus(state: string) {
 function assertDisplay(receipt: any, plan: ExecutionPlan, criterionId: string, candidateTree: string, candidateCommit?: string) {
     const criterion = plan.acceptance.criteria.find(c => c.id === criterionId), measured = receipt.measured, p = measured?.provenance;
     const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), criterion?.show?.id];
-    if (!criterion || criterion.kind !== "human" || !criterion.show || !measured || measured.sourceChanged !== false || measured.sourceTree !== candidateTree || !Array.isArray(measured.results) || hashValue(measured.results.map((r: any) => r.id)) !== hashValue(expected) || measured.results.some((r: any) => r.code !== 0) || !p || p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.repository?.url !== plan.repository.url || candidateCommit && p.repository?.commit !== candidateCommit || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories))
+    if (!criterion || criterion.kind !== "human" || !criterion.show || !measured || measured.sourceChanged !== false || measured.sourceTree !== candidateTree || !Array.isArray(measured.results) || hashValue(measured.results.map((r: any) => r.id)) !== hashValue(expected) || measured.results.some((r: any) => r.code !== 0) || !p || p.role !== "verifier" || !provenanceMatchesRuntime(p, plan.runtime) || p.repository?.url !== plan.repository.url || candidateCommit && p.repository?.commit !== candidateCommit || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories))
         throw new Error("Display does not establish the declared setup and human criterion in its contained candidate; no judgement recorded");
     assertContainedDisplayVisuals(receipt, plan);
 }

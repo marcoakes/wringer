@@ -155,6 +155,37 @@ test("mode remains visible and phase transitions focus the current decision", as
     expect(h.get("job-mode").textContent).toContain("trusted-local");
 });
 
+test("a trusted-local delegation says on the page that it runs on this computer and nothing is contained", async () => {
+    const contained = await harness(fixture());
+    expect(contained.get("job-mode").textContent).toBe("Delegation · contained roles");
+    const job = fixture(); job.execution = "trusted-local"; job.phase = "approval";
+    expect(validatePmJob(job)).toEqual(job);
+    const h = await harness(job);
+    expect(h.get("job-mode").textContent).toBe("Delegation · on this computer, nothing contained");
+    expect(h.get("approval-budget").textContent).toContain("Your own coding agents run on this computer under your account");
+    expect(h.get("approval-budget").textContent).not.toContain("contained roles");
+    // Only a delegation can be trusted-local this way, and nothing else is accepted.
+    for (const change of [(j: any) => { j.execution = "contained"; }, (j: any) => { j.schema_version = "wringer.pm-job.v3"; j.mode = "verification"; j.verification = { repetitions: 1, remaining: 1, runSeconds: 1, checks: [] }; }]) {
+        const changed: any = structuredClone(job); change(changed); expect(() => validatePmJob(changed)).toThrow();
+    }
+});
+
+test("what a result changed is shown as text before Send, opened once, and validated", async () => {
+    const job = fixture(); job.phase = "send";
+    job.change = { baseCommit: "a".repeat(40), candidateCommit: "b".repeat(40), files: [{ path: "src/value.ts", added: 1, removed: 1 }, { path: "logo.png", added: null, removed: null }], patch: "-old\n+<script>new</script>\n", truncated: false };
+    expect(validatePmJob(job)).toEqual(job);
+    const h = await harness(job);
+    expect(h.get("job-change-panel").hidden).toBe(false); expect(h.get("job-change-panel").open).toBe(true);
+    expect(h.get("job-change-summary").textContent).toBe("What changed: 2 files");
+    expect(textOf(h.get("job-change-files"))).toContain("src/value.ts · +1 −1"); expect(textOf(h.get("job-change-files"))).toContain("logo.png · binary");
+    expect(h.get("job-change-patch").textContent).toBe("-old\n+<script>new</script>\n");
+    h.get("job-change-panel").open = false; await h.refresh(); expect(h.get("job-change-panel").open).toBe(false);
+    const none = await harness(fixture()); expect(none.get("job-change-panel").hidden).toBe(true);
+    for (const change of [(j: any) => { j.change.patch = "x".repeat(65537); }, (j: any) => { j.change.files[0].added = -1; }, (j: any) => { j.change.extra = true; }, (j: any) => { j.change.baseCommit = "main"; }]) {
+        const changed: any = structuredClone(job); change(changed); expect(() => validatePmJob(changed)).toThrow();
+    }
+});
+
 test("same-page engineering disclosure is plain text and preserves the user's toggle and next decision", async () => {
     const job = engineeringFixture(), h = await harness(job);
     expect(h.get("job-engineering").hidden).toBe(false); expect(h.get("job-engineering").open).toBe(false);

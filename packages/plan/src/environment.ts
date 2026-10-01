@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { Redactor } from "@wringer/engine";
+import { runtimeImage } from "@wringer/runtime";
 import { MAX_SNAPSHOT_BYTES, assertRepositoryDisclosure, parseDesignSnapshot } from "@wringer/design";
 import { freezeData, hashBytes, hashValue } from "./canonical";
 import { validateExecutionPlan, type PlanValidationOptions } from "./compile";
@@ -81,7 +82,7 @@ export async function discoverEnvironment(repo: string, rawPlan: ExecutionPlan, 
         const row = observations.find(o => o.kind === kind && o.id === id);
         if (!row)
             return null;
-        if (row.source_commit !== plan.repository.commit || row.image !== plan.runtime.image || !row.runtime_id || row.command_sha256 !== hashValue(command))
+        if (row.source_commit !== plan.repository.commit || row.image !== runtimeImage(plan.runtime) || !row.runtime_id || row.command_sha256 !== hashValue(command))
             throw new Error(`Environment observation ${id} is not bound to the declared source/image/command`);
         if (!["passed", "failed", "unavailable"].includes(row.status) || !((row.exit_code === null && row.status === "unavailable") || (Number.isInteger(row.exit_code) && ((row.status === "passed") === (row.exit_code === 0)))))
             throw new Error(`Contradictory environment observation ${id}`);
@@ -128,7 +129,7 @@ export function ingestEnvironmentObservations(map: EnvironmentMap, rawPlan: Exec
         throw new Error("Environment map contains a detected credential; no altered map was retained");
     for (const row of observations) {
         const declaration = row.kind === "tool" ? plan.environment.tools.find(t => t.name === row.id)?.probe : row.kind === "baseline" ? plan.environment.baseline.find(c => c.id === row.id) : undefined;
-        if (!declaration || row.command_sha256 !== hashValue(declaration) || row.source_commit !== plan.repository.commit || row.image !== plan.runtime.image || typeof row.runtime_id !== "string" || !row.runtime_id.trim() || typeof row.output !== "string" || Buffer.byteLength(row.output) > 1024 * 1024)
+        if (!declaration || row.command_sha256 !== hashValue(declaration) || row.source_commit !== plan.repository.commit || row.image !== runtimeImage(plan.runtime) || typeof row.runtime_id !== "string" || !row.runtime_id.trim() || typeof row.output !== "string" || Buffer.byteLength(row.output) > 1024 * 1024)
             throw new Error("Environment observation lacks exact source, command, runtime or bounded output identity");
         if (!["passed", "failed", "unavailable"].includes(row.status) || (row.status === "unavailable" ? row.exit_code !== null : !Number.isInteger(row.exit_code) || (row.status === "passed") !== (row.exit_code === 0)) || (row.status === "failed" && [124, 126, 127, 137, 143].includes(row.exit_code!)))
             throw new Error("Environment observation status contradicts measured command availability");

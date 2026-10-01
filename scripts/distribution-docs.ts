@@ -5,6 +5,10 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 const privateRoots = new Set([".wringer", ".git", ".codex", ".agents", ".claude", ".ssh", ".aws", ".azure", ".kube", ".gnupg", ".config", "node_modules", "dist"]);
 const privatePart = (part: string) => privateRoots.has(part) || part === ".env" || part.startsWith(".env.");
 const privatePath = (path: string) => path.split("/").some(privatePart);
+/** AGENTS.md and CLAUDE.md instruct whichever agent works in that tree. Wringer's own
+ * are for its maintainers; a copy in an install would instruct an agent working in the
+ * user's project (F9). They are never distributed, under any name. */
+const operatingContract = (path: string) => ["agents.md", "claude.md"].includes(basename(path).toLowerCase());
 const seeds = ["ASSISTANT_START.md", "README.md", "docs/ASSISTANT_SECURITY.md", "docs/ASSISTANT_COMPATIBILITY.md", "docs/PM_ASSISTANT_BLIND_TEST.md"];
 const digest = (text: string | Buffer) => createHash("sha256").update(text).digest("hex");
 const unix = (path: string) => path.split(sep).join("/");
@@ -14,11 +18,11 @@ const passiveExtensions = new Set([".md", ".txt", ".json", ".yaml", ".yml", ".pn
  * or an active package/tool configuration in the compiled distribution. */
 export function distributionReferencePath(path: string) {
     const name = basename(path).toLowerCase();
-    if (["agents.md", "claude.md", ".wringer.yaml", ".wringer.yml", "wringer.spec.yaml"].includes(name) || path.startsWith(".github/")) return `${path}.txt`;
+    if ([".wringer.yaml", ".wringer.yml", "wringer.spec.yaml"].includes(name) || path.startsWith(".github/")) return `${path}.txt`;
     return passiveExtensions.has(extname(path).toLowerCase()) && !/^(?:package|tsconfig(?:\.[^.]*)?|jsconfig(?:\.[^.]*)?|deno)\.json$/.test(name) ? path : `${path}.txt`;
 }
 interface Pointer { start: number; end: number; href: string; hrefStart: number; label: string; kind: "markdown" | "html"; original: string; }
-interface Omission { page: string; target: string; reason: "private-local-evidence-not-distributed"; }
+interface Omission { page: string; target: string; reason: "private-local-evidence-not-distributed" | "repository-operating-contract-not-distributed"; }
 export interface DistributionDocsManifest {
     schema_version: "wringer.distribution-docs.v1";
     entrypoints: string[];
@@ -146,6 +150,7 @@ export async function copyDistributionDocs(sourceDirectory: string, outputDirect
         if (seen.has(path)) continue;
         if (seen.size >= 512) throw new Error("Documentation closure exceeds its file bound");
         if (privatePath(path)) throw new Error("A private directory cannot be a documentation entry point");
+        if (operatingContract(path)) throw new Error("A repository operating contract cannot be a documentation entry point");
         seen.add(path);
         const input = await safePath(source, path), info = await lstat(input);
         if (!info.isFile() || info.size > 10 * 1024 * 1024 || (bytes += info.size) > 32 * 1024 * 1024) throw new Error(`Documentation asset exceeds its file/size bound: ${path}`);
@@ -159,6 +164,13 @@ export async function copyDistributionDocs(sourceDirectory: string, outputDirect
             if (privatePath(resolved.path)) {
                 omissions.push({ page: path, target: resolved.path, reason: "private-local-evidence-not-distributed" });
                 const label = `${pointer.label} (local evidence not included in this distribution: ${resolved.path})`;
+                replacements.push({ start: pointer.start, end: pointer.end, value: pointer.kind === "html" ? label.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;") : label });
+                continue;
+            }
+            if (operatingContract(resolved.path)) {
+                await safePath(source, resolved.path); // Still a real page; only its distribution is withheld.
+                omissions.push({ page: path, target: resolved.path, reason: "repository-operating-contract-not-distributed" });
+                const label = `${pointer.label} (maintainer instructions for the Wringer repository, not included in this distribution: ${resolved.path})`;
                 replacements.push({ start: pointer.start, end: pointer.end, value: pointer.kind === "html" ? label.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;") : label });
                 continue;
             }
@@ -201,6 +213,8 @@ export async function validateDistributionDocs(outputDirectory: string, supplied
     const manifest = supplied ?? JSON.parse(await readFile(await safePath(output, "DOCUMENTATION.json"), "utf8")) as DistributionDocsManifest;
     if (manifest.schema_version !== "wringer.distribution-docs.v1" || !Array.isArray(manifest.files) || manifest.files.length > 1024) throw new Error("Invalid documentation inventory");
     const declared = new Set(manifest.files.map(file => file.path));
+    const contract = manifest.files.find(file => operatingContract(file.path.replace(/\.txt$/i, "")));
+    if (contract) throw new Error(`A repository operating contract must not be distributed: ${contract.path}`);
     let count = 0;
     for (const file of manifest.files) {
         const path = await safePath(output, file.path), data = await readFile(path);

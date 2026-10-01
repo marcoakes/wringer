@@ -8,6 +8,7 @@ import { processDriver } from "./driver";
 import { parseRuntimePolicy, parseWritableDirectories, quote, validateRepository } from "./policy";
 import { runtimeRedactor, runtimeDeepRedact } from "./redact";
 import { parseWorkerScope, repositoryPermissionsScript } from "./filesystem";
+import { executeTrustedLocalRole, runTrustedLocalCommands } from "./trusted-local";
 import { RuntimeError, type RuntimeDriver, type RoleExecutionRequest, type RoleExecutionResult, type RoleExecutor, type ContainedCommandRequest, type ContainedCommandResult, type AgentPreflightResult } from "./types";
 export const digest = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex");
 function validateAgent(agent: AgentDeclaration) {
@@ -51,6 +52,9 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
     if (request.allowedToolKinds?.some(kind => !permitted.includes(kind)))
         throw new RuntimeError("Requested agent effects exceed its role authority");
     const scope = request.role === "worker" ? parseWorkerScope(request.scope) : undefined;
+    // An explicit operator choice, never a fallback: the same request on this computer.
+    if (policy.kind === "trusted-local")
+        return executeTrustedLocalRole(request, policy, { probeOnly, model: explicitModel, redact: runtimeRedactor(policy.env), started: Date.now(), driver: options.driver });
     // A shared runtime policy declares the envelope; only this role's selected names cross.
     const rolePolicy = { ...policy, env: request.agent.env ?? [], ...(policy.kind === "gvisor-kubernetes" ? { secretRefs: Object.fromEntries(Object.entries(policy.secretRefs ?? {}).filter(([name]) => request.agent.env?.includes(name))) } : {}) };
     const redact = runtimeRedactor(policy.env), started = Date.now();
@@ -129,6 +133,8 @@ export async function runContainedCommands(request: ContainedCommandRequest, opt
         if (!row || Object.keys(row).some(key => !["id", "path", "mimeType", "width", "height"].includes(key)) || typeof row.id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$/.test(row.id) || row.mimeType !== "image/png" || typeof row.path !== "string" || !row.path.endsWith(".png") || row.path.split("/").some(part => !part || part === "." || part === ".." || part === ".git") || /[\\\x00-\x1f\x7f]/.test(row.path) || !writableDirectories.some(path => row.path.startsWith(path + "/")) || [row.width, row.height].some(value => value !== undefined && (!Number.isInteger(value) || value < 1 || value > 4096)))
             throw new RuntimeError("Visual captures must name bounded PNG files inside approved writable output directories", "visual-capture-refused");
     }
+    if (policy.kind === "trusted-local")
+        return runTrustedLocalCommands(request, policy, runtimeRedactor(policy.env));
     const redact = runtimeRedactor(policy.env), sandbox = await openSandbox({ role: "verifier", repo: request.repo, policy: { ...policy, env: [], ...(policy.kind === "gvisor-kubernetes" ? { secretRefs: {} } : {}) }, timeoutMs: request.timeoutMs, signal: request.signal, driver: options.driver ?? processDriver, redact });
     const must = async (argv: string[], input?: string) => {
         const result = await sandbox.exec(argv, { input });

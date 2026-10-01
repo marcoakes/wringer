@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { Redactor } from "@wringer/engine";
 import { parseDesignJson } from "@wringer/design";
+import { runtimeImage } from "@wringer/runtime";
 import { canonicalJson, freezeData, hashBytes, hashValue } from "./canonical";
 import { record, repoPath, validateExecutionPlan, type PlanValidationOptions } from "./compile";
 import { assertRecordUrlFamily, recordVersion } from "./family";
@@ -87,7 +88,7 @@ export function assertPlaybookApplicability(rawSnapshot: PlaybookSnapshot, rawPl
         if (map_sha256 !== hashValue(body) || environment.plan_sha256 !== plan.plan_sha256 || canonicalJson(environment.repository) !== canonicalJson(plan.repository) || environment.inventory_sha256 !== hashValue(environment.files)) throw new Error("Playbook readiness requires the exact intact approved environment map");
         if (a.context.some(p => !environment.context.some(c => c.path === p && hashBytes(c.text) === c.sha256 && environment.files.some(f => f.path === p && f.blob === c.blob && ["100644", "100755"].includes(f.mode)))) || a.tools.some(name => {
             const tool = environment.tools.find(t => t.name === name), declared = plan.environment.tools.find(t => t.name === name), observation = tool?.observation;
-            return !tool || !declared || tool.version !== declared.version || canonicalJson(tool.probe) !== canonicalJson(declared.probe) || observation?.status !== "passed" || observation.exit_code !== 0 || observation.source_commit !== plan.repository.commit || observation.image !== plan.runtime.image || observation.command_sha256 !== hashValue(declared.probe) || !observation.runtime_id || observation.output.trim() !== declared.version;
+            return !tool || !declared || tool.version !== declared.version || canonicalJson(tool.probe) !== canonicalJson(declared.probe) || observation?.status !== "passed" || observation.exit_code !== 0 || observation.source_commit !== plan.repository.commit || observation.image !== runtimeImage(plan.runtime) || observation.command_sha256 !== hashValue(declared.probe) || !observation.runtime_id || observation.output.trim() !== declared.version;
         })) throw new Error("Required playbook context or tool readiness has not been measured successfully");
     }
 }

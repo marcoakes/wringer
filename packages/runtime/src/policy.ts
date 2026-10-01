@@ -1,5 +1,5 @@
 import { isIP } from "node:net";
-import { RuntimeError, type RuntimePolicy, type RepositorySource } from "./types";
+import { RuntimeError, type ContainedRuntimePolicy, type RuntimePolicy, type RepositorySource, type TrustedLocalPolicy } from "./types";
 const object = (value: unknown): value is Record<string, any> => !!value && typeof value === "object" && !Array.isArray(value);
 const envName = /^[A-Za-z_][A-Za-z0-9_]*$/;
 // These names alter the privileged runtime client, shell/Git control plane, or host sockets.
@@ -12,6 +12,23 @@ export const LOCAL_SOURCE_URL = /^local:\/\/[a-f0-9]{40}$/;
 /** Runtime provenance names its source kind: the local sibling for local://, the original otherwise. */
 export const RUNTIME_PROVENANCE_VERSIONS = { hosted: "wringer.runtime.v1", local: "wringer.runtime.v2" } as const;
 export const runtimeProvenanceVersion = (url: string) => LOCAL_SOURCE_URL.test(url) ? RUNTIME_PROVENANCE_VERSIONS.local : RUNTIME_PROVENANCE_VERSIONS.hosted;
+/** A trusted-local role or check, from either source kind: nothing was cloned inside a boundary. */
+export const TRUSTED_LOCAL_PROVENANCE = "wringer.runtime.v3" as const;
+/** The provenance version a runtime writes: the trusted-local record, or the contained one for its source. */
+export const provenanceVersionFor = (policy: { kind: string }, url: string) => policy.kind === "trusted-local" ? TRUSTED_LOCAL_PROVENANCE : runtimeProvenanceVersion(url);
+/** The one sentence every trusted-local record and view carries. */
+export const TRUSTED_LOCAL_SENTENCE = "Ran on this computer under the operator's account; nothing was contained.";
+/** What ran the checks, for records that name an image: the pinned image, or "trusted-local" when none did. */
+export const runtimeImage = (policy: { kind: string; image?: string }): string => policy.kind === "trusted-local" ? "trusted-local" : policy.image!;
+/** Whether provenance establishes the declared runtime: a fresh contained instance of the
+ * exact image with no host mounts, or a stamped trusted-local run in a fresh temporary
+ * clone that claims no boundary. Never one for the other. */
+export function provenanceMatchesRuntime(p: any, policy: { kind: string; image?: string }): boolean {
+    if (!p || p.kind !== policy.kind) return false;
+    if (policy.kind === "trusted-local")
+        return p.schema_version === TRUSTED_LOCAL_PROVENANCE && p.boundary === "trusted-local" && p.established === "none" && p.workspace === "fresh-temporary-clone" && p.image === undefined && p.clonedInside === undefined && p.hostMounts === undefined && Array.isArray(p.limits) && p.limits.includes(TRUSTED_LOCAL_SENTENCE);
+    return p.schema_version !== TRUSTED_LOCAL_PROVENANCE && p.image === policy.image && p.clonedInside === true && Array.isArray(p.hostMounts) && p.hostMounts.length === 0;
+}
 export function parseWritableDirectories(value: unknown, protectedFiles: string[] = []): string[] {
     if (!Array.isArray(value) || value.length > 64)
         throw new RuntimeError("Verifier writable directories must be a bounded explicit list");
@@ -30,11 +47,28 @@ export function parseWritableDirectories(value: unknown, protectedFiles: string[
     }
     return directories;
 }
+/** The explicit trusted-local policy: chosen by the operator, never a fallback. */
+function parseTrustedLocal(value: Record<string, any>): TrustedLocalPolicy {
+    for (const key of Object.keys(value))
+        if (!["kind", "network", "env"].includes(key))
+            throw new RuntimeError(key === "image" || key === "cpus" || key === "memoryMiB" || key === "binary" ? `A trusted-local runtime has no ${key}: it runs on this computer, outside any container` : `Unknown runtime policy ${key}`);
+    if (!object(value.network) || Object.keys(value.network).length !== 1 || value.network.policy !== "unenforced")
+        throw new RuntimeError(object(value.network) && ["deny", "allowlist"].includes(value.network.policy) ? `Network policy ${value.network.policy} cannot be enforced on a trusted-local runtime; declare network: {policy: unenforced}` : "A trusted-local runtime declares network: {policy: unenforced}");
+    if (value.env !== undefined && (!Array.isArray(value.env) || value.env.some((name: unknown) => typeof name !== "string" || !envName.test(name))))
+        throw new RuntimeError("Runtime env must contain environment-variable names only");
+    if (value.env?.some((name: string) => controlEnvironment.test(name)))
+        throw new RuntimeError("Runtime env cannot forward host/runtime/shell/Git control variables; declare credential or application variable names only", "credential-scope-invalid");
+    if (value.env && new Set(value.env).size !== value.env.length)
+        throw new RuntimeError("Runtime env contains duplicate names");
+    return { kind: "trusted-local", network: { policy: "unenforced" }, env: value.env ?? [] };
+}
 export function parseRuntimePolicy(value: unknown): RuntimePolicy {
     if (!object(value))
-        throw new RuntimeError("An explicit contained runtime policy is required; no host fallback exists");
+        throw new RuntimeError("An explicit runtime policy is required; no host fallback exists");
+    if (value.kind === "trusted-local")
+        return parseTrustedLocal(value);
     if (!["apple-container", "gvisor-kubernetes"].includes(value.kind))
-        throw new RuntimeError("Runtime kind must be apple-container or gvisor-kubernetes; no host fallback exists");
+        throw new RuntimeError("Runtime kind must be apple-container, gvisor-kubernetes or an explicitly declared trusted-local; no host fallback exists");
     const allowed = ["kind", "image", "cpus", "memoryMiB", "network", "env", "binary", ...(value.kind === "gvisor-kubernetes" ? ["context", "namespace", "runtimeClass", "secretRefs"] : [])];
     for (const key of Object.keys(value))
         if (!allowed.includes(key))
@@ -107,7 +141,7 @@ export function validateRepository(repo: RepositorySource) {
     if (!["https:", "ssh:"].includes(url.protocol) || url.password || url.protocol === "https:" && url.username || url.search || url.hash)
         throw new RuntimeError("Repository URL must be HTTPS/SSH without embedded credentials, query or fragment");
 }
-export function firewallScript(policy: RuntimePolicy): string {
+export function firewallScript(policy: ContainedRuntimePolicy): string {
     const lines = ["set -eu", "command -v iptables >/dev/null", "command -v ip6tables >/dev/null", "iptables -F OUTPUT", "iptables -P OUTPUT DROP", "ip6tables -F OUTPUT", "ip6tables -P OUTPUT DROP", "iptables -F INPUT", "iptables -P INPUT DROP", "ip6tables -F INPUT", "ip6tables -P INPUT DROP", "iptables -A INPUT -i lo -j ACCEPT", "ip6tables -A INPUT -i lo -j ACCEPT", "iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT", "iptables -A OUTPUT -o lo -j ACCEPT", "ip6tables -A OUTPUT -o lo -j ACCEPT"];
     for (const rule of policy.network.allow ?? [])
         for (const port of rule.ports)

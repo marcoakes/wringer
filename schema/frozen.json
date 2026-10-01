@@ -44,6 +44,7 @@
   "engineering-evidence-v1.schema.json": "46975b30f0df557b7978e5504e8955c26c2bf7b60eef85e8daeb4aa3bfeeb276",
   "environment-map-v1.schema.json": "9da523bd28928bd29967c1540f5d7822c060af4d96390e1d4a14897524aca094",
   "environment-map-v2.schema.json": "fb508a80b55929e8d7fbd9b7519fd05294e1f1023ee3b0778b9b24dbcb29fdd4",
+  "environment-map-v3.schema.json": "29431675d001ed8b1128c28b16e7f24ef99f25610c2f11508898e7551f05c5e3",
   "evidence-event.schema.json": "ddc61d7b0eaa39fd0d08cf77cd2eff64d9fc1bb959a5e8586b51543abfa5157e",
   "evidence-layers-v1.schema.json": "dee1e21b69ea08056a5df8da03f70e721447f6d5594197260a11acd33f5fc341",
   "exchange.schema.json": "9726e9cc7490e7a2ab9baaeb6a06e12f7298321c4593e18fe87a274c985539a0",
@@ -53,6 +54,7 @@
   "execution-plan-v2.schema.json": "695b293d9e0c535688f8e8c61dc8a7669e85297f349a98c75b322e80f6d7a25a",
   "execution-plan-v3.schema.json": "d1663686073227c14712942151b2f9be7b92c7bd8df05b7db104e64fa2c8dc76",
   "execution-plan-v4.schema.json": "99e2c64041c0e18c8f01b60093eb29c2a5ee30eaa1e095e1dc0347238b0dec54",
+  "execution-plan-v5.schema.json": "43ab2c87126e482eb97157d4c2270ecd7440a6830ea8ee8234cf070c7002f928",
   "execution-v2.schema.json": "7752a4730cc0dfbfe9f63e8b3b1aa9958e20ca2fd8f5aa629e7b6fec674455be",
   "execution.schema.json": "692e30cdb252873fe1ec9ee9a62c0118d1567fa995d5eb2be08c3f972331cc1e",
   "experiment-collection-v1.schema.json": "c7ee66e04cfbbbc7c8cbeab7766103610a26426afa35f341d8c550310670751f",
@@ -118,6 +120,7 @@
   "rubric.schema.json": "ea555570060f143c7ab48b6ba03aa5a7ebcd8fd9be4512f1ef3c4511c8803a42",
   "runtime-v1.schema.json": "4d0ab2426ab6e537043ebac8ad23b39bdc6cd1cac18b637421b00418a1465a10",
   "runtime-v2.schema.json": "5b75919568a3fbe0ca2e6f519b5100295334a1d698bfc66ed41a0dfc1c4fc507",
+  "runtime-v3.schema.json": "0cd417ba33552472e29d710e2d532ba0979faa52bba72f83ad2507039ba99348",
   "selection-v1.schema.json": "30fe505dadc9cea3450ff6a129d9b4790d26ce68a80809d8570a99b36fbb949d",
   "selection-v2.schema.json": "55052dabc7c0747084e3c783e8abe6b7a2dcdcb3171fdba5143377b6b102a1cf",
   "selection-v3.schema.json": "0125a1b71720abfd0a15bcb66cdde53d2dc97a60381a6a9dcb3133b8676f7640",
@@ -160,6 +163,9 @@
   "contained-graph-export-v4.schema.json": "2d4b437bd9a0e91a22c2cf282f14141f0979091f850ad18abe89ce97a41b3748",
   "contained-graph-delegation-v1.schema.json": "ac918a3d6eef3284dae1926af4ece66ece7c7202672ca8f92402b57608f43dc5",
   "capability-ledger-v1.schema.json": "e88c652eed727a362d6b6a57b51647358a76dc6e2ae6ae2b68e0286ca96aac6c",
-  "pilot-registration-v1.schema.json": "fc828825c48b3100fbee1650b116b056411693a90655e21fd2c95960d86ae965"
+  "pilot-registration-v1.schema.json": "fc828825c48b3100fbee1650b116b056411693a90655e21fd2c95960d86ae965",
+  "assistant-response-v3.schema.json": "77f2a0966a60877e02216246519602f0e17346f6e790a42306e23c9087e8c378",
+  "delegation-setup-v2.schema.json": "fbf552987a184b654d3179ab7473ebce047d453049d573755e2f684e4ac2d6db",
+  "proposal-supersession-v2.schema.json": "49f1ddd4470acccb24924a7fd0050c5aa1466c10c0ccca656ce2927e04afa5d0"
  }
 }

@@ -47,6 +47,19 @@ function diagnostic(text: string): string {
     // Redact the entire string before limiting the retained diagnostic.
     return clean.length <= 1200 ? clean : `${clean.slice(0, 1200)} [diagnostic truncated]`;
 }
+/** A role that stopped before completing, in words a person can act on: the adapter's
+ * structured error (redacted), and for a sign-in failure, how to sign in. A bare stop
+ * reason such as "agent-error" says neither what happened nor what to do. The agent's
+ * own reply text is never used: it is private narrative and is not recorded. */
+export function describeRoleStop(role: "planner" | "worker" | "judge", result: Pick<RoleExecutionResult, "stopReason" | "agentInfo"> & { events?: unknown[] }): string {
+    const reason = typeof result.stopReason === "string" && result.stopReason ? result.stopReason : "stopped";
+    const failure = [...(result.events ?? [])].reverse().find((event): event is Record<string, any> => object(event) && event.type === "acp.response.error") as Record<string, any> | undefined;
+    const reported = diagnostic(typeof failure?.error?.message === "string" ? failure.error.message : "").replace(/^Internal error: /, "").slice(0, 600);
+    const agent = typeof result.agentInfo?.name === "string" ? ` (${diagnostic(result.agentInfo.name).slice(0, 120)})` : "";
+    if (failure?.error?.data?.errorKind === "authentication_failed" || /\b(?:failed to authenticate|not (?:logged|signed) in|login required|please (?:log|sign) in|oauth (?:session|token) (?:expired|invalid))/i.test(reported))
+        return `The ${role}'s coding agent${agent} could not sign in: ${reported || reason}. Sign in with that agent's own login on this computer (Claude Code: run claude and use /login; Codex: run codex login), then retry the stopped step. No change was made.`;
+    return reported && reported !== reason ? `The ${role} stopped (${reason}): ${reported}` : `The ${role} stopped (${reason}).`;
+}
 function providerOf(text: string): WorkerOutcomeStop["details"]["provider"] {
     if (/(?:https?|wss?):\/\/api\.openai\.com\//i.test(text)) return "openai";
     if (/https?:\/\/api\.anthropic\.com\//i.test(text)) return "anthropic";

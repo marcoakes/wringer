@@ -1,0 +1,4164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/proposal-supersession-v2.schema.json",
+  "description": "Sibling of proposal-supersession-v1 (1.0.0-alpha.34): identical except that the successor may carry an execution plan v5, which names a trusted-local runtime. Revisions of plans v1-v4 keep writing v1.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.proposal-supersession.v2"
+    },
+    "parentJobId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "parentRevision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "inputIdentity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "successor": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.assistant-proposal.v1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36,
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "workspaceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36,
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36,
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/plan1"
+            },
+            {
+              "$ref": "#/$defs/plan2"
+            },
+            {
+              "$ref": "#/$defs/plan3"
+            },
+            {
+              "$ref": "#/$defs/plan4"
+            },
+            {
+              "$ref": "#/$defs/plan5"
+            }
+          ]
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "maxItems": 32
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "workspaceId",
+        "requestId",
+        "intent",
+        "plan",
+        "assumptions",
+        "questions"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "parentJobId",
+    "parentRevision",
+    "requestId",
+    "inputIdentity",
+    "successor"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "plan1": {
+      "title": "Native execution plan v1",
+      "description": "Frozen structural contract. Source/digest equality, authority ceilings, scope containment, policy semantics and observed truth require the native semantic validators in addition to this schema.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "name",
+        "intent",
+        "intent_sha256",
+        "repository",
+        "runtime",
+        "agents",
+        "environment",
+        "scope",
+        "acceptance",
+        "acceptance_sha256",
+        "budget",
+        "plan_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.execution-plan.v1"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "repository": {
+          "$ref": "#/$defs/plan1/$defs/repository"
+        },
+        "runtime": {
+          "$ref": "#/$defs/plan1/$defs/policy"
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "worker",
+            "judge"
+          ],
+          "properties": {
+            "worker": {
+              "$ref": "#/$defs/plan1/$defs/agent"
+            },
+            "judge": {
+              "$ref": "#/$defs/plan1/$defs/agent"
+            },
+            "planner": {
+              "$ref": "#/$defs/plan1/$defs/agent"
+            }
+          }
+        },
+        "environment": {
+          "$ref": "#/$defs/plan1/$defs/environment"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "writable"
+          ],
+          "properties": {
+            "writable": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan1/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "acceptance": {
+          "$ref": "#/$defs/plan1/$defs/acceptance"
+        },
+        "acceptance_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "budget": {
+          "$ref": "#/$defs/plan1/$defs/budget"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "$defs": {
+        "path": {
+          "anyOf": [
+            {
+              "const": "."
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576,
+              "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)(?:\\.git|\\.wringer|\\.\\.?)(?:/|$))[^\\\\\\u0000\\r\\n\\t:*?\\[\\]]+$"
+            }
+          ]
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "argv",
+            "cwd",
+            "timeout_seconds"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "cwd": {
+              "$ref": "#/$defs/plan1/$defs/path"
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_sessions",
+            "max_worker_turns",
+            "max_judge_turns",
+            "max_planner_turns",
+            "wall_clock_seconds",
+            "session_timeout_seconds"
+          ],
+          "properties": {
+            "max_sessions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_worker_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_judge_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_planner_turns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "wall_clock_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "session_timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "commit"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^(https|ssh)://[^\\s]+$"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "protocol",
+            "command",
+            "args",
+            "env"
+          ],
+          "properties": {
+            "protocol": {
+              "const": "acp"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "args": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "env": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "uniqueItems": true
+            },
+            "authMethod": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "allow",
+            "dns"
+          ],
+          "properties": {
+            "policy": {
+              "enum": [
+                "deny",
+                "allowlist"
+              ]
+            },
+            "allow": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "cidr",
+                  "ports"
+                ],
+                "properties": {
+                  "cidr": {
+                    "type": "string",
+                    "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([1-9]|[12][0-9]|3[0-2])$"
+                  },
+                  "ports": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "dns": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            }
+          }
+        },
+        "policy": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "image",
+                "cpus",
+                "memoryMiB",
+                "network",
+                "env"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "apple-container"
+                },
+                "image": {
+                  "type": "string",
+                  "pattern": "^\\S+@sha256:[a-f0-9]{64}$"
+                },
+                "cpus": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 128,
+                  "maximum": 262144
+                },
+                "network": {
+                  "$ref": "#/$defs/plan1/$defs/network"
+                },
+                "env": {
+                  "type": "array",
+                  "minItems": 0,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "image",
+                "cpus",
+                "memoryMiB",
+                "network",
+                "env",
+                "context",
+                "namespace",
+                "runtimeClass"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "gvisor-kubernetes"
+                },
+                "image": {
+                  "type": "string",
+                  "pattern": "^\\S+@sha256:[a-f0-9]{64}$"
+                },
+                "cpus": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 128,
+                  "maximum": 262144
+                },
+                "network": {
+                  "$ref": "#/$defs/plan1/$defs/network"
+                },
+                "env": {
+                  "type": "array",
+                  "minItems": 0,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "uniqueItems": true
+                },
+                "context": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1048576
+                },
+                "namespace": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "runtimeClass": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "secretRefs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "key"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1048576
+                      },
+                      "key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1048576
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria",
+            "checks",
+            "protected_paths"
+          ],
+          "properties": {
+            "criteria": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "title",
+                  "quote",
+                  "kind",
+                  "required"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "kind": {
+                    "enum": [
+                      "check",
+                      "human"
+                    ]
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "show": {
+                    "$ref": "#/$defs/plan1/$defs/command"
+                  }
+                }
+              }
+            },
+            "checks": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "argv",
+                  "cwd",
+                  "timeout_seconds",
+                  "criteria",
+                  "files"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "argv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  },
+                  "cwd": {
+                    "$ref": "#/$defs/plan1/$defs/path"
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 86400
+                  },
+                  "criteria": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                    },
+                    "uniqueItems": true
+                  },
+                  "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "$ref": "#/$defs/plan1/$defs/path"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "protected_paths": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan1/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "context",
+            "tools",
+            "setup",
+            "baseline",
+            "writable_directories"
+          ],
+          "properties": {
+            "context": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan1/$defs/path"
+              },
+              "uniqueItems": true
+            },
+            "tools": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "version",
+                  "probe"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "probe": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  }
+                }
+              }
+            },
+            "setup": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan1/$defs/command"
+              }
+            },
+            "baseline": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan1/$defs/command"
+              }
+            },
+            "writable_directories": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan1/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "plan2": {
+      "title": "Design-bound execution plan v2",
+      "description": "Additive design-aware plan. Acceptance digest binds both acceptance and design declarations. Source snapshot, permission, capture and byte identity require semantic validation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "name",
+        "intent",
+        "intent_sha256",
+        "repository",
+        "runtime",
+        "agents",
+        "environment",
+        "scope",
+        "acceptance",
+        "acceptance_sha256",
+        "budget",
+        "plan_sha256",
+        "design"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.execution-plan.v2"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "repository": {
+          "$ref": "#/$defs/plan2/$defs/repository"
+        },
+        "runtime": {
+          "$ref": "#/$defs/plan2/$defs/policy"
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "worker",
+            "judge"
+          ],
+          "properties": {
+            "worker": {
+              "$ref": "#/$defs/plan2/$defs/agent"
+            },
+            "judge": {
+              "$ref": "#/$defs/plan2/$defs/agent"
+            },
+            "planner": {
+              "$ref": "#/$defs/plan2/$defs/agent"
+            }
+          }
+        },
+        "environment": {
+          "$ref": "#/$defs/plan2/$defs/environment"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "writable"
+          ],
+          "properties": {
+            "writable": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan2/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "acceptance": {
+          "$ref": "#/$defs/plan2/$defs/acceptance"
+        },
+        "acceptance_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "budget": {
+          "$ref": "#/$defs/plan2/$defs/budget"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "design": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "snapshotPath",
+            "snapshotSha256",
+            "reviews"
+          ],
+          "properties": {
+            "snapshotPath": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "snapshotSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "reviews": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "criterionId",
+                  "referenceIds",
+                  "captures"
+                ],
+                "properties": {
+                  "criterionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "referenceIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  },
+                  "captures": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "path",
+                        "mimeType",
+                        "width",
+                        "height"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "mimeType": {
+                          "const": "image/png"
+                        },
+                        "width": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        },
+                        "height": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "$defs": {
+        "path": {
+          "anyOf": [
+            {
+              "const": "."
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576,
+              "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)(?:\\.git|\\.wringer|\\.\\.?)(?:/|$))[^\\\\\\u0000\\r\\n\\t:*?\\[\\]]+$"
+            }
+          ]
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "argv",
+            "cwd",
+            "timeout_seconds"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "cwd": {
+              "$ref": "#/$defs/plan2/$defs/path"
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_sessions",
+            "max_worker_turns",
+            "max_judge_turns",
+            "max_planner_turns",
+            "wall_clock_seconds",
+            "session_timeout_seconds"
+          ],
+          "properties": {
+            "max_sessions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_worker_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_judge_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_planner_turns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "wall_clock_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "session_timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "commit"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^(https|ssh)://[^\\s]+$"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "protocol",
+            "command",
+            "args",
+            "env"
+          ],
+          "properties": {
+            "protocol": {
+              "const": "acp"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "args": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "env": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "uniqueItems": true
+            },
+            "authMethod": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "allow",
+            "dns"
+          ],
+          "properties": {
+            "policy": {
+              "enum": [
+                "deny",
+                "allowlist"
+              ]
+            },
+            "allow": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "cidr",
+                  "ports"
+                ],
+                "properties": {
+                  "cidr": {
+                    "type": "string",
+                    "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([1-9]|[12][0-9]|3[0-2])$"
+                  },
+                  "ports": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "dns": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            }
+          }
+        },
+        "policy": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "image",
+                "cpus",
+                "memoryMiB",
+                "network",
+                "env"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "apple-container"
+                },
+                "image": {
+                  "type": "string",
+                  "pattern": "^\\S+@sha256:[a-f0-9]{64}$"
+                },
+                "cpus": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 128,
+                  "maximum": 262144
+                },
+                "network": {
+                  "$ref": "#/$defs/plan2/$defs/network"
+                },
+                "env": {
+                  "type": "array",
+                  "minItems": 0,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "image",
+                "cpus",
+                "memoryMiB",
+                "network",
+                "env",
+                "context",
+                "namespace",
+                "runtimeClass"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "gvisor-kubernetes"
+                },
+                "image": {
+                  "type": "string",
+                  "pattern": "^\\S+@sha256:[a-f0-9]{64}$"
+                },
+                "cpus": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 128,
+                  "maximum": 262144
+                },
+                "network": {
+                  "$ref": "#/$defs/plan2/$defs/network"
+                },
+                "env": {
+                  "type": "array",
+                  "minItems": 0,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "uniqueItems": true
+                },
+                "context": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1048576
+                },
+                "namespace": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "runtimeClass": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "secretRefs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "key"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1048576
+                      },
+                      "key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1048576
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria",
+            "checks",
+            "protected_paths"
+          ],
+          "properties": {
+            "criteria": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "title",
+                  "quote",
+                  "kind",
+                  "required"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "kind": {
+                    "enum": [
+                      "check",
+                      "human"
+                    ]
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "show": {
+                    "$ref": "#/$defs/plan2/$defs/command"
+                  }
+                }
+              }
+            },
+            "checks": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "argv",
+                  "cwd",
+                  "timeout_seconds",
+                  "criteria",
+                  "files"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "argv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  },
+                  "cwd": {
+                    "$ref": "#/$defs/plan2/$defs/path"
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 86400
+                  },
+                  "criteria": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                    },
+                    "uniqueItems": true
+                  },
+                  "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "$ref": "#/$defs/plan2/$defs/path"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "protected_paths": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan2/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "context",
+            "tools",
+            "setup",
+            "baseline",
+            "writable_directories"
+          ],
+          "properties": {
+            "context": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan2/$defs/path"
+              },
+              "uniqueItems": true
+            },
+            "tools": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "version",
+                  "probe"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "probe": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  }
+                }
+              }
+            },
+            "setup": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan2/$defs/command"
+              }
+            },
+            "baseline": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan2/$defs/command"
+              }
+            },
+            "writable_directories": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan2/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "plan3": {
+      "title": "Measured-loop and worker-playbook execution plan v3",
+      "description": "Additive plan: explicit loop policy, opt-in assertion evidence and one immutable worker-only playbook. Semantic source, applicability, approval and evidence validation is mandatory.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "name",
+        "intent",
+        "intent_sha256",
+        "repository",
+        "runtime",
+        "agents",
+        "environment",
+        "scope",
+        "acceptance",
+        "acceptance_sha256",
+        "budget",
+        "plan_sha256",
+        "loop"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.execution-plan.v3"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "repository": {
+          "$ref": "#/$defs/plan3/$defs/repository"
+        },
+        "runtime": {
+          "$ref": "#/$defs/plan3/$defs/policy"
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "worker",
+            "judge"
+          ],
+          "properties": {
+            "worker": {
+              "$ref": "#/$defs/plan3/$defs/agent"
+            },
+            "judge": {
+              "$ref": "#/$defs/plan3/$defs/agent"
+            },
+            "planner": {
+              "$ref": "#/$defs/plan3/$defs/agent"
+            }
+          }
+        },
+        "environment": {
+          "$ref": "#/$defs/plan3/$defs/environment"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "writable"
+          ],
+          "properties": {
+            "writable": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan3/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "acceptance": {
+          "$ref": "#/$defs/plan3/$defs/acceptance"
+        },
+        "acceptance_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "budget": {
+          "$ref": "#/$defs/plan3/$defs/budget"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "design": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "snapshotPath",
+            "snapshotSha256",
+            "reviews"
+          ],
+          "properties": {
+            "snapshotPath": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "snapshotSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "reviews": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "criterionId",
+                  "referenceIds",
+                  "captures"
+                ],
+                "properties": {
+                  "criterionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "referenceIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  },
+                  "captures": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "path",
+                        "mimeType",
+                        "width",
+                        "height"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "mimeType": {
+                          "const": "image/png"
+                        },
+                        "width": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        },
+                        "height": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "loop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repeatCandidate",
+            "repeatedOutcomeWarning"
+          ],
+          "properties": {
+            "repeatCandidate": {
+              "const": "stop"
+            },
+            "repeatedOutcomeWarning": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 64
+            }
+          }
+        },
+        "approachAdoption": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/plan3/properties/playbook/properties/adoption"
+            },
+            {
+              "properties": {
+                "action": {
+                  "const": "rollback"
+                },
+                "selectedDigest": {
+                  "type": "null"
+                },
+                "previousDigest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        },
+        "playbook": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "taskFamily"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "taskFamily": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "adoption": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema_version",
+                "repository",
+                "taskFamily",
+                "action",
+                "actor",
+                "note",
+                "at",
+                "previousRevision",
+                "previousDigest",
+                "selectedDigest",
+                "experimentSha256",
+                "evidenceRevision",
+                "appliesTo",
+                "executionApproved",
+                "sha256"
+              ],
+              "properties": {
+                "schema_version": {
+                  "const": "wringer.playbook-adoption.v1"
+                },
+                "repository": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "taskFamily": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "action": {
+                  "enum": [
+                    "promote",
+                    "rollback"
+                  ]
+                },
+                "actor": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16000
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "maxLength": 64
+                },
+                "previousRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "previousDigest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "selectedDigest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "experimentSha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "evidenceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "appliesTo": {
+                  "const": "future-plans-only"
+                },
+                "executionApproved": {
+                  "const": false
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          }
+        }
+      },
+      "$defs": {
+        "path": {
+          "anyOf": [
+            {
+              "const": "."
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576,
+              "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)(?:\\.git|\\.wringer|\\.\\.?)(?:/|$))[^\\\\\\u0000\\r\\n\\t:*?\\[\\]]+$"
+            }
+          ]
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "argv",
+            "cwd",
+            "timeout_seconds"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "cwd": {
+              "$ref": "#/$defs/plan3/$defs/path"
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_sessions",
+            "max_worker_turns",
+            "max_judge_turns",
+            "max_planner_turns",
+            "wall_clock_seconds",
+            "session_timeout_seconds"
+          ],
+          "properties": {
+            "max_sessions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_worker_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_judge_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_planner_turns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "wall_clock_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "session_timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "commit"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^(https|ssh)://[^\\s]+$"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "protocol",
+            "command",
+            "args",
+            "env"
+          ],
+          "properties": {
+            "protocol": {
+              "const": "acp"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "args": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "env": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "uniqueItems": true
+            },
+            "authMethod": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "allow",
+            "dns"
+          ],
+          "properties": {
+            "policy": {
+              "enum": [
+                "deny",
+                "allowlist"
+              ]
+            },
+            "allow": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "cidr",
+                  "ports"
+                ],
+                "properties": {
+                  "cidr": {
+                    "type": "string",
+                    "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([1-9]|[12][0-9]|3[0-2])$"
+                  },
+                  "ports": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "dns": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            }
+          }
+        },
+        "policy": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "image",
+                "cpus",
+                "memoryMiB",
+                "network",
+                "env"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "apple-container"
+                },
+                "image": {
+                  "type": "string",
+                  "pattern": "^\\S+@sha256:[a-f0-9]{64}$"
+                },
+                "cpus": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 128,
+                  "maximum": 262144
+                },
+                "network": {
+                  "$ref": "#/$defs/plan3/$defs/network"
+                },
+                "env": {
+                  "type": "array",
+                  "minItems": 0,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "image",
+                "cpus",
+                "memoryMiB",
+                "network",
+                "env",
+                "context",
+                "namespace",
+                "runtimeClass"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "gvisor-kubernetes"
+                },
+                "image": {
+                  "type": "string",
+                  "pattern": "^\\S+@sha256:[a-f0-9]{64}$"
+                },
+                "cpus": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 128,
+                  "maximum": 262144
+                },
+                "network": {
+                  "$ref": "#/$defs/plan3/$defs/network"
+                },
+                "env": {
+                  "type": "array",
+                  "minItems": 0,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "uniqueItems": true
+                },
+                "context": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1048576
+                },
+                "namespace": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "runtimeClass": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "secretRefs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "key"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1048576
+                      },
+                      "key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1048576
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria",
+            "checks",
+            "protected_paths"
+          ],
+          "properties": {
+            "criteria": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "title",
+                  "quote",
+                  "kind",
+                  "required"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "kind": {
+                    "enum": [
+                      "check",
+                      "human"
+                    ]
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "show": {
+                    "$ref": "#/$defs/plan3/$defs/command"
+                  }
+                }
+              }
+            },
+            "checks": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "argv",
+                  "cwd",
+                  "timeout_seconds",
+                  "criteria",
+                  "files"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "argv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  },
+                  "cwd": {
+                    "$ref": "#/$defs/plan3/$defs/path"
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 86400
+                  },
+                  "criteria": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                    },
+                    "uniqueItems": true
+                  },
+                  "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "$ref": "#/$defs/plan3/$defs/path"
+                    },
+                    "uniqueItems": true
+                  },
+                  "evidence": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "format"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "assertions"
+                      },
+                      "format": {
+                        "const": "wringer-check.v1"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "protected_paths": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan3/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "context",
+            "tools",
+            "setup",
+            "baseline",
+            "writable_directories"
+          ],
+          "properties": {
+            "context": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan3/$defs/path"
+              },
+              "uniqueItems": true
+            },
+            "tools": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "version",
+                  "probe"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "probe": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  }
+                }
+              }
+            },
+            "setup": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan3/$defs/command"
+              }
+            },
+            "baseline": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan3/$defs/command"
+              }
+            },
+            "writable_directories": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan3/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "plan4": {
+      "title": "Local-source execution plan v4",
+      "description": "Plan v3 unchanged except its repository: a local-only source with no remote, named local://<root commit> by the single root of its history and read only from the Git bundle prepared beside the profile. Hosted sources remain plan v1-v3. Semantic source, bundle, applicability, approval and evidence validation is mandatory.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "name",
+        "intent",
+        "intent_sha256",
+        "repository",
+        "runtime",
+        "agents",
+        "environment",
+        "scope",
+        "acceptance",
+        "acceptance_sha256",
+        "budget",
+        "plan_sha256",
+        "loop"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.execution-plan.v4"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "repository": {
+          "$ref": "#/$defs/plan4/$defs/repository"
+        },
+        "runtime": {
+          "$ref": "#/$defs/plan4/$defs/policy"
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "worker",
+            "judge"
+          ],
+          "properties": {
+            "worker": {
+              "$ref": "#/$defs/plan4/$defs/agent"
+            },
+            "judge": {
+              "$ref": "#/$defs/plan4/$defs/agent"
+            },
+            "planner": {
+              "$ref": "#/$defs/plan4/$defs/agent"
+            }
+          }
+        },
+        "environment": {
+          "$ref": "#/$defs/plan4/$defs/environment"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "writable"
+          ],
+          "properties": {
+            "writable": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan4/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "acceptance": {
+          "$ref": "#/$defs/plan4/$defs/acceptance"
+        },
+        "acceptance_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "budget": {
+          "$ref": "#/$defs/plan4/$defs/budget"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "design": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "snapshotPath",
+            "snapshotSha256",
+            "reviews"
+          ],
+          "properties": {
+            "snapshotPath": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "snapshotSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "reviews": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "criterionId",
+                  "referenceIds",
+                  "captures"
+                ],
+                "properties": {
+                  "criterionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "referenceIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  },
+                  "captures": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "path",
+                        "mimeType",
+                        "width",
+                        "height"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "mimeType": {
+                          "const": "image/png"
+                        },
+                        "width": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        },
+                        "height": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "loop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repeatCandidate",
+            "repeatedOutcomeWarning"
+          ],
+          "properties": {
+            "repeatCandidate": {
+              "const": "stop"
+            },
+            "repeatedOutcomeWarning": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 64
+            }
+          }
+        },
+        "approachAdoption": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/plan4/properties/playbook/properties/adoption"
+            },
+            {
+              "properties": {
+                "action": {
+                  "const": "rollback"
+                },
+                "selectedDigest": {
+                  "type": "null"
+                },
+                "previousDigest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        },
+        "playbook": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "taskFamily"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "taskFamily": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "adoption": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema_version",
+                "repository",
+                "taskFamily",
+                "action",
+                "actor",
+                "note",
+                "at",
+                "previousRevision",
+                "previousDigest",
+                "selectedDigest",
+                "experimentSha256",
+                "evidenceRevision",
+                "appliesTo",
+                "executionApproved",
+                "sha256"
+              ],
+              "properties": {
+                "schema_version": {
+                  "const": "wringer.playbook-adoption.v1"
+                },
+                "repository": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "taskFamily": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "action": {
+                  "enum": [
+                    "promote",
+                    "rollback"
+                  ]
+                },
+                "actor": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16000
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "maxLength": 64
+                },
+                "previousRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "previousDigest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "selectedDigest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "experimentSha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "evidenceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "appliesTo": {
+                  "const": "future-plans-only"
+                },
+                "executionApproved": {
+                  "const": false
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          }
+        }
+      },
+      "$defs": {
+        "path": {
+          "anyOf": [
+            {
+              "const": "."
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576,
+              "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)(?:\\.git|\\.wringer|\\.\\.?)(?:/|$))[^\\\\\\u0000\\r\\n\\t:*?\\[\\]]+$"
+            }
+          ]
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "argv",
+            "cwd",
+            "timeout_seconds"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "cwd": {
+              "$ref": "#/$defs/plan4/$defs/path"
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_sessions",
+            "max_worker_turns",
+            "max_judge_turns",
+            "max_planner_turns",
+            "wall_clock_seconds",
+            "session_timeout_seconds"
+          ],
+          "properties": {
+            "max_sessions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_worker_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_judge_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_planner_turns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "wall_clock_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "session_timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "commit"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^local://[a-f0-9]{40}$"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "protocol",
+            "command",
+            "args",
+            "env"
+          ],
+          "properties": {
+            "protocol": {
+              "const": "acp"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "args": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "env": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "uniqueItems": true
+            },
+            "authMethod": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "allow",
+            "dns"
+          ],
+          "properties": {
+            "policy": {
+              "enum": [
+                "deny",
+                "allowlist"
+              ]
+            },
+            "allow": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "cidr",
+                  "ports"
+                ],
+                "properties": {
+                  "cidr": {
+                    "type": "string",
+                    "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([1-9]|[12][0-9]|3[0-2])$"
+                  },
+                  "ports": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "dns": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            }
+          }
+        },
+        "policy": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "image",
+                "cpus",
+                "memoryMiB",
+                "network",
+                "env"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "apple-container"
+                },
+                "image": {
+                  "type": "string",
+                  "pattern": "^\\S+@sha256:[a-f0-9]{64}$"
+                },
+                "cpus": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 128,
+                  "maximum": 262144
+                },
+                "network": {
+                  "$ref": "#/$defs/plan4/$defs/network"
+                },
+                "env": {
+                  "type": "array",
+                  "minItems": 0,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "image",
+                "cpus",
+                "memoryMiB",
+                "network",
+                "env",
+                "context",
+                "namespace",
+                "runtimeClass"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "gvisor-kubernetes"
+                },
+                "image": {
+                  "type": "string",
+                  "pattern": "^\\S+@sha256:[a-f0-9]{64}$"
+                },
+                "cpus": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 128,
+                  "maximum": 262144
+                },
+                "network": {
+                  "$ref": "#/$defs/plan4/$defs/network"
+                },
+                "env": {
+                  "type": "array",
+                  "minItems": 0,
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "uniqueItems": true
+                },
+                "context": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1048576
+                },
+                "namespace": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "runtimeClass": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "secretRefs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "key"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1048576
+                      },
+                      "key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1048576
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria",
+            "checks",
+            "protected_paths"
+          ],
+          "properties": {
+            "criteria": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "title",
+                  "quote",
+                  "kind",
+                  "required"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "kind": {
+                    "enum": [
+                      "check",
+                      "human"
+                    ]
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "show": {
+                    "$ref": "#/$defs/plan4/$defs/command"
+                  }
+                }
+              }
+            },
+            "checks": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "argv",
+                  "cwd",
+                  "timeout_seconds",
+                  "criteria",
+                  "files"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "argv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  },
+                  "cwd": {
+                    "$ref": "#/$defs/plan4/$defs/path"
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 86400
+                  },
+                  "criteria": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                    },
+                    "uniqueItems": true
+                  },
+                  "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "$ref": "#/$defs/plan4/$defs/path"
+                    },
+                    "uniqueItems": true
+                  },
+                  "evidence": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "format"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "assertions"
+                      },
+                      "format": {
+                        "const": "wringer-check.v1"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "protected_paths": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan4/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "context",
+            "tools",
+            "setup",
+            "baseline",
+            "writable_directories"
+          ],
+          "properties": {
+            "context": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan4/$defs/path"
+              },
+              "uniqueItems": true
+            },
+            "tools": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "version",
+                  "probe"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "probe": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  }
+                }
+              }
+            },
+            "setup": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan4/$defs/command"
+              }
+            },
+            "baseline": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan4/$defs/command"
+              }
+            },
+            "writable_directories": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan4/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "plan5": {
+      "title": "Trusted-local execution plan v5",
+      "description": "Sibling of the measured-loop plan v3 that exists only to name a trusted-local runtime: roles and checks run as ordinary processes on the operator's computer, under the operator's account, each in a fresh temporary clone. Nothing is contained, network cannot be restricted (policy unenforced is the only value), and protected mode refuses it. The source is hosted (https/ssh) or local-only (local://<root commit>). Semantic validation by the native compiler is mandatory.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "name",
+        "intent",
+        "intent_sha256",
+        "repository",
+        "runtime",
+        "agents",
+        "environment",
+        "scope",
+        "acceptance",
+        "acceptance_sha256",
+        "budget",
+        "plan_sha256",
+        "loop"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.execution-plan.v5"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "intent_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "repository": {
+          "$ref": "#/$defs/plan5/$defs/repository"
+        },
+        "runtime": {
+          "$ref": "#/$defs/plan5/$defs/policy"
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "worker",
+            "judge"
+          ],
+          "properties": {
+            "worker": {
+              "$ref": "#/$defs/plan5/$defs/agent"
+            },
+            "judge": {
+              "$ref": "#/$defs/plan5/$defs/agent"
+            },
+            "planner": {
+              "$ref": "#/$defs/plan5/$defs/agent"
+            }
+          }
+        },
+        "environment": {
+          "$ref": "#/$defs/plan5/$defs/environment"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "writable"
+          ],
+          "properties": {
+            "writable": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan5/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "acceptance": {
+          "$ref": "#/$defs/plan5/$defs/acceptance"
+        },
+        "acceptance_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "budget": {
+          "$ref": "#/$defs/plan5/$defs/budget"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "design": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "snapshotPath",
+            "snapshotSha256",
+            "reviews"
+          ],
+          "properties": {
+            "snapshotPath": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "snapshotSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "reviews": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "criterionId",
+                  "referenceIds",
+                  "captures"
+                ],
+                "properties": {
+                  "criterionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "referenceIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  },
+                  "captures": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "path",
+                        "mimeType",
+                        "width",
+                        "height"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "mimeType": {
+                          "const": "image/png"
+                        },
+                        "width": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        },
+                        "height": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4096
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "loop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repeatCandidate",
+            "repeatedOutcomeWarning"
+          ],
+          "properties": {
+            "repeatCandidate": {
+              "const": "stop"
+            },
+            "repeatedOutcomeWarning": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 64
+            }
+          }
+        },
+        "approachAdoption": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/plan5/properties/playbook/properties/adoption"
+            },
+            {
+              "properties": {
+                "action": {
+                  "const": "rollback"
+                },
+                "selectedDigest": {
+                  "type": "null"
+                },
+                "previousDigest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        },
+        "playbook": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "taskFamily"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "taskFamily": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "adoption": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema_version",
+                "repository",
+                "taskFamily",
+                "action",
+                "actor",
+                "note",
+                "at",
+                "previousRevision",
+                "previousDigest",
+                "selectedDigest",
+                "experimentSha256",
+                "evidenceRevision",
+                "appliesTo",
+                "executionApproved",
+                "sha256"
+              ],
+              "properties": {
+                "schema_version": {
+                  "const": "wringer.playbook-adoption.v1"
+                },
+                "repository": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "taskFamily": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "action": {
+                  "enum": [
+                    "promote",
+                    "rollback"
+                  ]
+                },
+                "actor": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16000
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "maxLength": 64
+                },
+                "previousRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "previousDigest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "selectedDigest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "experimentSha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "evidenceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "appliesTo": {
+                  "const": "future-plans-only"
+                },
+                "executionApproved": {
+                  "const": false
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          }
+        }
+      },
+      "$defs": {
+        "path": {
+          "anyOf": [
+            {
+              "const": "."
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576,
+              "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)(?:\\.git|\\.wringer|\\.\\.?)(?:/|$))[^\\\\\\u0000\\r\\n\\t:*?\\[\\]]+$"
+            }
+          ]
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "argv",
+            "cwd",
+            "timeout_seconds"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "cwd": {
+              "$ref": "#/$defs/plan5/$defs/path"
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_sessions",
+            "max_worker_turns",
+            "max_judge_turns",
+            "max_planner_turns",
+            "wall_clock_seconds",
+            "session_timeout_seconds"
+          ],
+          "properties": {
+            "max_sessions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_worker_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_judge_turns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "max_planner_turns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "wall_clock_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            },
+            "session_timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400
+            }
+          }
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "commit"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^((https|ssh)://[^\\s]+|local://[a-f0-9]{40})$"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "protocol",
+            "command",
+            "args",
+            "env"
+          ],
+          "properties": {
+            "protocol": {
+              "const": "acp"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "args": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1048576
+              }
+            },
+            "env": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "uniqueItems": true
+            },
+            "authMethod": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            }
+          }
+        },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "network",
+            "env"
+          ],
+          "properties": {
+            "kind": {
+              "const": "trusted-local"
+            },
+            "network": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "policy"
+              ],
+              "properties": {
+                "policy": {
+                  "const": "unenforced"
+                }
+              }
+            },
+            "env": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "criteria",
+            "checks",
+            "protected_paths"
+          ],
+          "properties": {
+            "criteria": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "title",
+                  "quote",
+                  "kind",
+                  "required"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "kind": {
+                    "enum": [
+                      "check",
+                      "human"
+                    ]
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "show": {
+                    "$ref": "#/$defs/plan5/$defs/command"
+                  }
+                }
+              }
+            },
+            "checks": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "argv",
+                  "cwd",
+                  "timeout_seconds",
+                  "criteria",
+                  "files"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "argv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  },
+                  "cwd": {
+                    "$ref": "#/$defs/plan5/$defs/path"
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 86400
+                  },
+                  "criteria": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                    },
+                    "uniqueItems": true
+                  },
+                  "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "$ref": "#/$defs/plan5/$defs/path"
+                    },
+                    "uniqueItems": true
+                  },
+                  "evidence": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "format"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "assertions"
+                      },
+                      "format": {
+                        "const": "wringer-check.v1"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "protected_paths": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan5/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "context",
+            "tools",
+            "setup",
+            "baseline",
+            "writable_directories"
+          ],
+          "properties": {
+            "context": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan5/$defs/path"
+              },
+              "uniqueItems": true
+            },
+            "tools": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "version",
+                  "probe"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1048576
+                  },
+                  "probe": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1048576
+                    }
+                  }
+                }
+              }
+            },
+            "setup": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan5/$defs/command"
+              }
+            },
+            "baseline": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan5/$defs/command"
+              }
+            },
+            "writable_directories": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/plan5/$defs/path"
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    }
+  }
+}
