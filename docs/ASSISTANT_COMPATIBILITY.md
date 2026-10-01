@@ -7,7 +7,7 @@ a connection, checked against the client's official documentation on
 | Client | Connection | Recipe source | Full journey | Notes |
 | --- | --- | --- | --- | --- |
 | Claude Code | `wring connect --client claude-code` applies a reviewed project or user entry (`claude mcp add` / `.mcp.json`) | Official docs | Unmeasured for this candidate | Distinct from Claude as an ACP worker |
-| Codex CLI 0.153.4 | `wring connect --client codex` applies a reviewed TOML entry | Official docs | Unmeasured for this candidate | Codex desktop is a separate, unmeasured surface |
+| Codex CLI 0.153.4 | `wring connect --client codex` applies a reviewed TOML entry | Official docs | Unmeasured for this candidate | Measured 2026-10-01: a project entry is read only in a folder you trust, and a user-level server named `wringer` is used instead of it, so connect refuses that case. Codex desktop is a separate, unmeasured surface |
 | Cursor | Printed `mcpServers` entry for `~/.cursor/mcp.json` or `.cursor/mcp.json` | Official docs | Unmeasured | No add command |
 | Gemini CLI | Printed `mcpServers` entry for `settings.json` | Official docs | Unmeasured | Its add command is not printed |
 | Kimi CLI | Printed `kimi mcp add` command | Official docs | Unmeasured | |

@@ -73,6 +73,12 @@ If a coding agent's login has expired, the job stops before any change and says
 so: sign in with that agent's own login (Claude Code: run `claude` and use
 `/login`; Codex: `codex login`) and ask your assistant to retry the stopped step.
 
+With Codex, a project's `.codex/config.toml` is read only in a folder you have
+trusted, and a server named `wringer` in your user configuration is used instead
+of the project's. `wring connect` says so before writing anything and refuses the
+second case: remove the old entry after inspecting it (`codex mcp remove
+wringer`), or connect with `--scope user --replace`.
+
 Any named client works (`claude-code`, `codex`, `cursor`, `gemini-cli`,
 `generic`, `kimi`, `vscode`, `windsurf`); none is a default. The worker and judge
 adapters are chosen separately from the client you talk to.

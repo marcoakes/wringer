@@ -96,7 +96,7 @@ for (const cancellation of ["owner-stop", "assistant-cancel"]) test(`${cancellat
 const ADVANCED = "The run advanced while it was read; read again before acting.";
 test("a status read that sees the run advance reports it, never refuses and offers no action", async () => {
     // The page owner's periodic tick also reads status; stop it so the armed read is ours.
-    const f = await fixture(); f.flow.stop();
+    const f = await fixture(); await f.flow.stop();
     const fresh = await f.service.status(f.jobId);
     expect(fresh.actions.some((a: any) => a.enabled)).toBe(true);
     const reads: [string, () => Promise<any>][] = [["status", () => f.service.status(f.jobId)], ["PM page", async () => (await f.service.inspectForPm(f.jobId)).status], ["wringer.get_status", () => f.service.call(f.capability.token, "wringer.get_status", { jobId: f.jobId })]];
@@ -113,7 +113,7 @@ test("a status read that sees the run advance reports it, never refuses and offe
     expect(await f.service.status(f.jobId)).toMatchObject({ revisionAdvanced: false, nextAction: fresh.nextAction });
 });
 test("a cancel is recorded and applied whatever revision its observation saw; every other act still refuses that revision", async () => {
-    const f = await fixture(); f.flow.stop();
+    const f = await fixture(); await f.flow.stop();
     f.advanceNextRead();
     const observed = await f.service.status(f.jobId);
     expect(observed.revisionAdvanced).toBe(true);
@@ -130,7 +130,7 @@ test("a cancel is recorded and applied whatever revision its observation saw; ev
 // The old stop/read test relied on a periodic tick landing in the right window.
 // Hold that tick explicitly: owner shutdown is not a failed job observation.
 test("owner shutdown during a pending observation does not turn a reviewable job into a failure", async () => {
-    const f = await fixture(false, 3); f.flow.stop();
+    const f = await fixture(false, 3); await f.flow.stop();
     let release!: () => void, entered!: () => void, hold = true;
     const waiting = new Promise<void>(resolve => { release = resolve; }), reached = new Promise<void>(resolve => { entered = resolve; });
     const flow = createAssistantJobFlow({ ...f.service, inspectProposal: async jobId => {
@@ -147,7 +147,7 @@ test("owner shutdown during a pending observation does not turn a reviewable job
 });
 test("the PM page reports a run that advanced while it was read, never refuses and offers no decision", async () => {
     // The page re-reads the journal for progress evidence only on measured-loop plans, so this job's plan is version 3.
-    const f = await fixture(false, 3); f.flow.stop();
+    const f = await fixture(false, 3); await f.flow.stop();
     const fresh = await f.flow.read(f.jobId);
     expect(fresh.engineering).toBeDefined(); expect(fresh.phase).toBe("review");
     const arms: [string, () => void][] = [["service observation", f.advanceNextRead], ["page re-read", f.advancePageRead]];

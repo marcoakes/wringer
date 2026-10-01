@@ -1,0 +1,44 @@
+{
+  "baseline": "7a669d2846a848013558e97718ae5b8e2e531124",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "connect-refuses-shadowed-codex-entry",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "connect-flags-untrusted-codex-folder",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "stop-waits-for-sweep-in-flight",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "stopped-sweep-reads-nothing",
+      "exit": 0,
+      "assertions": true,
+      "failed": false,
+      "caught": false
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

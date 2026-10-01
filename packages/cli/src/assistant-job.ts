@@ -288,15 +288,21 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
             return await queue(jobId, id({ jobId, revision: current.readyRevision, action, verdict: body.verdict, note: body.note ?? null }), "review-decisions", { decisions: current.displays.map(d => ({ criterionId: d.criterionId, displayId: d.displayId, verdict: body.verdict, ...(body.note ? { note: body.note } : {}) })) }, current);
         } finally { active.delete(jobId); }
     }
+    // The sweep in flight, so stopping can wait for it: a stopped flow makes no further reads.
+    let sweep: Promise<void> = Promise.resolve();
     const tick = async () => {
         if (sweeping || stopped || options.isStopping?.()) return;
         sweeping = true;
-        try { for (const job of await service.list()) { if (job.outcome === "cancelled") cancellations.get(job.jobId)?.abort(new Error("The job was cancelled.")); else await advance(job.jobId); } }
-        catch { /* Unreadable owner state cannot authorize convenience work. GET surfaces the stop. */ }
-        finally { sweeping = false; }
+        sweep = (async () => {
+            try { for (const job of await service.list()) { if (job.outcome === "cancelled") cancellations.get(job.jobId)?.abort(new Error("The job was cancelled.")); else await advance(job.jobId); } }
+            catch { /* Unreadable owner state cannot authorize convenience work. GET surfaces the stop. */ }
+            finally { sweeping = false; }
+        })();
+        await sweep;
     };
     let timer: ReturnType<typeof setInterval> | undefined;
     function start() { if (!timer && !stopped) { timer = setInterval(() => { void tick(); }, 1000); timer.unref(); } }
     if (options.autoAdvance !== false) start();
-    return { read, post, tick, start, stop() { stopped = true; clearInterval(timer); for (const cancellation of cancellations.values()) cancellation.abort(new Error("The job page owner stopped.")); } };
+    /** Stops new work at once; the returned promise settles when a sweep already in flight has finished. */
+    return { read, post, tick, start, stop() { stopped = true; clearInterval(timer); for (const cancellation of cancellations.values()) cancellation.abort(new Error("The job page owner stopped.")); return sweep; } };
 }

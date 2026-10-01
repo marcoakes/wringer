@@ -4,6 +4,25 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.35 — a Codex connection Codex will actually use
+
+Found while preparing the beta gate on the published alpha.34, each with a test
+that fails without it:
+
+- **`wring connect --client codex --scope project` no longer reports a connection
+  Codex will not use.** Measured on Codex 0.153.4: a server named `wringer` in the
+  user's `~/.codex/config.toml` is used instead of the project's entry, and a
+  project's `.codex/config.toml` is read only in a folder the user trusts. The
+  preview now names an existing user-level entry (and what it runs), and applying
+  refuses until it is removed (`codex mcp remove wringer`) or the connection is
+  made with `--scope user --replace`. An untrusted folder is flagged before
+  anything is written. The tester's own machine had such an entry, left by an
+  earlier blind test.
+- **Stopping the job page's flow waits for a sweep already in flight.** A sweep
+  that outlived `stop()` could make one more status read. A test that armed "the
+  next read sees an advanced revision" could lose that read to it. That race
+  failed alpha.34's Linux release build once.
+
 ## 1.0.0-alpha.34 — delegate on this computer, from any named client
 
 - **Trusted-local runtime (ruling R-1).** A plan can declare

@@ -93,10 +93,24 @@ async function proposal(root: string, input: ClientSelection) {
     const argv = [...selected.launcher, "mcp", "--connection", join(root, "owners", selected.workspaceId, "connection.json")];
     const entry = selected.remove ? null : selected.client === "claude-code" ? { type: "stdio", command: argv[0], args: argv.slice(1) } : { command: argv[0], args: argv.slice(1), env_vars: [], enabled_tools: tools, startup_timeout_sec: 10, tool_timeout_sec: 40, ...(selected.autoApprove ? { default_tools_approval_mode: "auto" } : {}) };
     const after = editClientConfiguration(selected.client, before ?? "", entry), skillAfter = selected.remove ? null : workflow;
+    // Measured on Codex 0.153.4 (2026-10-01): a user-level server named wringer is the one
+    // Codex uses, and a project's .codex/config.toml is read only for a trusted folder,
+    // which Codex records in the user's own configuration. A project entry that Codex
+    // will not use is refused or flagged here rather than reported as connected.
+    const warnings: string[] = []; let refusal: string | null = null;
+    if (selected.client === "codex" && selected.scope === "project" && !selected.remove) {
+        const userPath = join(selected.home, ".codex/config.toml"), user = parsed("codex", await boundedFile(userPath) ?? ""), userEntry = serverMap("codex", user).map.wringer;
+        if (userEntry !== undefined && hashValue(userEntry) !== hashValue(entry)) {
+            refusal = `Your Codex user configuration (${userPath}) already has a server named wringer, and Codex uses that one instead of this project's entry. It runs: ${redactor.scrub([userEntry.command, ...(Array.isArray(userEntry.args) ? userEntry.args : [])].join(" ")).slice(0, 600)}. Inspect it; then remove it with codex mcp remove wringer, or connect with --scope user --replace instead. Nothing was written.`;
+            warnings.push(refusal);
+        }
+        const trusted = Object.entries(user.projects ?? {}).some(([path, row]: [string, any]) => row?.trust_level === "trusted" && (selected.repo === path || selected.repo.startsWith(path.endsWith("/") ? path : path + "/")));
+        if (!trusted) warnings.push(`Codex reads this project's .codex/config.toml only for a folder you trust, recorded in ${userPath}. Open codex in ${selected.repo} once and trust it, or connect with --scope user.`);
+    }
     const files = [{ path: locations.config, before, after }, { path: locations.skill, before: skillBefore, after: skillAfter }];
     const next = { schema_version: "wringer.client-binding.v1", id, sequence: (previous?.sequence ?? 0) + 1, previous: previous ? hashValue(previous) : null, workspaceId: selected.workspaceId, client: selected.client, scope: selected.scope, action: selected.remove ? "remove" : "install", entryIdentity: hashValue(entry), skillIdentity: identity(skillAfter), locations };
-    const publicValue = { schema_version: "wringer.client-change.v1", coordination: { kind: "client", id }, selection: selected, ownership: owned ? "owned" : current ? "different" : "absent", existingEntry: redactor.deep(current), proposedEntry: entry, changes: files.map(file => ({ path: file.path, before: identity(file.before), after: identity(file.after), action: file.after === null ? "remove" : file.before === null ? "create" : "update" })), authority: "none", clientCompatibility: "not-measured", note: "Only the named server and workflow skill are selected. Jobs and operator authority remain in the application directory. Client trust/reload may still be required." };
-    return { input: selected, files, next, publicValue: { ...publicValue, identity: hashValue({ ...publicValue, previous: next.previous }) } };
+    const publicValue = { schema_version: "wringer.client-change.v1", coordination: { kind: "client", id }, selection: selected, ownership: owned ? "owned" : current ? "different" : "absent", existingEntry: redactor.deep(current), proposedEntry: entry, ...(warnings.length ? { warnings } : {}), changes: files.map(file => ({ path: file.path, before: identity(file.before), after: identity(file.after), action: file.after === null ? "remove" : file.before === null ? "create" : "update" })), authority: "none", clientCompatibility: "not-measured", note: "Only the named server and workflow skill are selected. Jobs and operator authority remain in the application directory. Client trust/reload may still be required." };
+    return { input: selected, files, next, refusal, publicValue: { ...publicValue, identity: hashValue({ ...publicValue, previous: next.previous }) } };
 }
 export async function previewClientConnection(root: string, input: ClientSelection) { return (await proposal(root, input)).publicValue; }
 /** Private resumable transaction. Backups stay outside project/client config and
@@ -117,6 +131,7 @@ export async function applyClientConnection(root: string, input: ClientSelection
         } else {
             plan = await proposal(root, selected);
             if (plan.publicValue.identity !== expected) throw new Error("Client configuration changed since preview; inspect a fresh change before applying");
+            if (plan.refusal) throw new Error(plan.refusal);
             await writeAssistantRecord(root, record, plan);
         }
         const latest = await binding(root, id);

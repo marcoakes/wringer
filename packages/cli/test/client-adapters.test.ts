@@ -30,7 +30,8 @@ test("T19 named Codex edits preserve unrelated settings and comments without gra
 });
 test("T19 an old completed connection transaction cannot bypass advanced ownership", async () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-client-history-"))), repo = join(root, "repo"), app = join(root, "app"); await mkdir(repo);
-    const input = { client: "codex", scope: "project", repo, workspaceId: crypto.randomUUID(), launcher: ["/wring"], mode: "verification" };
+    // An isolated home: the operator's own Codex configuration is never read by a test.
+    const input = { client: "codex", scope: "project", repo, home: join(root, "home"), workspaceId: crypto.randomUUID(), launcher: ["/wring"], mode: "verification" };
     const preview = await api.previewClientConnection(app, input); await api.applyClientConnection(app, input, preview.identity);
     const plan = await readAssistantRecord<any>(app, `client-transactions/${preview.identity}.json`), previous = plan.next;
     await writeAssistantRecord(app, `client-bindings/${previous.id}/00000002.json`, { ...previous, previous: hashValue(previous), sequence: 2, workspaceId: crypto.randomUUID() });
@@ -97,4 +98,28 @@ test("T19 explicit routine approval is scoped to the restricted Codex server", a
     const preview = await api.previewClientConnection(join(root, "app"), input);
     expect(preview.proposedEntry.default_tools_approval_mode).toBe("auto"); expect(preview.changes[0].path).toBe(join(root, ".codex/config.toml"));
     await expect(api.previewClientConnection(join(root, "app"), { ...input, client: "claude-code" })).rejects.toThrow("auto-approval");
+});
+test("a Codex project entry that Codex would not use is refused or flagged, never reported as connected", async () => {
+    // Measured on Codex 0.153.4: a user-level server named wringer wins, and an untrusted
+    // folder's .codex/config.toml is not read. The beta-gate run found both on one machine.
+    const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-client-codex-shadow-"))), repo = join(root, "repo"), home = join(root, "home"), app = join(root, "app");
+    await mkdir(repo); await mkdir(join(home, ".codex"), { recursive: true });
+    const input = { client: "codex", scope: "project", repo, home, workspaceId: crypto.randomUUID(), launcher: ["/wring"], mode: "delegation" };
+    const stale = '[mcp_servers.wringer]\ncommand = "/old/wringer-assistant"\nargs = ["mcp", "--connection", "/old/controller/connection.json"]\n';
+    await writeFile(join(home, ".codex/config.toml"), stale);
+    const shadowed = await api.previewClientConnection(app, input);
+    expect(shadowed.warnings[0]).toContain("already has a server named wringer, and Codex uses that one instead of this project's entry");
+    expect(shadowed.warnings[0]).toContain("/old/wringer-assistant mcp --connection /old/controller/connection.json");
+    await expect(api.applyClientConnection(app, input, shadowed.identity)).rejects.toThrow("codex mcp remove wringer");
+    expect(await Bun.file(join(repo, ".codex/config.toml")).exists()).toBe(false);
+    // Without the stale entry the folder's trust decides; an ancestor's trust counts.
+    await writeFile(join(home, ".codex/config.toml"), 'model = "kept"\n');
+    const untrusted = await api.previewClientConnection(app, input);
+    expect(untrusted.warnings).toEqual([expect.stringContaining("only for a folder you trust")]);
+    await writeFile(join(home, ".codex/config.toml"), `[projects."${root}"]\ntrust_level = "trusted"\n`);
+    const trusted = await api.previewClientConnection(app, input);
+    expect(trusted.warnings).toBeUndefined();
+    await api.applyClientConnection(app, input, trusted.identity);
+    expect((Bun.TOML.parse(await Bun.file(join(repo, ".codex/config.toml")).text()) as any).mcp_servers.wringer.command).toBe("/wring");
+    expect(await Bun.file(join(home, ".codex/config.toml")).text()).toBe(`[projects."${root}"]\ntrust_level = "trusted"\n`);
 });

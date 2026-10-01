@@ -192,3 +192,16 @@ test("handover clone instructions quote the recorded branch and remote and name 
     expect(job.phase).toBe("sent");
     expect(job.publication?.cloneCommand).toBe("git clone --no-local --branch 'review/person'\\''s-result' -- '/tmp/fixture'\\''s origin.git' 'reviewed-change'");
 });
+test("stopping waits for the sweep already in flight, which then reads nothing more", async () => {
+    // A tick in flight when a test or an owner stops the flow used to keep reading, and could
+    // consume an observation meant for the caller (seen once on a loaded release runner).
+    const f = await fixture(); f.flow.stop();
+    let release!: () => void, entered!: () => void, reads = 0;
+    const held = new Promise<void>(resolve => { release = resolve; }), reached = new Promise<void>(resolve => { entered = resolve; });
+    const flow = createAssistantJobFlow({ ...f.service, list: async () => { entered(); await held; return f.service.list(); }, inspectForPm: async (jobId: string) => { reads++; return f.service.inspectForPm(jobId); } } as any, { autoAdvance: false }); flows.push(flow);
+    const pending = flow.tick(); await reached;
+    let settled = false; const stopping = flow.stop().then(() => { settled = true; });
+    await Bun.sleep(20); expect(settled).toBe(false);
+    release(); await stopping; await pending;
+    expect(settled).toBe(true); expect(reads).toBe(0);
+});
