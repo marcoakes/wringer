@@ -1,15 +1,20 @@
-# Current product evidence — 1 October 2026
+# Current product evidence — 20 October 2026
 
 The current verified public release is
-[1.0.0-alpha.34](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.34),
-commit `7c57cf18121d45c5ccaa4ab4e06f6057d8531869`: delegation on this computer
-(the explicit trusted-local runtime) and connection recipes for eight named MCP
-clients. All seven test jobs and the Linux DAC job passed for that commit. In the
-release workflow the Linux build failed once on a test race (a cancel test racing
-a page tick), passed when that job alone was re-run unchanged, and the race is
-fixed in the next release. All 14 public assets matched the clean source, both
+[1.0.0-alpha.35](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.35),
+commit `e23b77891ac222525e49c0d3e12dd9d0b0d7e987`: `wring connect` refuses a Codex
+project entry that Codex would not use, and the job page's flow makes no read
+after it is stopped. All test jobs, the Linux DAC job and all six release jobs
+passed on the first attempt; all 14 public assets matched the clean source, both
 archives' signed provenance verified, and public macOS extraction/installation
-passed 17/13 checks. See the [release record](docs/adoption/evidence/alpha34/release.json).
+passed 17/13 checks. See the [release record](docs/adoption/evidence/alpha35/release.json)
+and its [three reversions](docs/adoption/evidence/alpha35/reversions/reversions.json).
+
+[1.0.0-alpha.34](docs/adoption/evidence/alpha34/release.json) (commit
+`7c57cf1`) added delegation on this computer (the explicit trusted-local runtime)
+and connection recipes for eight named MCP clients. In its release workflow the
+Linux build failed once on a test race, passed when that job alone was re-run
+unchanged, and the race was fixed in alpha.35.
 
 Trusted-local is fixture-tested end to end and was rehearsed from source with the
 real Codex adapter: a scripted MCP client played the agent, and Claude, as Marc's
