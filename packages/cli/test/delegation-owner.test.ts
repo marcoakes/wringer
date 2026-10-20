@@ -112,6 +112,10 @@ test("R-1 a trusted-local workspace answers through the owner in the sibling ver
     // Each answer passes the owner's own output validation; none is refused for its boundary.
     const setup = await callAssistantConnection(owner.connectionPath, "wringer.inspect_setup", {});
     expect(setup.schema_version).toBe("wringer.delegation-setup.v2"); expect(setup.boundary).toEqual({ approval: "cooperative-local", execution: "trusted-local" });
+    // Before any session there is nothing to show, and the view says so.
+    const none: any = await dispatch(["job", "loop", "--app-dir", app, "--job", job.id, "--trajectory"]);
+    expect(none.value).toEqual({ trajectories: [] }); expect(none.text).toBe("No role session has been reserved yet.");
+    await expect(dispatch(["job", "loop", "--app-dir", app, "--job", job.id, "--effect", "x"])).rejects.toThrow("add --trajectory");
     const status: any = await callAssistantConnection(owner.connectionPath, "wringer.get_status", { jobId: job.id });
     expect(status.schema_version).toBe("wringer.assistant-response.v3"); expect(status.outcome).toBe("needs-decision"); expect(status.boundary.execution).toBe("trusted-local");
     const listed: any = await callAssistantConnection(owner.connectionPath, "wringer.list_jobs", {}); expect(listed.jobs.map((row: any) => row.jobId)).toContain(job.id);

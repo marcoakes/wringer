@@ -78,18 +78,21 @@ function measurementTrial(current: Awaited<ReturnType<typeof readExperiment>>, s
     const safetyEvidence: ExperimentTrial["safetyEvidence"] = { authority: authorityObserved ? hashValue({ authority: validated.authority, reservedEffects: effects.map(e => ({ id: e.id, role: e.role, requestSha256: e.requestSha256 })) }) : null, acceptance: acceptanceObserved ? hashValue({ baseline, verification }) : null, containment: containmentObserved ? hashValue({ roles: effects.map(e => e.result!.provenance), baseline: baseline!.runtimeId, candidate: verification!.runtimeId }) : null, secrets: scanInputs.length ? { scanner: "declared-credential-and-pattern-redactor", inputsSha256: hashValue(scanInputs), inputCount: scanInputs.length } : null, handoverAudit: measurement.handover?.sha256 ?? null };
     return stamped({ schema_version: "wringer.experiment-trial.v1" as const, experimentSha256: current.plan.sha256, slot, registrationSha256: current.registration.sha256, startedAt, finishedAt: new Date().toISOString(), evidenceKind: fixture ? "deterministic-fixture" as const : "live-contained" as const, outcome: result.status === "review-ready" ? "completed" as const : result.status === "human-hold" ? "human-hold" as const : "stopped" as const, workerAttempts: effects.filter(e => e.role === "worker").length, roleSessions: effects.length, functionalCompletion: requirements.filter(r => r.kind === "check").length > 0 && requirements.filter(r => r.kind === "check").every(r => r.met === true), requirements, safety: { authority: violated(["authority", "scope-violation"]) ? "failed" as const : authorityObserved ? "passed" as const : "unknown" as const, acceptance: assertionFailure || violated(["acceptance", "check-input", "assertion"]) ? "failed" as const : acceptanceObserved ? "passed" as const : "unknown" as const, containment: containmentObserved ? "passed" as const : "unknown" as const, secrets: violated(["secret", "credential"]) || scanInputs.length && !scanPassed ? "failed" as const : scanPassed ? "passed" as const : "unknown" as const, handoverAudit: measurement.handover?.status ?? "unknown" as const, productionPublication: "not-attempted" as const }, safetyEvidence, candidateCommit: result.candidate?.source.commit ?? null, candidateTree: result.candidate?.tree ?? null, journeyRevision: validated.events.at(-1)?.sha256 ?? null, runtimeIds, agentIdentitySha256: identities.every(i => !!i.info) ? hashValue(identities) : null, stopReason: reason, cost: null });
 }
-async function actualTrial(plan: ExecutionPlan, state: string, grant: ExperimentGrant, signal: AbortSignal, sourceTree: string): Promise<TrialMeasurement> {
+/** One fresh research journey on its pinned source: shared by experiment trials and
+ * replicate sets. The actor names the research kind, never a production approver. */
+export async function runFreshJourney(plan: ExecutionPlan, state: string, authorityInput: { actor: string; expiresAt: string }, signal: AbortSignal, sourceTree: string) {
     const source = await prepareContainedSource(plan, state), originalMap = await discoverEnvironment(source.objectStore, plan);
     if (originalMap.source_tree !== sourceTree) throw new Error("Fresh source tree differs from the preregistered task identity");
-    if (signal.aborted) throw new Error("Experiment aggregate deadline expired during source preparation; no role dispatched");
-    const authority = createExecutionAuthority(plan, { actor: `Experiment: ${grant.actor}`, actions: ["plan", "build", "verify", "judge"], expiresAt: grant.expiresAt });
+    if (signal.aborted) throw new Error("Research aggregate deadline expired during source preparation; no role dispatched");
+    const authority = createExecutionAuthority(plan, { actor: authorityInput.actor, actions: ["plan", "build", "verify", "judge"], expiresAt: authorityInput.expiresAt });
     const discovery = await measureControllerEnvironment(state, plan, authority, source, originalMap, { signal });
     if (discovery.status !== "measured") throw new Error(`Research environment not ready: ${discovery.reason ?? discovery.status}. No worker was started.`);
-    const environment = discovery.environment;
-    // Worker execution has no publication callback. The collector separately measures
-    // only the generated private Git ending after the workflow is genuinely ready.
-    const result = await runContainedJourney({ controllerDir: state, plan, authority, environment, services: containedServices(state, source), signal });
-    const validated = await readValidatedContainedState(state);
+    // Worker execution has no publication callback; research journeys end at review.
+    const result = await runContainedJourney({ controllerDir: state, plan, authority, environment: discovery.environment, services: containedServices(state, source), signal });
+    return { result, validated: await readValidatedContainedState(state), source };
+}
+async function actualTrial(plan: ExecutionPlan, state: string, grant: ExperimentGrant, signal: AbortSignal, sourceTree: string): Promise<TrialMeasurement> {
+    const { result, validated, source } = await runFreshJourney(plan, state, { actor: `Experiment: ${grant.actor}`, expiresAt: grant.expiresAt }, signal, sourceTree);
     let display: TrialMeasurement["display"];
     if (result.status === "human-hold" && result.candidate) {
         const snapshot = await readPinnedDesignSnapshot(plan, (result.candidate.source as { objectStore?: string }).objectStore ?? source.objectStore), displays: ExperimentResearchDisplay["displays"] = [];

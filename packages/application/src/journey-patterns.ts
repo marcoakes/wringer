@@ -6,6 +6,40 @@ import type { FailurePatternReport } from "./experiment-types";
 import { validateFailurePatternReport } from "./experiments";
 import { id, stamped } from "./experiment-store";
 
+export type JourneyFailureKind = FailurePatternReport["groups"][number]["kind"];
+type JourneyEvent = ValidatedContainedState["events"][number];
+/** The failures one durable journey event shows: shared by the pattern report and the
+ * replicate divergence report so both classify identically. The baseline's expected
+ * red is not a failure; a broad execution or authority stop is environment, never a
+ * diagnosis read from its wording. */
+export function classifyJourneyEvent(plan: ValidatedContainedState["plan"], event: JourneyEvent): { kind: JourneyFailureKind; requirementIds: string[]; facts: unknown }[] {
+    const rows: { kind: JourneyFailureKind; requirementIds: string[]; facts: unknown }[] = [];
+    const add = (kind: JourneyFailureKind, requirementIds: string[], facts: unknown) => rows.push({ kind, requirementIds, facts });
+    for (const phase of ["baseline", "candidate"] as const) {
+        const verification = phase === "baseline" ? event.state.baseline : event.state.verification;
+        if (!verification) continue;
+        const unavailable = verification.checks.filter(c => c.status === "unavailable"), failed = phase === "candidate" ? verification.checks.filter(c => c.status === "failed") : [];
+        const requirements = (checks: typeof verification.checks) => checks.flatMap(c => plan.acceptance.checks.find(r => r.id === c.id)?.criteria ?? []);
+        const identity = { phase, candidateCommit: verification.candidateCommit, candidateTree: verification.candidateTree, runtimeId: verification.runtimeId };
+        if (unavailable.length || verification.regressions?.some(c => c.status === "unavailable")) add("environment", requirements(unavailable), { ...identity, unavailable: [...unavailable, ...(verification.regressions ?? []).filter(c => c.status === "unavailable")].map(c => c.id).sort() });
+        if (failed.length || phase === "candidate" && verification.regressions?.some(c => c.status === "failed")) add("product-check", requirements(failed), { ...identity, failed: [...failed, ...(verification.regressions ?? []).filter(c => c.status === "failed")].map(c => c.id).sort() });
+    }
+    const judge = event.state.judge;
+    if (judge) {
+        const outcomes = judge.criteria.filter(c => c.met !== true).map(c => ({ id: c.id, met: c.met })).sort((a, b) => a.id.localeCompare(b.id));
+        if (outcomes.length) add("agent-finding", outcomes.map(c => c.id), { candidateTree: event.state.candidate?.tree ?? null, runtimeId: judge.runtimeId, outcomes });
+    }
+    for (const human of event.state.humanJudgements ?? []) if (human.verdict === "not_met") add("human-preference", [human.criterionId], { candidateTree: human.candidateTree, acceptanceSha256: human.acceptanceSha256, displaySha256: human.display.receiptSha256, verdict: human.verdict });
+    for (const effect of event.state.effects) if (effect.status === "uncertain") add("environment", [], { effectId: effect.id, role: effect.role, status: "uncertain" });
+    for (const attempt of event.state.verificationAttempts ?? []) if (attempt.status === "uncertain") add("environment", [], { attemptId: attempt.id, phase: attempt.phase, status: "uncertain" });
+    if (event.type === "journey-stopped") {
+        const reason = (event.details as { reason?: unknown })?.reason;
+        if (typeof reason === "string" && !BENIGN_STOPS.includes(reason)) add("environment", [], { stage: event.state.stage, reasonSha256: hashValue(reason), effects: event.state.effects.length, candidateTree: event.state.candidate?.tree ?? null });
+    }
+    return rows;
+}
+const BENIGN_STOPS = ["human-judgement", "human-said-no", "judge-unsettled", "repeated-candidate", "verification-unavailable", "baseline-unavailable", "effect-uncertain", "verification-uncertain"];
+
 /** Pure projection of already-validated histories; exported for deterministic boundary tests. */
 export function projectJourneyFailurePatterns(histories: ValidatedContainedState[], taskFamily: string): FailurePatternReport {
     id(taskFamily);
@@ -15,6 +49,7 @@ export function projectJourneyFailurePatterns(histories: ValidatedContainedState
     for (const history of histories) {
         const { plan, environment, state, events } = history;
         if (history.authority.actor?.startsWith("Experiment:")) throw new Error("Experiment authority cannot enter ordinary-job development patterns, even outside its original research directory; use the experiment split-aware route");
+        if (history.authority.actor?.startsWith("Replicate set:")) throw new Error("A replicate-set journey cannot enter ordinary-job development patterns; read its divergence report instead");
         if (plan.repository.url !== repository || plan.playbook && plan.playbook.taskFamily !== taskFamily) throw new Error("Ordinary journey patterns cannot cross repository or selected playbook task-family boundaries");
         if (!events.length || (eventCount += events.length) > 32768) throw new Error("Selected journey histories exceed the bounded observation corpus");
         const comparisonKey = hashValue({ repository, taskFamily, source: plan.repository.commit, sourceTree: environment.source_tree, intent: plan.intent_sha256, acceptance: plan.acceptance_sha256, runtime: plan.runtime, agents: plan.agents, environment: plan.environment, tools: environment.tools.map(t => ({ name: t.name, version: t.version, status: t.observation?.status ?? null })), baseline: environment.baseline.map(b => ({ id: b.declaration.id, status: b.observation?.status ?? null })) });
@@ -27,33 +62,7 @@ export function projectJourneyFailurePatterns(histories: ValidatedContainedState
             row.count++; row.observations.push(observation); groups.set(key, row);
             if (groups.size > 4096 || row.count > 4096) throw new Error("Selected failure observations exceed the bounded report; select fewer journeys");
         };
-        for (const event of events) {
-            // Iterate durable observations, not only the final green state. The
-            // ordinary baseline's expected red is not a failed worker attempt.
-            for (const phase of ["baseline", "candidate"] as const) {
-                const verification = phase === "baseline" ? event.state.baseline : event.state.verification;
-                if (!verification) continue;
-                const unavailable = verification.checks.filter(c => c.status === "unavailable"), failed = phase === "candidate" ? verification.checks.filter(c => c.status === "failed") : [];
-                const requirements = (checks: typeof verification.checks) => checks.flatMap(c => plan.acceptance.checks.find(r => r.id === c.id)?.criteria ?? []);
-                const identity = { phase, candidateCommit: verification.candidateCommit, candidateTree: verification.candidateTree, runtimeId: verification.runtimeId };
-                if (unavailable.length || verification.regressions?.some(c => c.status === "unavailable")) add("environment", requirements(unavailable), { ...identity, unavailable: [...unavailable, ...(verification.regressions ?? []).filter(c => c.status === "unavailable")].map(c => c.id).sort() });
-                if (failed.length || phase === "candidate" && verification.regressions?.some(c => c.status === "failed")) add("product-check", requirements(failed), { ...identity, failed: [...failed, ...(verification.regressions ?? []).filter(c => c.status === "failed")].map(c => c.id).sort() });
-            }
-            const judge = event.state.judge;
-            if (judge) {
-                const outcomes = judge.criteria.filter(c => c.met !== true).map(c => ({ id: c.id, met: c.met })).sort((a, b) => a.id.localeCompare(b.id));
-                if (outcomes.length) add("agent-finding", outcomes.map(c => c.id), { candidateTree: event.state.candidate?.tree ?? null, runtimeId: judge.runtimeId, outcomes });
-            }
-            for (const human of event.state.humanJudgements ?? []) if (human.verdict === "not_met") add("human-preference", [human.criterionId], { candidateTree: human.candidateTree, acceptanceSha256: human.acceptanceSha256, displaySha256: human.display.receiptSha256, verdict: human.verdict });
-            for (const effect of event.state.effects) if (effect.status === "uncertain") add("environment", [], { effectId: effect.id, role: effect.role, status: "uncertain" });
-            for (const attempt of event.state.verificationAttempts ?? []) if (attempt.status === "uncertain") add("environment", [], { attemptId: attempt.id, phase: attempt.phase, status: "uncertain" });
-            if (event.type === "journey-stopped") {
-                const reason = (event.details as { reason?: unknown })?.reason;
-                // Keep broad execution/authority stops visible without copying
-                // raw exceptions or asserting a causal diagnosis from wording.
-                if (typeof reason === "string" && !["human-judgement", "human-said-no", "judge-unsettled", "repeated-candidate", "verification-unavailable", "baseline-unavailable", "effect-uncertain", "verification-uncertain"].includes(reason)) add("environment", [], { stage: event.state.stage, reasonSha256: hashValue(reason), effects: event.state.effects.length, candidateTree: event.state.candidate?.tree ?? null });
-            }
-        }
+        for (const event of events) for (const row of classifyJourneyEvent(plan, event)) add(row.kind, row.requirementIds, row.facts);
     }
     const sources = histories.map(h => h.events.at(-1)!.sha256).sort();
     return validateFailurePatternReport(stamped({ schema_version: "wringer.failure-pattern-report.v1" as const, repository, taskFamily, sources, groups: [...groups.values()].map(row => ({ ...row, observations: row.observations.sort() })).sort((a, b) => b.count - a.count || a.comparisonKey.localeCompare(b.comparisonKey) || a.kind.localeCompare(b.kind) || a.requirementIds.join(",").localeCompare(b.requirementIds.join(","))), limits: [
@@ -73,7 +82,7 @@ async function ordinaryPrivateState(input: string): Promise<string> {
     if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()) throw new Error("Ordinary history selection requires an operator-owned private 0700 controller directory, not a symlink");
     const actual = await realpath(selected);
     for (let path = actual; ; path = dirname(path)) {
-        for (const name of ["registration.json", "collection.json", "proposal-request.json", "proposal-reservation.json", "experiment-purpose.json"]) {
+        for (const name of ["registration.json", "collection.json", "proposal-request.json", "proposal-reservation.json", "experiment-purpose.json", "replicate-set.json", "replicate-collection.json"]) {
             try { await lstat(join(path, name)); throw new Error("Research/experiment/proposal histories cannot enter ordinary-job development patterns; use the experiment split-aware route"); }
             catch (error: any) { if (error.code !== "ENOENT") throw error; }
         }

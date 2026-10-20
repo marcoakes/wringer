@@ -3467,6 +3467,55 @@ export type Digests = {
 };
 
 /**
+ * divergence-report-v1
+ *
+ * Generated from `schema/divergence-report-v1.schema.json`. Do not edit.
+ */
+export type DivergenceReportV1 = {
+  "schema_version": "wringer.divergence-report.v1";
+  "replicateSetSha256": string;
+  "planSha256": string;
+  "k": number;
+  "recorded": number;
+  "evidenceKinds": "live" | "deterministic-fixture"[];
+  "replicates": {
+    "index": number;
+    "outcome": "completed" | "human-hold" | "stopped" | "infrastructure-failed" | "uncertain" | "not-started";
+    "candidateTree": string | null;
+    "workerAttempts": number | null;
+    "firstFailure": null | {
+      "attempt": number;
+      "kind": "environment" | "product-check" | "agent-finding" | "human-preference";
+      "requirementIds": string[];
+    };
+  }[];
+  "checks": {
+    "id": string;
+    "outcomes": "passed" | "failed" | "unavailable" | "not-run" | null[];
+    "agreement": "agree" | "diverge" | "incomplete";
+  }[];
+  "judge": {
+    "id": string;
+    "outcomes": boolean | null[];
+    "agreement": "agree" | "diverge" | "incomplete";
+  }[];
+  "loopDecisions": {
+    "sequences": null | string[][];
+    "agreement": "agree" | "diverge" | "incomplete";
+  };
+  "candidates": {
+    "distinctTrees": number;
+    "agreement": "agree" | "diverge" | "incomplete";
+  };
+  "firstFailure": {
+    "agreement": "agree" | "diverge" | "incomplete";
+  };
+  "diverging": string[];
+  "limits": string[];
+  "sha256": string;
+};
+
+/**
  * Engineering evidence v1
  *
  * Generated from `schema/engineering-evidence-v1.schema.json`. Do not edit.
@@ -6377,6 +6426,69 @@ export type LoopManifest = {
 };
 
 /**
+ * A bounded page of role-session trajectories for a connected assistant
+ *
+ * Generated from `schema/loop-trajectory-page-v1.schema.json`. Do not edit.
+ */
+export type LoopTrajectoryPageV1 = {
+  "schema_version": "wringer.loop-trajectory-page.v1";
+  "journalRevision": string;
+  "sessions": {
+    "effectId": string;
+    "role": "planner" | "worker" | "judge";
+    "status": "reserved" | "completed" | "uncertain";
+    "lines": number;
+  }[];
+  "effectId": string | null;
+  "offset": number;
+  "lines": {
+    "n": number;
+    "kind": "HARNESS" | "ACTION" | "OBSERVATION" | "OBSERVATION ERROR" | "ASSISTANT" | "PERMISSION" | "USAGE";
+    "text": string;
+  }[];
+  "nextOffset": number | null;
+  "totalLines": number;
+  "trajectorySha256": string | null;
+  "limits": string[];
+};
+
+/**
+ * What one role session did, projected from retained ACP updates
+ *
+ * Generated from `schema/loop-trajectory-v1.schema.json`. Do not edit.
+ */
+export type LoopTrajectoryV1 = {
+  "schema_version": "wringer.loop-trajectory.v1";
+  "planSha256": string;
+  "journalRevision": string;
+  "effectId": string;
+  "role": "planner" | "worker" | "judge";
+  "effectStatus": "reserved" | "completed" | "uncertain";
+  "agent": {
+    "name": string | null;
+    "version": string | null;
+  };
+  "stopReason": string | null;
+  "requestSha256": string;
+  "resultSha256": string | null;
+  "lines": {
+    "n": number;
+    "kind": "HARNESS" | "ACTION" | "OBSERVATION" | "OBSERVATION ERROR" | "ASSISTANT" | "PERMISSION" | "USAGE";
+    "text": string;
+  }[];
+  "omitted": {
+    "commandListings": number;
+    "thoughtChunks": number;
+    "otherUpdates": number;
+    "truncatedItems": number;
+    "truncatedChars": number;
+    "droppedLines": number;
+  };
+  "limits": string[];
+  "sha256": string;
+};
+
+/**
  * Wringer evidence bundle manifest
  *
  * Generated from `schema/manifest.schema.json`. Do not edit.
@@ -7203,6 +7315,157 @@ export type RepairPacketV1 = {
   }[];
   "omittedChecks": number;
   "limits": string[];
+  "sha256": string;
+};
+
+/**
+ * replicate-collection-v1
+ *
+ * Generated from `schema/replicate-collection-v1.schema.json`. Do not edit.
+ */
+export type ReplicateCollectionV1 = {
+  "schema_version": "wringer.replicate-collection.v1";
+  "replicateSetSha256": string;
+  "grant": {
+    "schema_version": "wringer.replicate-grant.v1";
+    "replicateSetSha256": string;
+    "actor": string;
+    "grantedAt": string;
+    "expiresAt": string;
+    "limits": {
+      "replicates": number;
+      "maxRoleSessions": number;
+      "wallClockSeconds": number;
+    };
+    "credentialNames": string[];
+    "dataScope": "this-repository-only";
+    "actions": ["collect-replicates"];
+    "noProductionPublication": true;
+    "sha256": string;
+  };
+  "startedAt": string;
+  "deadline": string;
+  "evidenceKind": "live" | "deterministic-fixture";
+  "reservations": {
+    "id": string;
+    "index": number;
+    "planSha256": string;
+    "reservedSessions": number;
+  }[];
+  "slots": {
+    "id": string;
+    "status": "reserved" | "dispatched" | "recorded";
+    "dispatchedAt": string | null;
+  }[];
+  "sha256": string;
+};
+
+/**
+ * replicate-grant-v1
+ *
+ * Generated from `schema/replicate-grant-v1.schema.json`. Do not edit.
+ */
+export type ReplicateGrantV1 = {
+  "schema_version": "wringer.replicate-grant.v1";
+  "replicateSetSha256": string;
+  "actor": string;
+  "grantedAt": string;
+  "expiresAt": string;
+  "limits": {
+    "replicates": number;
+    "maxRoleSessions": number;
+    "wallClockSeconds": number;
+  };
+  "credentialNames": string[];
+  "dataScope": "this-repository-only";
+  "actions": ["collect-replicates"];
+  "noProductionPublication": true;
+  "sha256": string;
+};
+
+/**
+ * replicate-identity-v1
+ *
+ * Generated from `schema/replicate-identity-v1.schema.json`. Do not edit.
+ */
+export type ReplicateIdentityV1 = {
+  "schema_version": "wringer.replicate-identity.v1";
+  "replicateSetSha256": string;
+  "collectionSha256": string;
+  "reserved": number;
+  "recorded": number;
+  "notStarted": number;
+  "status": "consistent" | "violated";
+  "reasons": string[];
+  "sha256": string;
+};
+
+/**
+ * replicate-set-v1
+ *
+ * Generated from `schema/replicate-set-v1.schema.json`. Do not edit.
+ */
+export type ReplicateSetV1 = {
+  "schema_version": "wringer.replicate-set.v1";
+  "id": string;
+  "taskFamily": string;
+  /** The full compiled plan is additionally validated by the inert plan reader, including its semantic hashes. */
+  "plan": {
+    "schema_version": "wringer.execution-plan.v1" | "wringer.execution-plan.v2" | "wringer.execution-plan.v3" | "wringer.execution-plan.v4" | "wringer.execution-plan.v5" | "wringer.execution-plan.v6";
+    "plan_sha256": string;
+    "acceptance_sha256": string;
+  };
+  "k": number;
+  "sourceTree": string;
+  "wallClockSeconds": number;
+  "repository": string;
+  "limits": {
+    "replicates": number;
+    "maxRoleSessions": number;
+    "wallClockSeconds": number;
+  };
+  "prediction": null;
+  "dataScope": "this-repository-only";
+  "accounting": "all-planned-replicates-including-failures";
+  "stoppingRule": "fixed-k-no-extension";
+  "registeredAt": string;
+  "sha256": string;
+};
+
+/**
+ * replicate-v1
+ *
+ * Generated from `schema/replicate-v1.schema.json`. Do not edit.
+ */
+export type ReplicateV1 = {
+  "schema_version": "wringer.replicate.v1";
+  "replicateSetSha256": string;
+  "slot": {
+    "id": string;
+    "index": number;
+    "planSha256": string;
+    "reservedSessions": number;
+  };
+  "startedAt": string;
+  "finishedAt": string;
+  "evidenceKind": "live" | "deterministic-fixture";
+  "runtimeKind": "apple-container" | "gvisor-kubernetes" | "trusted-local";
+  "outcome": "completed" | "human-hold" | "stopped" | "infrastructure-failed" | "uncertain" | "not-started";
+  "journeyRevision": string | null;
+  "candidateCommit": string | null;
+  "candidateTree": string | null;
+  "workerAttempts": number | null;
+  "roleSessions": number | null;
+  "checks": {
+    "id": string;
+    "status": "passed" | "failed" | "unavailable" | "not-run";
+  }[];
+  "judge": {
+    "id": string;
+    "met": boolean | null;
+  }[];
+  "runtimeIds": string[];
+  "stopReason": string | null;
   "sha256": string;
 };
 
@@ -8463,6 +8726,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "diagnostic-preview-v1.schema.json": "wringer.diagnostic-preview.v1",
   "diagnostic-report-v1.schema.json": "wringer.diagnostic-report.v1",
   "digests.schema.json": "wringer.digests.v1",
+  "divergence-report-v1.schema.json": "wringer.divergence-report.v1",
   "engineering-evidence-v1.schema.json": "wringer.engineering-evidence.v1",
   "environment-map-v1.schema.json": "wringer.environment-map.v1",
   "environment-map-v2.schema.json": "wringer.environment-map.v2",
@@ -8534,6 +8798,8 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "loop-inspection-v1.schema.json": "wringer.loop-inspection.v1",
   "loop-manifest-v2.schema.json": "wringer.loop.v2",
   "loop-manifest.schema.json": "wringer.loop.v1",
+  "loop-trajectory-page-v1.schema.json": "wringer.loop-trajectory-page.v1",
+  "loop-trajectory-v1.schema.json": "wringer.loop-trajectory.v1",
   "manifest.schema.json": "wringer.evidence.v1",
   "next-move.schema.json": "wringer.nextmove.v1",
   "orchestration-v1.schema.json": "wringer.orchestration.v1",
@@ -8559,6 +8825,11 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "readiness.schema.json": "wringer.readiness.v1",
   "refusal.schema.json": "wringer.refusal.v1",
   "repair-packet-v1.schema.json": "wringer.repair-packet.v1",
+  "replicate-collection-v1.schema.json": "wringer.replicate-collection.v1",
+  "replicate-grant-v1.schema.json": "wringer.replicate-grant.v1",
+  "replicate-identity-v1.schema.json": "wringer.replicate-identity.v1",
+  "replicate-set-v1.schema.json": "wringer.replicate-set.v1",
+  "replicate-v1.schema.json": "wringer.replicate.v1",
   "rubric.schema.json": "wringer.rubric.v1",
   "runtime-v1.schema.json": "wringer.runtime.v1",
   "runtime-v2.schema.json": "wringer.runtime.v2",
@@ -8679,6 +8950,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.diagnostic-preview.v1": "diagnostic-preview-v1.schema.json",
   "wringer.diagnostic-report.v1": "diagnostic-report-v1.schema.json",
   "wringer.digests.v1": "digests.schema.json",
+  "wringer.divergence-report.v1": "divergence-report-v1.schema.json",
   "wringer.engineering-evidence.v1": "engineering-evidence-v1.schema.json",
   "wringer.environment-map.v1": "environment-map-v1.schema.json",
   "wringer.environment-map.v2": "environment-map-v2.schema.json",
@@ -8743,6 +9015,8 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.loop-inspection.v1": "loop-inspection-v1.schema.json",
   "wringer.loop.v2": "loop-manifest-v2.schema.json",
   "wringer.loop.v1": "loop-manifest.schema.json",
+  "wringer.loop-trajectory-page.v1": "loop-trajectory-page-v1.schema.json",
+  "wringer.loop-trajectory.v1": "loop-trajectory-v1.schema.json",
   "wringer.evidence.v1": "manifest.schema.json",
   "wringer.nextmove.v1": "next-move.schema.json",
   "wringer.orchestration.v1": "orchestration-v1.schema.json",
@@ -8768,6 +9042,11 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.readiness.v1": "readiness.schema.json",
   "wringer.refusal.v1": "refusal.schema.json",
   "wringer.repair-packet.v1": "repair-packet-v1.schema.json",
+  "wringer.replicate-collection.v1": "replicate-collection-v1.schema.json",
+  "wringer.replicate-grant.v1": "replicate-grant-v1.schema.json",
+  "wringer.replicate-identity.v1": "replicate-identity-v1.schema.json",
+  "wringer.replicate-set.v1": "replicate-set-v1.schema.json",
+  "wringer.replicate.v1": "replicate-v1.schema.json",
   "wringer.rubric.v1": "rubric.schema.json",
   "wringer.runtime.v1": "runtime-v1.schema.json",
   "wringer.runtime.v2": "runtime-v2.schema.json",

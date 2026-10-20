@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/replicate-grant-v1.schema.json",
+  "description": "A separate finite allowance to run one registered replicate set. It never approves production work or publication.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "replicateSetSha256",
+    "actor",
+    "grantedAt",
+    "expiresAt",
+    "limits",
+    "credentialNames",
+    "dataScope",
+    "actions",
+    "noProductionPublication",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.replicate-grant.v1"
+    },
+    "replicateSetSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "grantedAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "expiresAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replicates",
+        "maxRoleSessions",
+        "wallClockSeconds"
+      ],
+      "properties": {
+        "replicates": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 5
+        },
+        "maxRoleSessions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 604800
+        }
+      }
+    },
+    "credentialNames": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z_][A-Z0-9_]{0,127}$"
+      },
+      "maxItems": 64
+    },
+    "dataScope": {
+      "const": "this-repository-only"
+    },
+    "actions": {
+      "const": [
+        "collect-replicates"
+      ]
+    },
+    "noProductionPublication": {
+      "const": true
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "title": "replicate-grant-v1"
+}

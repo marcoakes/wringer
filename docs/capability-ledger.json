@@ -1,6 +1,6 @@
 {
   "schema_version": "wringer.capability-ledger.v1",
-  "updated": "2026-10-01",
+  "updated": "2026-10-20",
   "levels": {
     "implemented": "The capability exists in the released source and its public command or contract.",
     "fixtureTested": "Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved.",
@@ -327,6 +327,69 @@
         "status": "not-established",
         "evidence": [],
         "note": "A recipe is a connection, not a measured journey."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-applicable",
+        "evidence": []
+      }
+    },
+    {
+      "id": "loop-trajectories",
+      "name": "Loop trajectories: what each role session did, as numbered lines",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "packages/workflow/src/trajectory.ts",
+          "schema/loop-trajectory-v1.schema.json",
+          "schema/loop-trajectory-page-v1.schema.json",
+          "docs/native/LOOP_INSPECTION.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "packages/workflow/test/trajectory.test.ts",
+          "packages/application/test/loop-trajectory-page.test.ts",
+          "packages/application/test/trusted-local-journey.test.ts",
+          "scripts/improvement-phase1-reversions.ts"
+        ],
+        "note": "Field sources measured on one live session per pinned adapter (docs/improvement/PHASE_A_MEASUREMENTS.md); rendering is tested on fixtures shaped from those measurements."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No live journey has been read through this view yet."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-applicable",
+        "evidence": []
+      }
+    },
+    {
+      "id": "replicate-sets",
+      "name": "Replicate sets: one approved plan k times, and where the attempts disagreed",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "packages/application/src/replicates.ts",
+          "schema/replicate-set-v1.schema.json",
+          "schema/divergence-report-v1.schema.json",
+          "docs/native/REPLICATES.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "packages/application/test/replicates.test.ts",
+          "packages/cli/test/replicate-cli.test.ts",
+          "scripts/improvement-phase1-reversions.ts"
+        ],
+        "note": "Real journals and validation with scripted roles and checks; fixture-labelled throughout."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No live replicate set has run; no claim about any agent's variance."
       },
       "comparativelyBeneficial": {
         "status": "not-applicable",

@@ -73,6 +73,8 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
   wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
+  wringer-drive loop --state DIRECTORY --trajectory [--effect ID]
+                                               What each role session did, as numbered lines
   wringer-drive graph --help                   Serial graphs of contained loops: plan, run, decide, send, export
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend

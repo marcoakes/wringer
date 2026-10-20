@@ -1,5 +1,5 @@
 import { hashValue, validateExecutionPlan, type ExecutionPlan } from "@wringer/plan";
-import { readValidatedContainedState, type LoopDecision, type ValidatedContainedState } from "@wringer/workflow";
+import { readValidatedContainedState, readLoopTrajectories, type LoopDecision, type LoopTrajectory, type ValidatedContainedState } from "@wringer/workflow";
 import { projectPmEngineering } from "./engineering-view";
 import { Redactor } from "@wringer/engine";
 
@@ -54,4 +54,34 @@ export async function readLoopInspection(plan: ExecutionPlan | string, state?: s
     const history = controller ? await readValidatedContainedState(controller, { allowStaleView: true }) : null;
     const value = projectLoopInspection(typeof plan === "string" ? history!.plan : plan, history);
     return value;
+}
+
+/** A connected assistant reads trajectories one session at a time: without a session it
+ * gets the index, with one it gets numbered lines from an offset, cut at 64 KiB. */
+export const TRAJECTORY_PAGE_BYTES = 64 * 1024;
+export function trajectoryPage(trajectories: LoopTrajectory[], journalRevision: string, options: { effectId?: string; offset?: number; limit?: number } = {}) {
+    const sessions = trajectories.map(t => ({ effectId: t.effectId, role: t.role, status: t.effectStatus, lines: t.lines.length }));
+    const limits = ["Read-only projection of retained ACP updates; it grants no execution, acceptance or Send.", "Lines are numbered for citation; the same session and journal revision always give the same numbers.", "Each page is cut at 64 KiB; read on from nextOffset."];
+    if (!options.effectId) return { schema_version: "wringer.loop-trajectory-page.v1" as const, journalRevision, sessions, effectId: null, offset: 0, lines: [], nextOffset: null, totalLines: 0, trajectorySha256: null, limits };
+    const trajectory = trajectories.find(t => t.effectId === options.effectId);
+    if (!trajectory) throw new Error("No such role session in this journey");
+    const offset = options.offset ?? 0, limit = options.limit ?? 1000;
+    if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 1000) throw new Error("Read trajectory lines with a nonnegative offset and a limit of 1 to 1000");
+    const lines = [];
+    let bytes = 0;
+    for (const line of trajectory.lines.slice(offset, offset + limit)) {
+        bytes += Buffer.byteLength(JSON.stringify(line));
+        if (bytes > TRAJECTORY_PAGE_BYTES && lines.length) break;
+        lines.push(line);
+    }
+    const next = offset + lines.length;
+    return { schema_version: "wringer.loop-trajectory-page.v1" as const, journalRevision, sessions, effectId: trajectory.effectId, offset, lines, nextOffset: next < trajectory.lines.length ? next : null, totalLines: trajectory.lines.length, trajectorySha256: trajectory.sha256, limits };
+}
+export async function readJobLoopTrajectoryPage(plan: ExecutionPlan | null, state: string | undefined, options: { effectId?: string; offset?: number; limit?: number } = {}) {
+    if (!plan) throw new Error("This request has no compiled job plan yet; resolve its questions and inspect the resulting proposal first");
+    if (!state) return trajectoryPage([], hashValue({ plan: plan.plan_sha256, notStarted: true }), options.effectId ? options : {});
+    const trajectories = await readLoopTrajectories(state);
+    const history = await readValidatedContainedState(state, { allowStaleView: true });
+    if (hashValue(history.plan) !== hashValue(validateExecutionPlan(plan))) throw new Error("Loop history belongs to a different approved plan");
+    return trajectoryPage(trajectories, history.events.at(-1)!.sha256, options);
 }

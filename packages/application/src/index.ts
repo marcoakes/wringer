@@ -41,3 +41,4 @@ export * from "./graph";
 export * from "./graph-effect";
 export * from "./tournament";
 export * from "./gate-experiments";
+export * from "./replicates";

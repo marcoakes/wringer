@@ -2,17 +2,17 @@
 
 Generated from [capability-ledger.json](capability-ledger.json) by
 `scripts/capability-ledger.ts`; edit the JSON, not this page. Updated
-2026-10-01.
+2026-10-20.
 
 Each capability is judged at four separate levels. A level is raised only by
 evidence of its own kind.
 
 | Level | Meaning | Capabilities at "Yes" |
 | --- | --- | --- |
-| Implemented | The capability exists in the released source and its public command or contract. | 12 of 12 |
-| Fixture-tested | Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved. | 11 of 12 |
-| Live-qualified | A recorded run with a live agent or real counterpart completed it under its declared contract. | 0 of 12 |
-| Comparatively beneficial | A registered comparison with fair baselines and complete denominators found it helps on a named workload. | 0 of 12 |
+| Implemented | The capability exists in the released source and its public command or contract. | 14 of 14 |
+| Fixture-tested | Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved. | 13 of 14 |
+| Live-qualified | A recorded run with a live agent or real counterpart completed it under its declared contract. | 0 of 14 |
+| Comparatively beneficial | A registered comparison with fair baselines and complete denominators found it helps on a named workload. | 0 of 14 |
 
 | Capability | Implemented | Fixture-tested | Live-qualified | Comparatively beneficial |
 | --- | --- | --- | --- | --- |
@@ -27,6 +27,8 @@ evidence of its own kind.
 | External A2A tasks, verified locally | Yes ([INTERFACES.md](native/INTERFACES.md), [release.json](restoration/evidence/phase-8/release.json)) | Yes ([reversions.json](restoration/evidence/phase-8/reversions.json), [local-validation.json](restoration/evidence/phase-8/local-validation.json), [phase8-baseline.json](restoration/evidence/phase-8/measurements/phase8-baseline.json)). Against a local reference peer: fixture conformance only. | Not established. No real A2A agent has completed a task. | Not applicable |
 | Trusted-local delegation (worker and judge as the operator's own agents on this computer) | Yes ([TRUSTED_LOCAL.md](native/TRUSTED_LOCAL.md), [trusted-local.ts](../packages/runtime/src/trusted-local.ts), [execution-plan-v5.schema.json](../schema/execution-plan-v5.schema.json), [runtime-v3.schema.json](../schema/runtime-v3.schema.json)) | Yes ([trusted-local.test.ts](../packages/runtime/test/trusted-local.test.ts), [trusted-local-journey.test.ts](../packages/application/test/trusted-local-journey.test.ts), [trusted-local-plan.test.ts](../packages/plan/test/trusted-local-plan.test.ts), [delegation-owner.test.ts](../packages/cli/test/delegation-owner.test.ts), [candidate-change.test.ts](../packages/application/test/candidate-change.test.ts)). Fixture ACP agents with no model: proposal, approval, fresh-clone roles and checks, review, Send to a local bare origin and an offline audit. | Not established. Not qualified. A pre-release rehearsal with the real Codex adapter reached a passing fresh-clone audit with a scripted MCP client (docs/adoption/evidence/alpha34/REHEARSAL_2026-10-01.md); qualification needs the observed journeys with real coding-app clients. | Not applicable |
 | MCP connection recipes for eight named clients | Yes ([client-recipes.ts](../packages/cli/src/client-recipes.ts), [ASSISTANT_COMPATIBILITY.md](ASSISTANT_COMPATIBILITY.md)) | Yes ([client-recipes.test.ts](../packages/cli/test/client-recipes.test.ts)). Recipe shapes checked against each client's official documentation on 2026-10-01; Windsurf could not be verified and gets only the generic stanza. | Not established. A recipe is a connection, not a measured journey. | Not applicable |
+| Loop trajectories: what each role session did, as numbered lines | Yes ([trajectory.ts](../packages/workflow/src/trajectory.ts), [loop-trajectory-v1.schema.json](../schema/loop-trajectory-v1.schema.json), [loop-trajectory-page-v1.schema.json](../schema/loop-trajectory-page-v1.schema.json), [LOOP_INSPECTION.md](native/LOOP_INSPECTION.md)) | Yes ([trajectory.test.ts](../packages/workflow/test/trajectory.test.ts), [loop-trajectory-page.test.ts](../packages/application/test/loop-trajectory-page.test.ts), [trusted-local-journey.test.ts](../packages/application/test/trusted-local-journey.test.ts), [improvement-phase1-reversions.ts](../scripts/improvement-phase1-reversions.ts)). Field sources measured on one live session per pinned adapter (docs/improvement/PHASE_A_MEASUREMENTS.md); rendering is tested on fixtures shaped from those measurements. | Not established. No live journey has been read through this view yet. | Not applicable |
+| Replicate sets: one approved plan k times, and where the attempts disagreed | Yes ([replicates.ts](../packages/application/src/replicates.ts), [replicate-set-v1.schema.json](../schema/replicate-set-v1.schema.json), [divergence-report-v1.schema.json](../schema/divergence-report-v1.schema.json), [REPLICATES.md](native/REPLICATES.md)) | Yes ([replicates.test.ts](../packages/application/test/replicates.test.ts), [replicate-cli.test.ts](../packages/cli/test/replicate-cli.test.ts), [improvement-phase1-reversions.ts](../scripts/improvement-phase1-reversions.ts)). Real journals and validation with scripted roles and checks; fixture-labelled throughout. | Not established. No live replicate set has run; no claim about any agent's variance. | Not applicable |
 | Contained execution (Apple Container, gVisor on Kubernetes) | Yes ([ARCHITECTURE.md](native/ARCHITECTURE.md), [INTERFACES.md](native/INTERFACES.md)) | Partly. Restoration walkthroughs inject a fixture verifier; containment tests are a separate matrix. | Not established. Live isolation claims need platform-specific measurements. | Not applicable |
 
 The checker refuses a live claim without a record under

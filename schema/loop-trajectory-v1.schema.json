@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "What one role session did, projected from retained ACP updates",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "planSha256",
+    "journalRevision",
+    "effectId",
+    "role",
+    "effectStatus",
+    "agent",
+    "stopReason",
+    "requestSha256",
+    "resultSha256",
+    "lines",
+    "omitted",
+    "limits",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.loop-trajectory.v1"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "journalRevision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "effectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "planner",
+        "worker",
+        "judge"
+      ]
+    },
+    "effectStatus": {
+      "enum": [
+        "reserved",
+        "completed",
+        "uncertain"
+      ]
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      }
+    },
+    "stopReason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 4096
+    },
+    "requestSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "resultSha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "n",
+          "kind",
+          "text"
+        ],
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "kind": {
+            "enum": [
+              "HARNESS",
+              "ACTION",
+              "OBSERVATION",
+              "OBSERVATION ERROR",
+              "ASSISTANT",
+              "PERMISSION",
+              "USAGE"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        }
+      },
+      "maxItems": 65536
+    },
+    "omitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commandListings",
+        "thoughtChunks",
+        "otherUpdates",
+        "truncatedItems",
+        "truncatedChars",
+        "droppedLines"
+      ],
+      "properties": {
+        "commandListings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "thoughtChunks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "otherUpdates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncatedItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncatedChars": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "droppedLines": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "maxItems": 16
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

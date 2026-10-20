@@ -1,0 +1,175 @@
+{
+  "schema_version": "wringer.adapter-update-inventory.v1",
+  "adapter": "claude-agent-acp",
+  "package": "@agentclientprotocol/claude-agent-acp@0.65.0",
+  "agentInfo": {
+    "name": "@agentclientprotocol/claude-agent-acp",
+    "title": "Claude Agent",
+    "version": "0.65.0"
+  },
+  "measuredAt": "2026-10-20T16:09:23.781Z",
+  "status": "completed",
+  "stopReason": "end_turn",
+  "wallClockMs": 17294,
+  "changedPatch": true,
+  "eventCount": 63,
+  "updateCount": 51,
+  "retainedEventBytes": 31319,
+  "inventory": {
+    "available_commands_update": {
+      "count": 1,
+      "fields": {
+        "availableCommands": {
+          "present": 1,
+          "bytes": 11138
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "usage_update": {
+      "count": 12,
+      "fields": {
+        "used": {
+          "present": 12,
+          "bytes": 60
+        },
+        "size": {
+          "present": 12,
+          "bytes": 84
+        },
+        "_meta": {
+          "present": 2,
+          "bytes": 218
+        },
+        "_meta._claude/rateLimit": {
+          "present": 1,
+          "bytes": 161
+        },
+        "cost": {
+          "present": 1,
+          "bytes": 47
+        },
+        "_meta._claude/origin": {
+          "present": 1,
+          "bytes": 16
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "agent_message_chunk": {
+      "count": 11,
+      "fields": {
+        "content": {
+          "present": 11,
+          "bytes": 410
+        },
+        "messageId": {
+          "present": 11,
+          "bytes": 330
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "tool_call": {
+      "count": 6,
+      "fields": {
+        "_meta": {
+          "present": 6,
+          "bytes": 204
+        },
+        "_meta.claudeCode": {
+          "present": 6,
+          "bytes": 114
+        },
+        "toolCallId": {
+          "present": 6,
+          "bytes": 192
+        },
+        "rawInput": {
+          "present": 6,
+          "bytes": 12
+        },
+        "status": {
+          "present": 6,
+          "bytes": 54
+        },
+        "title": {
+          "present": 6,
+          "bytes": 59
+        },
+        "kind": {
+          "present": 6,
+          "bytes": 42
+        },
+        "locations": {
+          "present": 4,
+          "bytes": 8
+        },
+        "content": {
+          "present": 6,
+          "bytes": 12
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "tool_call_update": {
+      "count": 21,
+      "fields": {
+        "_meta": {
+          "present": 21,
+          "bytes": 2108
+        },
+        "_meta.claudeCode": {
+          "present": 21,
+          "bytes": 1793
+        },
+        "toolCallId": {
+          "present": 21,
+          "bytes": 672
+        },
+        "rawInput": {
+          "present": 10,
+          "bytes": 1131
+        },
+        "title": {
+          "present": 10,
+          "bytes": 307
+        },
+        "kind": {
+          "present": 10,
+          "bytes": 72
+        },
+        "locations": {
+          "present": 7,
+          "bytes": 792
+        },
+        "content": {
+          "present": 12,
+          "bytes": 1112
+        },
+        "status": {
+          "present": 6,
+          "bytes": 63
+        },
+        "rawOutput": {
+          "present": 6,
+          "bytes": 445
+        }
+      },
+      "contentItemTypes": {
+        "content/text": 7,
+        "diff": 2
+      }
+    }
+  },
+  "toolOutput": {
+    "toolCallUpdates": 21,
+    "withContent": 9,
+    "withRawOutput": 6,
+    "withTerminalOutputMeta": 0
+  },
+  "limits": [
+    "Field names, counts and byte sizes only; no update content is kept in this record.",
+    "One live session on a throwaway repository; adapter behaviour on other tasks, versions or settings is not measured."
+  ]
+}

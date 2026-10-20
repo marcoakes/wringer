@@ -8,6 +8,8 @@ import { createExperimentPlan, readExperiment } from "./experiments";
 import { failurePatternsFromJourneys } from "./journey-patterns";
 import type { ExecutionPlan } from "@wringer/plan";
 import { readJobLoopInspection } from "./loop-inspection";
+import { readReplicateSet, type ReplicateSetInput } from "./replicates";
+import { readValidatedContainedState } from "@wringer/workflow";
 
 export async function jobImprovementContext(root: string, jobId: string) {
     const job = await readDelegationJob(root, assistantId(jobId)), controller = await delegationControllerRoot(root, job.workspaceId, job.contextId);
@@ -60,4 +62,26 @@ export async function jobFailurePatterns(root: string, jobId: string, taskFamily
     const state = assistantControllerState(current.controller, jobId);
     await readJobLoopInspection(current.plan, state);
     return failurePatternsFromJourneys([state], taskFamily);
+}
+
+/** A replicate set beside the job's connected comparisons. Registration takes the job's
+ * approved plan and the source tree its own journey measured; nothing is inferred. */
+export async function jobReplicateLocation(root: string, jobId: string, setId: string, register?: { taskFamily: string; k: number; wallClockSeconds: number }) {
+    id(setId);
+    const current = await jobImprovementContext(root, jobId), link = await improvementConnection(current.controller, current.profile.repository.url);
+    if (!link) throw new Error("Connect this job's future improvements first with experiment connect --job and --task-family");
+    const state = await experimentPath(link.researchRoot, `replicate-sets/${setId}`);
+    if (!register) {
+        const retained = await readReplicateSet(state);
+        if (retained.set.id !== setId || retained.set.repository !== link.repository || retained.set.taskFamily !== link.taskFamily) throw new Error("The retained replicate set belongs to another repository or task family");
+        return { state };
+    }
+    if (register.taskFamily !== link.taskFamily) throw new Error("The replicate set must use this workspace's connected task family");
+    if (!current.plan) throw new Error("This request has no approved plan yet; a replicate set repeats an approved plan");
+    let sourceTree: string;
+    try { sourceTree = (await readValidatedContainedState(assistantControllerState(current.controller, jobId), { allowStaleView: true })).environment.source_tree; }
+    catch { throw new Error("Run the job first: a replicate set pins the source tree its journey measured, before any attempt"); }
+    await createAssistantDirectory(state);
+    const input: ReplicateSetInput = { id: setId, taskFamily: register.taskFamily, plan: current.plan, k: register.k, sourceTree, wallClockSeconds: register.wallClockSeconds };
+    return { state, input };
 }

@@ -166,6 +166,14 @@
   "pilot-registration-v1.schema.json": "fc828825c48b3100fbee1650b116b056411693a90655e21fd2c95960d86ae965",
   "assistant-response-v3.schema.json": "77f2a0966a60877e02216246519602f0e17346f6e790a42306e23c9087e8c378",
   "delegation-setup-v2.schema.json": "fbf552987a184b654d3179ab7473ebce047d453049d573755e2f684e4ac2d6db",
-  "proposal-supersession-v2.schema.json": "49f1ddd4470acccb24924a7fd0050c5aa1466c10c0ccca656ce2927e04afa5d0"
+  "proposal-supersession-v2.schema.json": "49f1ddd4470acccb24924a7fd0050c5aa1466c10c0ccca656ce2927e04afa5d0",
+  "loop-trajectory-v1.schema.json": "553d6bab3294cbed13764fb2e33a8737b54259f17ccb31deec53d16b7536d227",
+  "loop-trajectory-page-v1.schema.json": "0cb1e90bc289f9241cba6ee6e577a0358e7b8484c7c68a50d13dd597cf7334a8",
+  "replicate-set-v1.schema.json": "419e7c9c87270a9196de5644f962d18c2087c8cda5eab9f873faa762f095aa2b",
+  "replicate-grant-v1.schema.json": "6d8be46bdd359502b9b02c4fbf81331e8587587d973322f659c5aa55e664c759",
+  "replicate-collection-v1.schema.json": "94c0b7e93cb6194615c61a6beaf98c8d4576a6de0acb44a577d325c7cfcc1427",
+  "replicate-v1.schema.json": "703dc9f0f50f5636753a53ac2791ceded8a7cd26e355beb3d1deef5e84906264",
+  "replicate-identity-v1.schema.json": "bc7bee215c3f4fea6e33f26ab6dd6703cc5b5fa85c558a6461ff48d1e5b58889",
+  "divergence-report-v1.schema.json": "2fd419d45b8abba42f2ac93d0824ac806f71e1dd4797338f0f431c4e37b44bb7"
  }
 }

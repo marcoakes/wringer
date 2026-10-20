@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A bounded page of role-session trajectories for a connected assistant",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "journalRevision",
+    "sessions",
+    "effectId",
+    "offset",
+    "lines",
+    "nextOffset",
+    "totalLines",
+    "trajectorySha256",
+    "limits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.loop-trajectory-page.v1"
+    },
+    "journalRevision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sessions": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "effectId",
+          "role",
+          "status",
+          "lines"
+        ],
+        "properties": {
+          "effectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "role": {
+            "enum": [
+              "planner",
+              "worker",
+              "judge"
+            ]
+          },
+          "status": {
+            "enum": [
+              "reserved",
+              "completed",
+              "uncertain"
+            ]
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "effectId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "n",
+          "kind",
+          "text"
+        ],
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "kind": {
+            "enum": [
+              "HARNESS",
+              "ACTION",
+              "OBSERVATION",
+              "OBSERVATION ERROR",
+              "ASSISTANT",
+              "PERMISSION",
+              "USAGE"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        }
+      },
+      "maxItems": 4096
+    },
+    "nextOffset": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "totalLines": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "trajectorySha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "maxItems": 16
+    }
+  }
+}

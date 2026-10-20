@@ -111,6 +111,15 @@ test("public loop inspection distinguishes warning, success and unstarted observ
     expect(() => validateDelegationOutput("wringer.inspect_loop", loop)).not.toThrow();
     const { dispatch } = await import("../../cli/src/app");
     expect((await dispatch(["loop", "--state", f.options.controllerDir], "wringer-drive")).value).toEqual(loop);
+    // The same journey's role sessions as numbered lines, all of them or one.
+    const all = await dispatch(["loop", "--state", f.options.controllerDir, "--trajectory"], "wringer-drive"), sessions = (all.value as any).trajectories;
+    expect(sessions.every((t: any) => ["worker", "judge"].includes(t.role))).toBe(true);
+    expect(sessions.length).toBe((await readValidatedContainedState(f.options.controllerDir)).state.effects.length);
+    expect(all.text).toContain(`# ${sessions[0].role} ${sessions[0].effectId}`); expect(all.text).toContain("   1 [HARNESS] ");
+    const one = await dispatch(["loop", "--state", f.options.controllerDir, "--trajectory", "--effect", sessions[1].effectId], "wringer-drive");
+    expect((one.value as any).trajectories).toEqual([sessions[1]]);
+    await expect(dispatch(["loop", "--state", f.options.controllerDir, "--effect", sessions[1].effectId], "wringer-drive")).rejects.toThrow("add --trajectory");
+    await expect(dispatch(["loop", "--state", f.options.controllerDir, "--trajectory", "--effect", "missing"], "wringer-drive")).rejects.toThrow("No such role session");
 });
 
 test("public loop inspection removes private paths from runtime stop diagnostics", async () => {

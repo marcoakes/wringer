@@ -8,11 +8,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileDeclaration, hashBytes } from "@wringer/plan";
 import { createLocalSourceBundle, TRUSTED_LOCAL_SENTENCE } from "@wringer/runtime";
-import { readValidatedContainedState } from "@wringer/workflow";
+import { readValidatedContainedState, readLoopTrajectories } from "@wringer/workflow";
 import { auditContained, deliverContained, falsifyContained } from "@wringer/delivery";
 import { openReader } from "../../records/src/read";
 import { approveAssistantProposal, assistantControllerState, createAssistantService, initializeAssistant, issueAssistantCapability } from "../src/assistant";
 import { createMcpSession } from "../../mcp/src/server";
+import { validateDelegationOutput } from "../../mcp/src/delegation-contract";
+import { createDelegationProtocol } from "../src/delegation-protocol";
 import { readPmWorkspace } from "../../cli/src/workspace";
 
 const roots: string[] = [], services: Awaited<ReturnType<typeof createAssistantService>>[] = [];
@@ -55,7 +57,7 @@ async function fixture() {
         if (result && "error" in result) return { outcome: "refused", rpcError: result.error };
         return result!.result.structuredContent;
     };
-    return { scratch, repo, root, plan, workspace, service, call };
+    return { scratch, repo, root, plan, workspace, service, call, capability };
 }
 
 test("a trusted-local job runs on this computer from proposal to review, stamped at every step", async () => {
@@ -84,6 +86,21 @@ test("a trusted-local job runs on this computer from proposal to review, stamped
         expect(p.limits).toContain(TRUSTED_LOCAL_SENTENCE);
     }
     expect(await readFile(join(f.repo, "src/value.js"), "utf8")).toBe("export const expected = false;\n");
+    // What each role did, as numbered lines: the CLI's projection and the assistant's paged view agree.
+    const trajectories = await readLoopTrajectories(state);
+    expect(trajectories.map(t => t.role).sort()).toEqual(["judge", "worker"]);
+    for (const t of trajectories) expect((await reader.validate(t, "loop-trajectory-v1.schema.json")).ok).toBe(true);
+    const worker = trajectories.find(t => t.role === "worker")!;
+    expect(worker.lines.some(l => l.kind === "ASSISTANT" && l.text === "Set the value. Fixture worker; no model was used.")).toBe(true);
+    expect(worker.lines[1]!.text.startsWith("Controller prompt: ")).toBe(true); expect(worker.lines[1]!.text).toContain("Implement the original intent");
+    const protocol = createDelegationProtocol(f.service), inspect = async (args: Record<string, unknown>) => { const value = await protocol.call(f.capability.token, "wringer.inspect_loop", { jobId: proposed.jobId, ...args }); validateDelegationOutput("wringer.inspect_loop", value); return value as any; };
+    const index = await inspect({ trajectory: true });
+    expect(index.sessions.map((s: any) => s.effectId).sort()).toEqual(trajectories.map(t => t.effectId).sort()); expect(index.lines).toEqual([]);
+    const page = await inspect({ trajectory: true, effectId: worker.effectId, offset: 0, limit: 2 });
+    expect(page.lines).toEqual(worker.lines.slice(0, 2)); expect(page.nextOffset).toBe(2); expect(page.trajectorySha256).toBe(worker.sha256);
+    expect((await reader.validate(page, "loop-trajectory-page-v1.schema.json")).ok).toBe(true);
+    expect((await inspect({ effectId: worker.effectId })).outcome).toBe("refused");
+    expect((await inspect({ trajectory: true, effectId: "no-such-session" })).outcome).toBe("refused");
     // Prepare, Send to a new local bare origin, and audit a fresh clone of the review branch offline.
     const origin = join(f.scratch, "origin.git"); git(f.scratch, "init", "--bare", "--initial-branch=main", origin); git(f.repo, "push", origin, "main");
     const publication = { remote: origin, sourceBranch: "wringer/trusted-local", targetBranch: "main" };

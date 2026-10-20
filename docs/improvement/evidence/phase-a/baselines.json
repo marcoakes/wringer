@@ -1,0 +1,54 @@
+{
+  "schema_version": "wringer.phase-a-baselines.v1",
+  "measuredAt": "2026-10-20T16:11:32.979Z",
+  "platform": "darwin-arm64",
+  "proposerInput": [
+    {
+      "groups": 1,
+      "promptBytes": 1948,
+      "manifestBytes": 401,
+      "patternsBytes": 574,
+      "predictionBytes": 194,
+      "trajectoryBytes": 0,
+      "producedOutputBytes": 0,
+      "priorProposalBytes": 0,
+      "fileOutputs": 1
+    },
+    {
+      "groups": 8,
+      "promptBytes": 4407,
+      "manifestBytes": 401,
+      "patternsBytes": 3033,
+      "predictionBytes": 194,
+      "trajectoryBytes": 0,
+      "producedOutputBytes": 0,
+      "priorProposalBytes": 0,
+      "fileOutputs": 1
+    },
+    {
+      "groups": 32,
+      "promptBytes": 12491,
+      "manifestBytes": 401,
+      "patternsBytes": 11117,
+      "predictionBytes": 194,
+      "trajectoryBytes": 0,
+      "producedOutputBytes": 0,
+      "priorProposalBytes": 0,
+      "fileOutputs": 1
+    }
+  ],
+  "overlay": {
+    "trackedFiles": 200,
+    "overlayFiles": 8,
+    "runs": 7,
+    "medianMs": {
+      "overlay": 186,
+      "bundle": 36,
+      "clone": 60
+    }
+  },
+  "limits": [
+    "Proposer figures come from the real request builder and prompt with synthetic failure-pattern reports; no model was called.",
+    "Overlay timings are local wall-clock medians on this machine, git subprocess per step as the tournament helper does; not a contained-runtime measurement."
+  ]
+}

@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadExecutionPlan, canonicalPlanJson, validateExecutionPlan, createExecutionAuthority, validateExecutionAuthority } from "@wringer/plan";
-import { requestContainedRevision, queryContainedJourney, containedHumanReviewEligibility } from "@wringer/workflow";
+import { requestContainedRevision, queryContainedJourney, containedHumanReviewEligibility, readLoopTrajectories, renderLoopTrajectory } from "@wringer/workflow";
 import { deliverContained, auditContained, falsifyContained, reviewContainedSource } from "@wringer/delivery";
 import { readControllerFile, readController, startController, resumeController, showControllerCandidate, reviewControllerCandidate, recoverWorkspaceCommand } from "@wringer/application";
 import { readLoopInspection } from "@wringer/application";
@@ -47,7 +47,12 @@ export async function containedDrive(a: Args, repo: string, context: DispatchCon
         return { value: { path: output, authority }, text: `Bounded authority saved: ${output}\nPlan: ${plan.plan_sha256}\nNo human verdict, publication or sandbox bypass was granted.\nNext: wringer-drive run ${quote(resolve(repo, a.words[0]!))} --authority ${quote(output)}` };
     }
     if (a.command === "loop") {
-        positionals(a, 0); allowed(a, ["state"]);
+        positionals(a, 0); allowed(a, ["state", "trajectory", "effect"]);
+        if (string(a, "effect") !== undefined && !flag(a, "trajectory")) throw new Error("--effect selects one session's trajectory; add --trajectory");
+        if (flag(a, "trajectory")) {
+            const trajectories = await readLoopTrajectories(statePath(repo, a), { ...(string(a, "effect") ? { effectId: string(a, "effect")! } : {}) });
+            return { value: { trajectories }, text: trajectories.map(renderLoopTrajectory).join("\n\n") || "No role session has been reserved yet." };
+        }
         return { value: await readLoopInspection(statePath(repo, a)) };
     }
     if (a.command === "status") {

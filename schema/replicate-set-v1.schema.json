@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/replicate-set-v1.schema.json",
+  "description": "One approved plan registered to run k times before any attempt. No prediction and no improvement claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "taskFamily",
+    "plan",
+    "k",
+    "sourceTree",
+    "wallClockSeconds",
+    "repository",
+    "limits",
+    "prediction",
+    "dataScope",
+    "accounting",
+    "stoppingRule",
+    "registeredAt",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.replicate-set.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,79}$"
+    },
+    "taskFamily": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,79}$"
+    },
+    "plan": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "plan_sha256",
+        "acceptance_sha256",
+        "repository",
+        "runtime",
+        "agents",
+        "scope",
+        "acceptance",
+        "budget"
+      ],
+      "properties": {
+        "schema_version": {
+          "enum": [
+            "wringer.execution-plan.v1",
+            "wringer.execution-plan.v2",
+            "wringer.execution-plan.v3",
+            "wringer.execution-plan.v4",
+            "wringer.execution-plan.v5",
+            "wringer.execution-plan.v6"
+          ]
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "acceptance_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "description": "The full compiled plan is additionally validated by the inert plan reader, including its semantic hashes."
+    },
+    "k": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 5
+    },
+    "sourceTree": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$"
+    },
+    "wallClockSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 604800
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replicates",
+        "maxRoleSessions",
+        "wallClockSeconds"
+      ],
+      "properties": {
+        "replicates": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 5
+        },
+        "maxRoleSessions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 604800
+        }
+      }
+    },
+    "prediction": {
+      "type": "null"
+    },
+    "dataScope": {
+      "const": "this-repository-only"
+    },
+    "accounting": {
+      "const": "all-planned-replicates-including-failures"
+    },
+    "stoppingRule": {
+      "const": "fixed-k-no-extension"
+    },
+    "registeredAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "title": "replicate-set-v1"
+}

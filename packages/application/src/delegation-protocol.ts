@@ -3,7 +3,7 @@ import { Redactor } from "@wringer/engine";
 import type { createAssistantService } from "./assistant";
 import { assistantId, assistantInventory } from "./assistant-store";
 import { assistantControllerState } from "./assistant";
-import { readJobLoopInspection } from "./loop-inspection";
+import { readJobLoopInspection, readJobLoopTrajectoryPage } from "./loop-inspection";
 import { inspectJobImprovements } from "./improvements";
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const guard = ["jobId", "idempotencyKey", "expectedRevision", "expectedCandidateIdentity"];
@@ -12,7 +12,7 @@ const fields: Record<string, string[]> = {
     "wringer.revise_proposal": ["jobId", "idempotencyKey", "expectedRevision", "proposal"], "wringer.get_status": ["jobId"], "wringer.get_approval_request": ["jobId"],
     "wringer.list_jobs": ["offset", "limit"], "wringer.wait_for_update": ["jobId", "afterEventId", "timeoutSeconds"], "wringer.get_evidence": ["jobId", "evidenceId", "contentIdentity", "offset", "limit"],
     "wringer.start": guard, "wringer.cancel": guard, "wringer.continue": [...guard, "action"], "wringer.request_revision": [...guard, "note"], "wringer.prepare_handover": guard,
-    "wringer.inspect_loop": ["jobId"],
+    "wringer.inspect_loop": ["jobId", "trajectory", "effectId", "offset", "limit"],
     "wringer.inspect_improvements": ["jobId"],
 };
 const refusal = (code: string, message: string) => ({ schema_version: "wringer.assistant-refusal.v2", mode: "delegation", outcome: "refused", isError: true, code, message });
@@ -99,8 +99,10 @@ export function createDelegationProtocol(service: Service) {
             if (name === "wringer.inspect_loop") {
                 const observed = await service.call(token, "wringer.get_status", { jobId: args.jobId });
                 if (observed.isError) return refusal(String(observed.code), String(observed.message));
-                const proposal = await service.inspectProposal(args.jobId);
-                return await readJobLoopInspection(proposal.plan, observed.stage === "intake" ? undefined : assistantControllerState(service.root, args.jobId));
+                const proposal = await service.inspectProposal(args.jobId), state = observed.stage === "intake" ? undefined : assistantControllerState(service.root, args.jobId);
+                if (args.trajectory === true) return await readJobLoopTrajectoryPage(proposal.plan, state, { ...(args.effectId !== undefined ? { effectId: args.effectId } : {}), ...(args.offset !== undefined ? { offset: args.offset } : {}), ...(args.limit !== undefined ? { limit: args.limit } : {}) });
+                if (args.effectId !== undefined || args.offset !== undefined || args.limit !== undefined) return refusal("trajectory-fields", "effectId, offset and limit select trajectory lines; send trajectory: true with them");
+                return await readJobLoopInspection(proposal.plan, state);
             }
             if (name === "wringer.get_evidence") {
                 const observed = await service.call(token, "wringer.get_status", { jobId: args.jobId });

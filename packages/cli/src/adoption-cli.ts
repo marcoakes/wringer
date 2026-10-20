@@ -8,7 +8,8 @@ import type { Answer, DispatchContext } from "./app";
 import { createVerificationOwner } from "./verification-owner";
 import { readAssistantConnection } from "./assistant-transport";
 import { applyDelegationProfile, inspectDelegationProfile, type DelegationSelection } from "@wringer/application";
-import { assistantExists, createDelegationJob, readDelegationJob, delegationJobStatus, inspectDelegationLoop } from "@wringer/application";
+import { assistantExists, createDelegationJob, readDelegationJob, delegationJobStatus, inspectDelegationLoop, inspectDelegationTrajectories } from "@wringer/application";
+import { renderLoopTrajectory } from "@wringer/workflow";
 import { createDelegationOwner } from "./delegation-owner";
 import { inspectDelegationImprovements } from "@wringer/application";
 import { compactVerificationStatus } from "@wringer/application";
@@ -49,6 +50,7 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
   wring job list [--workspace ID] [--offset 0] [--limit 50]
   wring job status --job ID
   wring job loop --job ID [--json]
+  wring job loop --job ID --trajectory [--effect ID] [--json]
   wring job improvements --job ID [--json]
   wring job open --workspace ID [--job ID]
   wring job serve --workspace ID
@@ -221,7 +223,15 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         return { value, text: `Prepared unapproved verification job ${value.id}.\nOpen: wring job open --workspace ${value.workspaceId} --job ${value.id}` };
     }
     if (verb === "improvements") { allowed(a, ["app-dir", "job"]); return { value: await inspectDelegationImprovements(root, assistantId(required(a, "job"))) }; }
-    if (verb === "loop") { allowed(a, ["app-dir", "job"]); return { value: await inspectDelegationLoop(root, assistantId(required(a, "job"))) }; }
+    if (verb === "loop") {
+        allowed(a, ["app-dir", "job", "trajectory", "effect"]);
+        if (string(a, "effect") !== undefined && !flag(a, "trajectory")) throw new Error("--effect selects one session's trajectory; add --trajectory");
+        if (flag(a, "trajectory")) {
+            const trajectories = await inspectDelegationTrajectories(root, assistantId(required(a, "job")), string(a, "effect"));
+            return { value: { trajectories }, text: trajectories.map(renderLoopTrajectory).join("\n\n") || "No role session has been reserved yet." };
+        }
+        return { value: await inspectDelegationLoop(root, assistantId(required(a, "job"))) };
+    }
     if (verb === "status") { allowed(a, ["app-dir", "job"]); const id = assistantId(required(a, "job")); return { value: (await assistantExists(root, `verification-jobs/${id}/job.json`) || await assistantExists(root, `verification-jobs/${id}/creation.json`)) ? compactVerificationStatus(await verificationStatus(root, id)) : await delegationJobStatus(root, id) }; }
     if (verb === "serve") {
         allowed(a, ["app-dir", "workspace"]); const workspace = await readWorkspace(root, required(a, "workspace"));

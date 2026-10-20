@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/replicate-identity-v1.schema.json",
+  "description": "The budget identity asserted after collection: every reservation one record, none twice, none without its dispatch marker. A violation is recorded and refused, never repaired.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "replicateSetSha256",
+    "collectionSha256",
+    "reserved",
+    "recorded",
+    "notStarted",
+    "status",
+    "reasons",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.replicate-identity.v1"
+    },
+    "replicateSetSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "collectionSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reserved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recorded": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notStarted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "enum": [
+        "consistent",
+        "violated"
+      ]
+    },
+    "reasons": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "title": "replicate-identity-v1"
+}

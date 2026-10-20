@@ -25,6 +25,8 @@ export function validateResearchDeliveryPurpose(value: ResearchDeliveryPurpose, 
 /** Research Yes can never be reused by this public delivery entrypoint for a
  * different local destination or a forge. This is not hostile-owner protection. */
 export async function assertResearchPublication(state: string, plan: ExecutionPlan, actor: string, publication: ContainedPublication): Promise<ResearchDeliveryPurpose | null> {
+    // A replicate is evidence about variance, not work for anyone: it is never delivered.
+    if (actor.startsWith("Replicate set:")) throw new Error("A replicate-set journey is research evidence and is never delivered, privately or otherwise.");
     const path = join(state, "experiment-purpose.json");
     let info;
     try { info = await lstat(path); } catch (error: any) {

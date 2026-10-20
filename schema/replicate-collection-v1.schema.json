@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/replicate-collection-v1.schema.json",
+  "description": "Every replicate slot reserved before any source, runtime, credential or model activity; reservations are never released.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "replicateSetSha256",
+    "grant",
+    "startedAt",
+    "deadline",
+    "evidenceKind",
+    "reservations",
+    "slots",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.replicate-collection.v1"
+    },
+    "replicateSetSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "replicateSetSha256",
+        "actor",
+        "grantedAt",
+        "expiresAt",
+        "limits",
+        "credentialNames",
+        "dataScope",
+        "actions",
+        "noProductionPublication",
+        "sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.replicate-grant.v1"
+        },
+        "replicateSetSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "grantedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "expiresAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "replicates",
+            "maxRoleSessions",
+            "wallClockSeconds"
+          ],
+          "properties": {
+            "replicates": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 5
+            },
+            "maxRoleSessions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "wallClockSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 604800
+            }
+          }
+        },
+        "credentialNames": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z_][A-Z0-9_]{0,127}$"
+          },
+          "maxItems": 64
+        },
+        "dataScope": {
+          "const": "this-repository-only"
+        },
+        "actions": {
+          "const": [
+            "collect-replicates"
+          ]
+        },
+        "noProductionPublication": {
+          "const": true
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "startedAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "deadline": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "evidenceKind": {
+      "enum": [
+        "live",
+        "deterministic-fixture"
+      ]
+    },
+    "reservations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "index",
+          "planSha256",
+          "reservedSessions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^replicate-[0-9]{2}$"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "planSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "reservedSessions": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "minItems": 2,
+      "maxItems": 5
+    },
+    "slots": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "dispatchedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^replicate-[0-9]{2}$"
+          },
+          "status": {
+            "enum": [
+              "reserved",
+              "dispatched",
+              "recorded"
+            ]
+          },
+          "dispatchedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "title": "replicate-collection-v1"
+}

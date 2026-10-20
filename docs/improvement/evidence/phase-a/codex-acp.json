@@ -1,0 +1,179 @@
+{
+  "schema_version": "wringer.adapter-update-inventory.v1",
+  "adapter": "codex-acp",
+  "package": "@agentclientprotocol/codex-acp@1.10.0",
+  "agentInfo": {
+    "name": "@agentclientprotocol/codex-acp",
+    "title": "Codex",
+    "version": "1.10.0"
+  },
+  "measuredAt": "2026-10-20T16:09:55.161Z",
+  "status": "completed",
+  "stopReason": "end_turn",
+  "wallClockMs": 28061,
+  "changedPatch": true,
+  "eventCount": 104,
+  "updateCount": 91,
+  "retainedEventBytes": 50035,
+  "inventory": {
+    "available_commands_update": {
+      "count": 1,
+      "fields": {
+        "availableCommands": {
+          "present": 1,
+          "bytes": 17835
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "session_info_update": {
+      "count": 3,
+      "fields": {
+        "_meta": {
+          "present": 2,
+          "bytes": 103
+        },
+        "_meta.codex": {
+          "present": 2,
+          "bytes": 83
+        },
+        "title": {
+          "present": 1,
+          "bytes": 151
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "agent_message_chunk": {
+      "count": 65,
+      "fields": {
+        "messageId": {
+          "present": 65,
+          "bytes": 3640
+        },
+        "content": {
+          "present": 65,
+          "bytes": 1874
+        },
+        "_meta": {
+          "present": 65,
+          "bytes": 2158
+        },
+        "_meta.codex": {
+          "present": 65,
+          "bytes": 1508
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "tool_call": {
+      "count": 7,
+      "fields": {
+        "toolCallId": {
+          "present": 7,
+          "bytes": 289
+        },
+        "status": {
+          "present": 7,
+          "bytes": 91
+        },
+        "kind": {
+          "present": 7,
+          "bytes": 57
+        },
+        "title": {
+          "present": 7,
+          "bytes": 316
+        },
+        "locations": {
+          "present": 1,
+          "bytes": 106
+        },
+        "content": {
+          "present": 6,
+          "bytes": 620
+        },
+        "rawInput": {
+          "present": 5,
+          "bytes": 720
+        },
+        "_meta": {
+          "present": 5,
+          "bytes": 837
+        },
+        "_meta.terminal_info": {
+          "present": 5,
+          "bytes": 747
+        }
+      },
+      "contentItemTypes": {
+        "terminal": 5,
+        "diff": 1
+      }
+    },
+    "tool_call_update": {
+      "count": 7,
+      "fields": {
+        "toolCallId": {
+          "present": 7,
+          "bytes": 289
+        },
+        "status": {
+          "present": 7,
+          "bytes": 71
+        },
+        "rawOutput": {
+          "present": 6,
+          "bytes": 524
+        },
+        "_meta": {
+          "present": 5,
+          "bytes": 1046
+        },
+        "_meta.terminal_output_delta": {
+          "present": 3,
+          "bytes": 454
+        },
+        "_meta.terminal_exit": {
+          "present": 5,
+          "bytes": 427
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "usage_update": {
+      "count": 6,
+      "fields": {
+        "used": {
+          "present": 6,
+          "bytes": 30
+        },
+        "size": {
+          "present": 6,
+          "bytes": 36
+        }
+      },
+      "contentItemTypes": {}
+    },
+    "agent_thought_chunk": {
+      "count": 2,
+      "fields": {
+        "contentOmitted": {
+          "present": 2,
+          "bytes": 8
+        }
+      },
+      "contentItemTypes": {}
+    }
+  },
+  "toolOutput": {
+    "toolCallUpdates": 7,
+    "withContent": 0,
+    "withRawOutput": 6,
+    "withTerminalOutputMeta": 0
+  },
+  "limits": [
+    "Field names, counts and byte sizes only; no update content is kept in this record.",
+    "One live session on a throwaway repository; adapter behaviour on other tasks, versions or settings is not measured."
+  ]
+}

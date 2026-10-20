@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.35
+Wringer · Bun/TypeScript · 1.0.0-alpha.36
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -225,6 +225,7 @@ Wringer workspace setup and retained jobs
   wring job list [--workspace ID] [--offset 0] [--limit 50]
   wring job status --job ID
   wring job loop --job ID [--json]
+  wring job loop --job ID --trajectory [--effect ID] [--json]
   wring job improvements --job ID [--json]
   wring job open --workspace ID [--job ID]
   wring job serve --workspace ID
@@ -304,7 +305,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.35
+Wringer assistant entry point — 1.0.0-alpha.36
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.
@@ -373,6 +374,8 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
   wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
+  wringer-drive loop --state DIRECTORY --trajectory [--effect ID]
+                                               What each role session did, as numbered lines
   wringer-drive graph --help                   Serial graphs of contained loops: plan, run, decide, send, export
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
@@ -474,6 +477,8 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
   wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
+  wringer-drive loop --state DIRECTORY --trajectory [--effect ID]
+                                               What each role session did, as numbered lines
   wringer-drive graph --help                   Serial graphs of contained loops: plan, run, decide, send, export
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
@@ -657,6 +662,7 @@ Research reviews never become product Yes or Send. Promotion and rollback select
 approach for FUTURE unapproved plans only; they do not start or approve a job.
 Fixtures cannot prove live benefit. Guide: docs/native/EXPERIMENTS.md
 Gate and workflow proposals, judged by a frozen oracle: wring experiment gate --help
+The same plan k times, and where the attempts disagreed: wring experiment replicate --help
 
 Connect the optional card to an existing assistant workspace (operator setup):
   wring experiment connect --assistant-state CONTROLLER --research-root PRIVATE_ROOT

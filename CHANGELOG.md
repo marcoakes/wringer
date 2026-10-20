@@ -4,6 +4,38 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.36 — see the loop: trajectories and replicate sets
+
+The first release of the improvement build: before anything proposes a better way
+of working, a person (and later a proposer) can read what the agents actually did
+and where repeated attempts disagreed.
+
+- **Measured first.** One live worker session per pinned adapter recorded which
+  ACP fields carry tool output: Claude's adapter sends `content` text and diffs
+  plus `rawOutput`; Codex's sends `rawOutput.formatted_output`/`exit_code` and
+  terminal metadata, never `content`. Today's playbook proposer is given 2–12 KB
+  of hashes and counts and zero bytes of trajectory or produced output. An
+  overlay commit plus bundle and clone costs about a quarter of a second.
+  [Measurements](docs/improvement/PHASE_A_MEASUREMENTS.md).
+- **Loop trajectories** (`wringer.loop-trajectory.v1`): `wring job loop
+  --trajectory`, `wringer-drive loop --trajectory` and `wringer.inspect_loop
+  ({trajectory: true})` render each role session as numbered `[HARNESS]`,
+  `[ACTION]`, `[OBSERVATION]`, `[ASSISTANT]`, `[PERMISSION]` and `[USAGE]` lines
+  from the ACP updates already retained. Redacted again at render, 4 KiB per item,
+  512 KiB per session, every cut counted; a call with no output says so. The
+  assistant reads it in 64 KiB pages (`wringer.loop-trajectory-page.v1`).
+- **Replicate sets** (`wringer.replicate-set.v1` and siblings): `wring experiment
+  replicate register/grant/collect/status` runs one approved plan k times (2–5)
+  under its own grant. All attempts are reserved before any effect; every outcome
+  is kept; an interrupted attempt is reconciled, never replayed, and the set stops;
+  a budget identity is asserted after collection and a violation is refused, not
+  repaired. `wringer.divergence-report.v1` says where attempts disagreed (checks,
+  judgements, loop decisions, candidates, first failure), never why. Replicate
+  journeys never enter ordinary failure patterns and are never delivered.
+- The experiment collector's fresh-journey runner and the failure-pattern
+  classifier are now shared, so replicates and experiments run and classify the
+  same way.
+
 ## 1.0.0-alpha.35 — a Codex connection Codex will actually use
 
 Found while preparing the beta gate on the published alpha.34, each with a test

@@ -15,3 +15,5 @@ export * from "./display-visuals";
 export * from "./check-evidence";
 export * from "./repair-packet";
 export * from "./loop-analysis";
+export { projectLoopTrajectory, renderLoopTrajectory, readLoopTrajectories, TRAJECTORY_ITEM_LIMIT, TRAJECTORY_LIMIT } from "./trajectory";
+export type { LoopTrajectory, TrajectoryLine, TrajectoryKind, TrajectoryInput } from "./trajectory";
