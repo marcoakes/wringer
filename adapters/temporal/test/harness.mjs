@@ -55,8 +55,15 @@ export async function drive(handle, actions, { timeoutMs = 60000, stopAfter = In
         const summary = await handle.query('status').catch(() => null);
         const action = actions[next], hold = summary?.holds.find(row => row.node === action?.node && row.kind === (action?.kind === 'send' ? 'send' : 'human'));
         if (action && hold) {
-            if (action.kind === 'decide') await handle.executeUpdate('decide', { args: [{ node: action.node, expectedRevision: summary.revision, inputSha256: hold.inputSha256, choice: action.choice, actor: action.actor, note: action.note }] });
-            else await handle.executeUpdate('send', { args: [{ node: action.node, expectedRevision: summary.revision, preparedSha256: hold.preparedSha256, actor: action.actor, note: action.note }] });
+            // A validator rejection writes no history. After continue-as-new the new run may not
+            // have re-entered its hold yet; read the status again rather than counting it answered.
+            try {
+                if (action.kind === 'decide') await handle.executeUpdate('decide', { args: [{ node: action.node, expectedRevision: summary.revision, inputSha256: hold.inputSha256, choice: action.choice, actor: action.actor, note: action.note }] });
+                else await handle.executeUpdate('send', { args: [{ node: action.node, expectedRevision: summary.revision, preparedSha256: hold.preparedSha256, actor: action.actor, note: action.note }] });
+            } catch (error) {
+                if (/is not waiting/.test(`${error?.message} ${error?.cause?.message ?? ''}`)) { await sleep(150); continue; }
+                throw error;
+            }
             next++;
             continue;
         }
