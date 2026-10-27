@@ -1,22 +1,53 @@
 # Current product evidence — 27 October 2026
 
 The current verified public release is
-[1.0.0-alpha.36](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.36),
-commit `ade95ae149dcc9f2de4cc03cf7f6ed258e90be43`: loop trajectories (what each
-role session did, as numbered lines) and replicate sets (one approved plan run k
-times, and where the attempts disagreed). All test jobs, the Linux DAC job and all
-six release jobs passed on the first attempt. All 14 public assets matched the clean
-source, both archives' signed provenance verified, and public macOS
-extraction/installation passed 17/13 checks. Local validation passed 42/42 stages in
-a fresh clone; a first attempt in a Git worktree is kept, failed only because a
-worktree's `.git` is a file. See the [release record](docs/improvement/evidence/phase-1/release.json),
-[local validation](docs/improvement/evidence/phase-1/local-validation.json) and its
-[18 reversions](docs/improvement/evidence/phase-1/reversions/reversions.json).
+[1.0.0-alpha.39](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.39),
+commit `504543dff57cc924b1602d1f27f17123087c6d02`. It carries releases 2 and 3 of the
+improvement build:
 
-Trajectories read the fields each pinned adapter was measured to carry, from one live
-trusted-local session per adapter ([measurements](docs/improvement/PHASE_A_MEASUREMENTS.md)).
-Beyond that measurement, both features are fixture-tested only: no live journey has
-been read through the trajectory view and no live replicate set has run.
+- playbook trees that only the worker sees;
+- a proposer that cites the trajectory line behind each change;
+- lessons recorded from decided comparisons;
+- the job's research view;
+- pilot amendment 1, registered and not run.
+
+All 14 public assets matched the clean source, both archives' signed provenance
+verified, and public macOS extraction/installation passed 17/13 checks. The Linux DAC
+job and all six release jobs passed on the first attempt.
+
+The test run's first attempt failed on two jobs, neither caused by the commit:
+
+- a macOS 14 runner GitHub never supplied;
+- a headless-Chromium hang inside the rehearsal's own capture helper.
+
+Both passed when re-run unchanged. The diagnosis is in the release record's `ciHistory`.
+
+Local validation passed 43/43 stages in a fresh clone of each release's candidate
+([release 2](docs/improvement/evidence/phase-2/local-validation.json),
+[release 3](docs/improvement/evidence/phase-3/local-validation.json)). 44 guards were
+each removed alone, and every one turned its tests red: 43 on the first run, one after
+its test was tightened ([release 2](docs/improvement/evidence/phase-2/reversions/reversions.json),
+[its follow-up](docs/improvement/evidence/phase-2/reversions-followup/reversions.json),
+[release 3](docs/improvement/evidence/phase-3/reversions/reversions.json)). See the
+[release record](docs/improvement/evidence/phase-3/release.json).
+
+Neither release was published under its own number:
+
+- Alpha.37's CI stopped on time limits and then on a stale budget test.
+- `v1.0.0-alpha.38` (`984c29c`) is tagged and unpublished. Its macOS release build ran
+  past the release workflow's 40-minute limit.
+
+Alpha.39 differs from that tag only in version strings, a 60-minute limit for the
+release build, and a test that keeps release limits in step with the test workflow's.
+
+All of it is fixture-tested only. No live proposer has run, no live agent has worked
+on a tree, no live comparison or lesson exists, and no benefit is claimed.
+
+[1.0.0-alpha.36](docs/improvement/evidence/phase-1/release.json) (commit `ade95ae`)
+added loop trajectories and replicate sets. Trajectories read the fields each pinned
+adapter was measured to carry, from one live trusted-local session per adapter
+([measurements](docs/improvement/PHASE_A_MEASUREMENTS.md)). Beyond that, both are
+fixture-tested only.
 
 [1.0.0-alpha.35](docs/adoption/evidence/alpha35/release.json) (commit `e23b778`)
 made `wring connect` refuse a Codex project entry that Codex would not use.
