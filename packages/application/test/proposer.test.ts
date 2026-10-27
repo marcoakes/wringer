@@ -1,7 +1,7 @@
 /** Release 2 F: replicate set -> evidence tree -> one proposer session -> a validated
  * playbook tree whose every change cites a trajectory moment, or KEEP_BASE. Real Git
  * journeys and capture; scripted agents; no model, runtime or provider. */
-import { afterEach, expect, test } from "bun:test";
+import { afterAll, afterEach, expect, test } from "bun:test";
 import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -11,18 +11,22 @@ import { assertNoOracleLeak, buildProposerEvidence, collectReplicateSet, createP
 import { runAndValidateTreeJourney, treeWorld, type TreeWorld } from "../../workflow/fixtures/playbook-tree-journey";
 import { openReader } from "../../records/src/read";
 
-const roots: string[] = [];
+const roots: string[] = [], sharedRoots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
+afterAll(async () => { for (const root of sharedRoots.splice(0)) await rm(root, { recursive: true, force: true }); });
 const reader = await openReader(new URL("../../../schema", import.meta.url).pathname);
 const env = { PATH: process.env.PATH ?? "/usr/bin:/bin", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" };
 async function git(cwd: string, ...args: string[]) { const r = await processDriver.command(["git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, env }); if (r.code !== 0) throw new Error(r.stderr); return r.stdout; }
 async function privateDir(prefix: string) { const path = await mkdtemp(join(tmpdir(), prefix)); await chmod(path, 0o700); roots.push(path); return path; }
 const prediction = { statement: "SCRIPTED: one fewer worker attempt without a lost requirement.", metric: "worker-attempts" as const, minimumImprovement: 1, minimumHeldOutPairs: 4, maximumSignProbability: 0.05, visualQualityClaim: false };
 
-/** Two replicates of the no-playbook v6 plan: the second fails its check once first. */
-async function evidenceWorld() {
-    const world = await treeWorld({ select: false }); roots.push(world.root, world.repo);
-    const replicates = await privateDir("wringer-proposer-replicates-");
+/** Two replicates of the no-playbook v6 plan: the second fails its check once first.
+ * Built once and only read afterwards: every proposal gets its own private directory. */
+let shared: ReturnType<typeof buildEvidenceWorld> | undefined;
+const evidenceWorld = () => shared ??= buildEvidenceWorld();
+async function buildEvidenceWorld() {
+    const world = await treeWorld({ select: false }); sharedRoots.push(world.root, world.repo);
+    const replicates = await mkdtemp(join(tmpdir(), "wringer-proposer-replicates-")); await chmod(replicates, 0o700); sharedRoots.push(replicates);
     const set = await registerReplicateSet(replicates, { id: "total-replicates", taskFamily: "total", plan: world.plan, k: 2, sourceTree: world.environment.source_tree, wallClockSeconds: 900 });
     const grant = createReplicateGrant(set, { actor: "Fixture operator", expiresAt: new Date(Date.now() + 3600000).toISOString(), credentialNames: [...(world.plan.runtime.env ?? [])] });
     await collectReplicateSet(replicates, grant, { fixture: { run: (plan, state, slot) => runAndValidateTreeJourney(world, plan, state, { actor: `${REPLICATE_ACTOR_PREFIX} Fixture operator`, failures: slot.index - 1 }) } });

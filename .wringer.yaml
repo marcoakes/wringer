@@ -1,4 +1,4 @@
-# Standalone verification of the harness itself; no coding worker is implicit.
+# Standalone verification of the controller itself; no coding worker is implicit.
 # Production agent orchestration uses a validated contained execution plan.
 version: 1
 gates:
@@ -10,7 +10,8 @@ gates:
     timeout: 120
   - id: tests
     run: bun test ./packages
-    # Full suite measured730s locally; use the native validation hang guard.
-    timeout: 1200
+    # Full suite measured 730 s locally at first; at ff63e0d (alpha.37) hosted Ubuntu ran
+    # 1,195 s of passing tests before the old 1,200 s guard stopped it. Still a hang guard.
+    timeout: 2400
 deliver:
   branch: "wringer/{run}"

@@ -15,7 +15,9 @@ jobs:
         os: [ubuntu-latest, macos-latest, macos-14]
     runs-on: ${{ matrix.os }}
     # Ratified at 703de14, where the whole envelope took 1,727 s on macOS; its core stages were 892 s of that.
-    timeout-minutes: 40
+    # At ff63e0d (alpha.37) macos-14 took 2,169 s and ubuntu/macos-latest passed 40 minutes: real-Git
+    # playbook-tree and proposer tests added about 340 s of native-check. Still a hang guard, not a target.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
