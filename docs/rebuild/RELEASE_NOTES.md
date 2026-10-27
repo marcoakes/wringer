@@ -1,6 +1,6 @@
-Wringer 1.0.0-alpha.38 lets an agent propose a better way of working from what earlier
+Wringer 1.0.0-alpha.39 lets an agent propose a better way of working from what earlier
 attempts actually did, puts it where the worker finds it, and keeps a record of what
-each test of it established. It carries the never-published alpha.37 as well.
+each test of it established. It carries the never-published alpha.37 and alpha.38.
 
 ```sh
 wring experiment evidence --job JOB_ID --replicate-set ID --proposal ID
@@ -55,7 +55,7 @@ proposer reads lessons, but not the per-task findings that would name held-out t
 
 None of it can collect, propose or adopt.
 
-**A registered live test.** [Pilot amendment 1](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.38/docs/qualification/PILOT_AMENDMENT_1.md)
+**A registered live test.** [Pilot amendment 1](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.39/docs/qualification/PILOT_AMENDMENT_1.md)
 registers "no playbook versus a proposer-written playbook" on the pilot's seven repair
 tasks, with the pilot's endpoint, minimum effect, regression limits and fixed-sample
 rule. It is registered, not run.
@@ -69,9 +69,12 @@ alone:
 - One stayed green because its test accepted any refusal. The test now names that
   guard's refusal, and it goes red.
 
-**Why there is no alpha.37.** Its CI stopped twice before publication: first on time
-limits the new tests outgrew, then on a stale budget test. By then the next release
-had already landed. The limits are now raised, with the measurements recorded.
+**Why there is no alpha.37 or alpha.38.** Alpha.37's CI stopped twice before
+publication: first on time limits the new tests outgrew, then on a stale budget test.
+By then the next release had landed. Alpha.38 was tagged, but its macOS release build
+ran past the release workflow's 40-minute limit, which the test workflow had already
+raised to 60. The release workflow now allows 60 minutes too, and a test keeps the
+two in step. The `v1.0.0-alpha.38` tag stays, unpublished.
 
 **Not measured:** a live proposer, a live agent on a tree, a live comparison or lesson,
 or any benefit. Nothing here claims an improvement. Assistant workspaces still use
@@ -82,6 +85,6 @@ provenance and exact-artifact claim reports. GitHub publication does not itself
 publish an npm package, Homebrew tap or MCP registry listing. The documented
 cooperative-local operator boundary remains.
 
-[The improvement route in ten steps](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.38/docs/improvement/README.md)
-· [Proposals](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.38/docs/native/PROPOSALS.md)
+[The improvement route in ten steps](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.39/docs/improvement/README.md)
+· [Proposals](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.39/docs/native/PROPOSALS.md)
 · [Previous release: see the loop](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.36)

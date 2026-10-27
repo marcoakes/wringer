@@ -22,8 +22,9 @@ jobs:
           - os: macos-14
             platform: darwin-arm64
     runs-on: ${{ matrix.os }}
-    # The same split and 40-minute hang guard as tests.yml; the rehearsal group runs in parallel below.
-    timeout-minutes: 40
+    # The same split and hang guard as tests.yml; the rehearsal group runs in parallel below.
+    # At 984c29c (alpha.38) core validation took 2,452 s on macos-14 and the job was cancelled at 40 minutes.
+    timeout-minutes: 60
     permissions:
       contents: read
       id-token: write

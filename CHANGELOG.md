@@ -4,7 +4,19 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## 1.0.0-alpha.38 — learn and show: lessons, the job's research view, a registered test
+## 1.0.0-alpha.39 — learn and show, published
+
+Publishes 1.0.0-alpha.37 and 1.0.0-alpha.38 below, unchanged. The one change is to
+the release workflow: its build job may now run for 60 minutes, as the test jobs
+already could. A test keeps every release job's limit at least as long as the test
+jobs that run the same validation group.
+
+## 1.0.0-alpha.38 — tagged, not published: lessons, the job's research view, a registered test
+
+Tagged at `984c29c` (`v1.0.0-alpha.38`) but never published. Its macOS release build
+ran core validation for 2,452 s and was cancelled at the release workflow's 40-minute
+limit, which tests.yml had already outgrown. The tag stays where it is. Everything
+below ships in 1.0.0-alpha.39.
 
 The third release of the improvement build. A finished comparison leaves a record of
 what it established, the next proposal reads it, and the job page shows the whole
@@ -37,7 +49,7 @@ research trail.
 
 This version was prepared (`ff63e0d`, then `df68517`) but never published: its CI
 stopped first on time limits and then on a stale budget test, by which time release 3
-had landed on main. Everything below ships in 1.0.0-alpha.38.
+had landed on main. Everything below ships in 1.0.0-alpha.39.
 
 The second release of the improvement build. A playbook becomes a small tree the
 worker actually finds in its clone, and a proposer writes one from what earlier
