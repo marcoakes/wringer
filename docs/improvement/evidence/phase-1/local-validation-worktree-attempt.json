@@ -1,0 +1,44 @@
+{
+  "schema_version": "wringer.improvement-local-validation-attempt.v1",
+  "source": "ade95ae149dcc9f2de4cc03cf7f6ed258e90be43",
+  "sourceState": "a Git worktree of the exact commit",
+  "outcome": "native-check failed: 15 delivery tests read .git/MERGE_HEAD, and a worktree's .git is a file (ENOTDIR). No product defect; validation was rerun in a full clone.",
+  "stages": [
+    {
+      "name": "workspace-links",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 64
+    },
+    {
+      "name": "standalone-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 1292
+    },
+    {
+      "name": "native-confirmation-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 6761
+    },
+    {
+      "name": "native-confirmation-probe",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2213
+    },
+    {
+      "name": "assistant-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 41788
+    },
+    {
+      "name": "native-check",
+      "exit_code": 1,
+      "timed_out": false,
+      "duration_ms": 1465865
+    }
+  ]
+}

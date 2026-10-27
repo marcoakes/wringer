@@ -1,0 +1,264 @@
+{
+  "schema_version": "wringer.improvement-local-validation.v1",
+  "release": 1,
+  "version": "1.0.0-alpha.36",
+  "source": "ade95ae149dcc9f2de4cc03cf7f6ed258e90be43",
+  "sourceState": "a fresh full clone of the exact commit (a Git worktree was tried first: 15 delivery tests failed only because a worktree's .git is a file; that attempt's record is kept beside this one)",
+  "kind": "deterministic engineering fixtures; no provider calls or human acceptance",
+  "command": "bun scripts/validate.ts (all groups)",
+  "stages": [
+    {
+      "name": "workspace-links",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 78
+    },
+    {
+      "name": "standalone-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 1378
+    },
+    {
+      "name": "native-confirmation-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 6583
+    },
+    {
+      "name": "native-confirmation-probe",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2301
+    },
+    {
+      "name": "assistant-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 41744
+    },
+    {
+      "name": "native-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 1466597
+    },
+    {
+      "name": "design-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 26683
+    },
+    {
+      "name": "figma-api-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 16719
+    },
+    {
+      "name": "meta-loop-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 54156
+    },
+    {
+      "name": "meta-portable-handover",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 20546
+    },
+    {
+      "name": "portable-python-corpus",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5306
+    },
+    {
+      "name": "standalone-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 7449
+    },
+    {
+      "name": "compiled-contained-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 37170
+    },
+    {
+      "name": "compiled-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 42180
+    },
+    {
+      "name": "compiled-parallel-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 25485
+    },
+    {
+      "name": "compiled-tournament-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 35189
+    },
+    {
+      "name": "compiled-delegate-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 19778
+    },
+    {
+      "name": "capability-ledger",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 202
+    },
+    {
+      "name": "compiled-gate-experiment-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 17788
+    },
+    {
+      "name": "compiled-loop-inspection",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3653
+    },
+    {
+      "name": "compiled-evidence-export",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 23202
+    },
+    {
+      "name": "compiled-job-improvements",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3235
+    },
+    {
+      "name": "local-delivery-fixture",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 4373
+    },
+    {
+      "name": "compiled-version",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 135
+    },
+    {
+      "name": "compiled-cli-reference",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 4315
+    },
+    {
+      "name": "adoption-examples",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5647
+    },
+    {
+      "name": "compiled-board",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 132
+    },
+    {
+      "name": "compiled-drive",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 133
+    },
+    {
+      "name": "compiled-assistant",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 398
+    },
+    {
+      "name": "compiled-figma-broker",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 97
+    },
+    {
+      "name": "compiled-assistant-lifecycle",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 8117
+    },
+    {
+      "name": "local-source-route",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 16197
+    },
+    {
+      "name": "assistant-launch-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 102967
+    },
+    {
+      "name": "guided-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 91076
+    },
+    {
+      "name": "design-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 133726
+    },
+    {
+      "name": "figma-api-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 139672
+    },
+    {
+      "name": "local-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 110225
+    },
+    {
+      "name": "local-design-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 134320
+    },
+    {
+      "name": "improvements-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2849
+    },
+    {
+      "name": "job-improvements-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2659
+    },
+    {
+      "name": "adoption-connections-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3131
+    },
+    {
+      "name": "verification-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 15332
+    }
+  ],
+  "passed": true
+}

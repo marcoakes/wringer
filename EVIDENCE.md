@@ -1,14 +1,25 @@
-# Current product evidence — 20 October 2026
+# Current product evidence — 27 October 2026
 
 The current verified public release is
-[1.0.0-alpha.35](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.35),
-commit `e23b77891ac222525e49c0d3e12dd9d0b0d7e987`: `wring connect` refuses a Codex
-project entry that Codex would not use, and the job page's flow makes no read
-after it is stopped. All test jobs, the Linux DAC job and all six release jobs
-passed on the first attempt; all 14 public assets matched the clean source, both
-archives' signed provenance verified, and public macOS extraction/installation
-passed 17/13 checks. See the [release record](docs/adoption/evidence/alpha35/release.json)
-and its [three reversions](docs/adoption/evidence/alpha35/reversions/reversions.json).
+[1.0.0-alpha.36](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.36),
+commit `ade95ae149dcc9f2de4cc03cf7f6ed258e90be43`: loop trajectories (what each
+role session did, as numbered lines) and replicate sets (one approved plan run k
+times, and where the attempts disagreed). All test jobs, the Linux DAC job and all
+six release jobs passed on the first attempt. All 14 public assets matched the clean
+source, both archives' signed provenance verified, and public macOS
+extraction/installation passed 17/13 checks. Local validation passed 42/42 stages in
+a fresh clone; a first attempt in a Git worktree is kept, failed only because a
+worktree's `.git` is a file. See the [release record](docs/improvement/evidence/phase-1/release.json),
+[local validation](docs/improvement/evidence/phase-1/local-validation.json) and its
+[18 reversions](docs/improvement/evidence/phase-1/reversions/reversions.json).
+
+Trajectories read the fields each pinned adapter was measured to carry, from one live
+trusted-local session per adapter ([measurements](docs/improvement/PHASE_A_MEASUREMENTS.md)).
+Beyond that measurement, both features are fixture-tested only: no live journey has
+been read through the trajectory view and no live replicate set has run.
+
+[1.0.0-alpha.35](docs/adoption/evidence/alpha35/release.json) (commit `e23b778`)
+made `wring connect` refuse a Codex project entry that Codex would not use.
 
 [1.0.0-alpha.34](docs/adoption/evidence/alpha34/release.json) (commit
 `7c57cf1`) added delegation on this computer (the explicit trusted-local runtime)
