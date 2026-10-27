@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/improvement-lesson-v1.schema.json",
+  "title": "improvement-lesson-v1",
+  "description": "What one registered playbook comparison established, written by its evaluation only when it reached eligibility (qualified) or refutation with every planned trial recorded; an inconclusive comparison writes none. It carries the prediction, the held-out counts and the exact playbook difference the trials used, so a later proposer reads what was tried and refuted. Evidence-derived only: no model writes or edits a lesson. A fixture lesson can only be a refutation. Private bounded research record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repository",
+    "taskFamily",
+    "outcome",
+    "experimentSha256",
+    "evaluationSha256",
+    "evidenceRevision",
+    "evidenceKind",
+    "prediction",
+    "heldOut",
+    "baselinePlaybook",
+    "candidatePlaybook",
+    "diff",
+    "findings",
+    "at",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.improvement-lesson.v1"
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "taskFamily": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+    },
+    "outcome": {
+      "enum": [
+        "qualified",
+        "refuted"
+      ]
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evaluationSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidenceRevision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidenceKind": {
+      "enum": [
+        "live",
+        "deterministic-fixture",
+        "mixed"
+      ]
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "metric",
+        "minimumImprovement",
+        "minimumHeldOutPairs",
+        "maximumSignProbability",
+        "visualQualityClaim"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "metric": {
+          "enum": [
+            "worker-attempts",
+            "functional-completion"
+          ]
+        },
+        "minimumImprovement": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "minimumHeldOutPairs": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 128
+        },
+        "maximumSignProbability": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.05
+        },
+        "visualQualityClaim": {
+          "type": "boolean"
+        }
+      }
+    },
+    "heldOut": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pairs",
+        "independentTasks",
+        "improvements",
+        "regressions",
+        "ties",
+        "meanImprovement",
+        "signProbability"
+      ],
+      "properties": {
+        "pairs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "independentTasks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "improvements": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "regressions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "ties": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "meanImprovement": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signProbability": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "baselinePlaybook": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "candidatePlaybook": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "diff": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "change",
+          "before",
+          "after",
+          "diff"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "change": {
+            "enum": [
+              "added",
+              "removed",
+              "changed"
+            ]
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "diff": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

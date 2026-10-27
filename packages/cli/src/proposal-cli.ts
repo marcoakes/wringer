@@ -1,6 +1,6 @@
-import { mkdir, writeFile, lstat, readFile } from "node:fs/promises";
+import { mkdir, writeFile, lstat, readFile, rmdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { buildProposerEvidence, createPlaybookProposalRequestV2, DEFAULT_DENY_GLOBS, proposePlaybookTree, readExperiment, readPlaybookProposalResult, readProposerEvidence, readReplicateSet, replicateDivergence, validateFailurePatternReport, writeProposerEvidence, type PlaybookProposalRequestV2 } from "@wringer/application";
+import { applicationDirectory, buildProposerEvidence, createPlaybookProposalRequestV2, DEFAULT_DENY_GLOBS, jobEvidenceFence, jobProposalLocation, jobReplicateLocation, proposePlaybookTree, readExperiment, readImprovementLessons, readPlaybookProposalResult, readProposerEvidence, readReplicateSet, replicateDivergence, validateFailurePatternReport, writeProposerEvidence, type PlaybookProposalRequestV2 } from "@wringer/application";
 import { readValidatedContainedState } from "@wringer/workflow";
 import { compileExecutionPlan, hashBytes, selectPlaybookTree } from "@wringer/plan";
 import { processDriver } from "@wringer/runtime";
@@ -12,6 +12,7 @@ export const PROPOSAL_HELP = `Playbook proposals from evidence - a proposed way 
 
   wring experiment evidence --state PROPOSAL_DIR --replicates REPLICATE_DIR
       [--held-out-from EXPERIMENT_DIR] [--fence FENCE.json] [--patterns PATTERNS.json]
+      [--lessons-from RESEARCH_ROOT]
   wring experiment prepare-proposal --state PROPOSAL_DIR --input PROPOSAL_GRANT.json
       --output proposal-request.json
   wring experiment propose --state PROPOSAL_DIR --request proposal-request.json --yes
@@ -31,6 +32,11 @@ evidence in its clone and writes a playbook tree whose NOTES.md cites a trajecto
 line for every changed file, or KEEP_BASE. Nothing is adopted: export-proposal copies a
 proposed tree into a checkout for review, you commit it, select-tree prints the exact
 plan v6 selection, and a registered comparison decides.
+
+For an ordinary job whose future improvements are connected, use
+--job JOB_ID --proposal ID in place of --state (and --replicate-set ID in place of
+--replicates): evidence then fences every held-out task of the job's comparisons and
+reads the task family's lessons.
 Guide: docs/native/PROPOSALS.md
 `;
 const git = async (cwd: string, args: string[]) => {
@@ -42,7 +48,18 @@ const summary = (result: NonNullable<Awaited<ReturnType<typeof readPlaybookPropo
     ? `Proposed ${result.manifest!.surface} playbook ${result.manifest!.id} (${result.files.length} files) in ${result.outputDirectory}.\nChanged: ${result.changed.join(", ") || "nothing"}\nCitations: ${result.notes!.citations.map(c => `${c.path} <- ${c.label} line ${c.line}`).join("; ")}\nNothing is adopted. Review it: wring experiment export-proposal --help`
     : result.status === "no-change-proposed" ? `KEEP_BASE: the proposer found no change worth testing.\n${result.notes!.text.split("\n").slice(0, 6).join("\n")}\nOne reservation was spent; nothing else changed.`
         : `Proposal stopped: ${result.reason}\nOne reservation was spent; no provider call is replayed.`;
-export async function proposalCommand(a: Args, repo: string, operation: string): Promise<Answer> {
+export async function proposalCommand(a: Args, repo: string, operation: string, job: { heldOut?: string[]; lessonsFrom?: string } = {}): Promise<Answer> {
+    if (a.flags.has("job") && operation !== "select-tree") {
+        if (["state", "replicates", "held-out-from", "lessons-from"].some(key => a.flags.has(key))) throw new Error("Choose a job handle or explicit private paths, never both");
+        const app = applicationDirectory(string(a, "app-dir")), jobId = required(a, "job"), location = await jobProposalLocation(app, jobId, required(a, "proposal"), operation === "evidence");
+        const flags = new Map(a.flags); for (const key of ["job", "app-dir", "proposal", "replicate-set"]) flags.delete(key);
+        flags.set("state", location.state);
+        if (operation !== "evidence") return proposalCommand({ ...a, flags }, repo, operation);
+        flags.set("replicates", (await jobReplicateLocation(app, jobId, required(a, "replicate-set"))).state);
+        // A refused build leaves no empty proposal behind on the job's card; rmdir removes only an empty directory.
+        try { return await proposalCommand({ ...a, flags }, repo, operation, { heldOut: await jobEvidenceFence(location.researchRoot, location.repository), lessonsFrom: location.researchRoot }); }
+        catch (error) { await rmdir(location.state).catch(() => {}); throw error; }
+    }
     if (operation === "select-tree") {
         allowed(a, ["source", "manifest", "commit", "replace"]);
         const source = resolve(repo, required(a, "source")), commit = string(a, "commit") ?? (await git(source, ["rev-parse", "HEAD"])).trim();
@@ -52,7 +69,7 @@ export async function proposalCommand(a: Args, repo: string, operation: string):
     }
     const root = resolve(repo, required(a, "state"));
     if (operation === "evidence") {
-        allowed(a, ["state", "replicates", "held-out-from", "fence", "patterns"]); await privateExperimentRoot(root);
+        allowed(a, ["state", "replicates", "held-out-from", "fence", "patterns", "lessons-from"]); await privateExperimentRoot(root);
         const replicates = resolve(repo, required(a, "replicates")), retained = await readReplicateSet(replicates), divergence = await replicateDivergence(replicates);
         const journeys = [];
         for (const record of retained.replicates.filter(r => r.outcome !== "not-started" && r.journeyRevision)) journeys.push({ label: record.slot.id, state: await experimentPath(replicates, `journeys/${record.slot.id}`) });
@@ -62,11 +79,15 @@ export async function proposalCommand(a: Args, repo: string, operation: string):
         const fence = { heldOutIds: [] as string[], oracleDigests: [] as string[], denyGlobs: [...DEFAULT_DENY_GLOBS] };
         if (a.flags.has("held-out-from")) for (const task of (await readExperiment(resolve(repo, required(a, "held-out-from")))).plan.tasks.filter(t => t.split === "held-out")) fence.heldOutIds.push(task.id, task.sourceTree);
         if (a.flags.has("fence")) { const extra = await readExperimentJson<Record<string, string[]>>(resolve(repo, required(a, "fence"))); shape(extra, ["heldOutIds", "oracleDigests", "denyGlobs"], "Evidence fence"); for (const key of ["heldOutIds", "oracleDigests", "denyGlobs"] as const) fence[key].push(...extra[key]!); }
+        fence.heldOutIds.push(...(job.heldOut ?? []));
+        if (fence.heldOutIds.includes(retained.set.sourceTree)) throw new Error("These replicates ran a held-out task's source tree; their evidence would show a held-out answer. Nothing was built");
+        const lessonsRoot = job.lessonsFrom ?? (a.flags.has("lessons-from") ? resolve(repo, required(a, "lessons-from")) : null);
+        const lessons = lessonsRoot ? await readImprovementLessons(lessonsRoot, { repository: retained.set.plan.repository.url, taskFamily: retained.set.taskFamily }) : [];
         const patterns = a.flags.has("patterns") ? validateFailurePatternReport(await readExperimentJson(resolve(repo, required(a, "patterns")))) : null;
-        const built = await buildProposerEvidence({ plan: retained.set.plan, taskFamily: retained.set.taskFamily, journeys, replicateSet: { sha256: retained.set.sha256, divergence }, patterns, baseline, fence });
+        const built = await buildProposerEvidence({ plan: retained.set.plan, taskFamily: retained.set.taskFamily, journeys, replicateSet: { sha256: retained.set.sha256, divergence }, patterns, baseline, lessons, fence });
         const record = await writeProposerEvidence(root, built);
         await exclusiveJson(root, "baseline.json", baseline);
-        return { value: record, text: `Built the proposer's evidence: ${record.files.length} files, ${record.bytes} bytes, from ${record.journeys.length} attempts (${record.journeys.map(j => `${j.label}: ${j.outcome}, ${j.trajectoryLines} lines`).join("; ")}).\n${record.omissions.length ? `Not included: ${record.omissions.map(o => `${o.path} (${o.reason})`).join("; ")}\n` : ""}Held-out material was scanned for by name and content. No model ran. Next: wring experiment prepare-proposal --help` };
+        return { value: record, text: `Built the proposer's evidence: ${record.files.length} files, ${record.bytes} bytes, from ${record.journeys.length} attempts and ${record.lessons.length} lessons (${record.journeys.map(j => `${j.label}: ${j.outcome}, ${j.trajectoryLines} lines`).join("; ")}).\n${record.omissions.length ? `Not included: ${record.omissions.map(o => `${o.path} (${o.reason})`).join("; ")}\n` : ""}Held-out material was scanned for by name and content. No model ran. Next: wring experiment prepare-proposal --help` };
     }
     if (operation === "prepare-proposal") {
         allowed(a, ["input", "state", "output"]); await privateExperimentRoot(root);

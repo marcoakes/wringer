@@ -24,7 +24,7 @@ test("ordinary job improvement CLI removes private path setup and refuses replac
     const f = await fixture();
     const before = (await readdir(f.root, { recursive: true })).sort();
     const empty: any = (await dispatch(["job", "improvements", "--app-dir", f.root, "--job", f.jobId])).value;
-    expect(empty.schema_version).toBe("wringer.job-improvements.v1"); expect(empty.connected).toBeFalse(); expect(empty.jobId).toBe(f.jobId);
+    expect(empty.schema_version).toBe("wringer.job-improvements.v2"); expect(empty.evidence).toEqual({ replicateSets: [], proposals: [], lessons: { qualified: 0, refuted: 0, rows: [] } }); expect(empty.connected).toBeFalse(); expect(empty.jobId).toBe(f.jobId);
     expect((await readdir(f.root, { recursive: true })).sort()).toEqual(before);
     const args = ["experiment", "connect", "--app-dir", f.root, "--job", f.jobId, "--task-family", "reports"];
     expect((await dispatch(args)).value).toMatchObject({ connected: true, taskFamily: "reports" });

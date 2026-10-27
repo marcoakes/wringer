@@ -492,6 +492,40 @@
         "evidence": [],
         "note": "No proposer-written playbook has been compared live; nothing is claimed to improve."
       }
+    },
+    {
+      "id": "improvement-lessons",
+      "name": "Improvement lessons and the job's research view: what finished comparisons established, read by the next proposal",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "packages/application/src/lessons.ts",
+          "schema/improvement-lesson-v1.schema.json",
+          "schema/job-improvements-v2.schema.json",
+          "docs/improvement/README.md",
+          "docs/qualification/PILOT_AMENDMENT_1.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "packages/application/test/lessons.test.ts",
+          "packages/cli/test/proposal-job.test.ts",
+          "scripts/job-improvements-browser-rehearsal.ts",
+          "scripts/improvement-phase3-reversions.ts"
+        ],
+        "note": "A refuted lesson from a real-Git fixture comparison with its tested diff; inconclusive comparisons write none. The job page's research section is checked in Chromium."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No live comparison has finished, so no live lesson exists."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "The registered live test of a proposer-written playbook (pilot amendment 1) has not run."
+      }
     }
   ]
 }

@@ -1,8 +1,12 @@
+import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { measuredLoopPlan, planVersion, compileDeclaration, hashValue, type ExecutionPlan } from "@wringer/plan";
 import { assistantExists, readAssistantRecord, writeAssistantRecord } from "./assistant-store";
 import { listExperiments, readPlaybookAdoptions, promoteExperiment, rollbackPlaybook, createExperimentGrant, collectExperiment } from "./experiments";
-import { privateExperimentRoot } from "./experiment-store";
+import { experimentPath, optionalJson, privateExperimentRoot } from "./experiment-store";
+import { readReplicateSet, type DivergenceReport } from "./replicates";
+import { readPlaybookProposalResult } from "./proposer";
+import { readImprovementLessons } from "./lessons";
 import type { AdoptionOptions } from "./experiments";
 
 interface ImprovementConnection {
@@ -45,9 +49,33 @@ export function improvementApplicability(plan: ExecutionPlan, profile: Execution
 }
 /** Public projection with exact applicability and the preregistered proposal.
  * This does not grant collection or change an existing proposal. */
+/** What the connected research root holds beyond comparisons: replicate sets and where
+ * they disagreed, proposals and the moments they cite, and the lessons recorded so far. */
+async function researchEvidence(link: NonNullable<Awaited<ReturnType<typeof inventory>>>["link"]) {
+    const names = async (directory: string) => { try { return (await readdir(await experimentPath(link.researchRoot, directory))).filter(name => /^[a-z][a-z0-9-]{0,79}$/.test(name)).sort().slice(0, 16); } catch (error: any) { if (error.code === "ENOENT") return []; throw error; } };
+    const replicateSets = [];
+    for (const name of await names("replicate-sets")) {
+        const path = await experimentPath(link.researchRoot, `replicate-sets/${name}`);
+        // A directory whose registration was refused holds no set; it is not evidence.
+        if (!await optionalJson(path, "replicate-set.json")) continue;
+        const retained = await readReplicateSet(path), report = await optionalJson<DivergenceReport>(path, "divergence-report.json");
+        if (retained.set.repository !== link.repository || retained.set.taskFamily !== link.taskFamily) continue;
+        replicateSets.push({ id: name, k: retained.set.k, recorded: retained.replicates.length, outcomes: retained.replicates.map(r => r.outcome), evidenceKinds: [...new Set(retained.replicates.map(r => r.evidenceKind))].sort(), diverging: report?.diverging ?? [], divergenceSha256: report?.sha256 ?? null });
+    }
+    const proposals = [];
+    for (const name of await names("proposals")) {
+        // An unreadable result refuses the view rather than reading as "not run".
+        const result = await readPlaybookProposalResult(await experimentPath(link.researchRoot, `proposals/${name}`));
+        if (!result) { proposals.push({ id: name, status: "not-run" as const, surface: null, playbookId: null, changed: [], citations: [], reason: null, evidenceKind: null }); continue; }
+        proposals.push({ id: name, status: result.status, surface: result.manifest?.surface ?? null, playbookId: result.manifest?.id ?? null, changed: result.changed, citations: (result.notes?.citations ?? []).slice(0, 64), reason: result.reason, evidenceKind: result.evidenceKind });
+    }
+    const lessons = await readImprovementLessons(link.researchRoot, { repository: link.repository, taskFamily: link.taskFamily });
+    return { replicateSets, proposals, lessons: { qualified: lessons.filter(l => l.outcome === "qualified").length, refuted: lessons.filter(l => l.outcome === "refuted").length, rows: lessons.map(l => ({ experimentSha256: l.experimentSha256, outcome: l.outcome, evidenceKind: l.evidenceKind, candidatePlaybook: l.candidatePlaybook, heldOutPairs: l.heldOut.pairs, at: l.at })) } };
+}
 export async function inspectJobImprovements(root: string, profile: ExecutionPlan, jobId: string) {
     const current = await inventory(root, profile), view = improvementView(current), future = futureTemplate(profile, current);
-    const result = { ...view, schema_version: "wringer.job-improvements.v1" as const, jobId,
+    const result = { ...view, schema_version: "wringer.job-improvements.v2" as const, jobId,
+        evidence: current ? await researchEvidence(current.link) : { replicateSets: [], proposals: [], lessons: { qualified: 0, refuted: 0, rows: [] } },
         profile: { source: profile.repository, runtimeSha256: hashValue(profile.runtime), modelsSha256: hashValue(profile.agents), environmentSha256: hashValue(profile.environment), checksSha256: hashValue(profile.acceptance.checks) },
         future: { playbookDigest: future.plan.playbook?.sha256 ?? null, selectionReceipt: future.plan.playbook?.adoption?.sha256 ?? future.plan.approachAdoption?.sha256 ?? null, note: future.note, executionApproved: false as const },
         experiments: view.experiments.map(row => {

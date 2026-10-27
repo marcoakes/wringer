@@ -4,6 +4,35 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.38 — learn and show: lessons, the job's research view, a registered test
+
+The third release of the improvement build. A finished comparison leaves a record of
+what it established, the next proposal reads it, and the job page shows the whole
+research trail.
+
+- **Lessons** (`wringer.improvement-lesson.v1`): `wring experiment evaluate` records
+  one when a comparison is decided with every planned trial recorded, never when it
+  is inconclusive. It carries the prediction, held-out counts and the exact playbook
+  difference the trials used, file by file. The next evidence tree serves lessons
+  under `LESSONS/`, oldest first, without the per-task findings that name held-out
+  tasks. Evidence-derived only: no model writes one, and a fixture comparison can
+  refute but never qualify (R-C).
+- **The job's research view** (`wringer.job-improvements.v2`): the job page card and
+  `wringer.inspect_improvements` show replicate sets and where they disagreed, each
+  proposal with its status and the trajectory lines it cites, and how many
+  comparisons qualified or were refuted. Read-only.
+- **Proposals from a job**: `evidence`, `prepare-proposal`, `propose`,
+  `proposal-result` and `export-proposal` accept `--job JOB --proposal ID`. A job-form
+  evidence build fences every held-out task of the job's comparisons, by identity
+  and source tree, refuses replicates that ran a held-out source, and reads the
+  task family's lessons.
+- **Pilot amendment 1** (`wringer.pilot-amendment.v1`): the live test of "no playbook
+  versus a proposer-written playbook" on the pilot's seven repair tasks, registered
+  with the pilot's endpoint, minimum effect, regression limits and fixed-sample rule.
+  Registered, not run.
+- `docs/improvement/README.md`: the whole route for an operator, in ten steps.
+- 11 isolated reversions, each red on the first run.
+
 ## 1.0.0-alpha.37 — propose from evidence: playbook trees and a cited proposer
 
 The second release of the improvement build. A playbook becomes a small tree the

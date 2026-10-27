@@ -4,7 +4,7 @@ import { readDelegationJob, delegationControllerRoot } from "./delegation-jobs";
 import { createAssistantService, assistantControllerState } from "./assistant";
 import { connectImprovements, improvementConnection, inspectJobImprovements } from "./improvements";
 import { experimentPath, id, privateExperimentRoot } from "./experiment-store";
-import { createExperimentPlan, readExperiment } from "./experiments";
+import { createExperimentPlan, listExperiments, readExperiment } from "./experiments";
 import { failurePatternsFromJourneys } from "./journey-patterns";
 import type { ExecutionPlan } from "@wringer/plan";
 import { readJobLoopInspection } from "./loop-inspection";
@@ -85,3 +85,20 @@ export async function jobReplicateLocation(root: string, jobId: string, setId: s
     const input: ReplicateSetInput = { id: setId, taskFamily: register.taskFamily, plan: current.plan, k: register.k, sourceTree, wallClockSeconds: register.wallClockSeconds };
     return { state, input };
 }
+/** A proposal's private directory beside the job's comparisons and replicate sets. */
+export async function jobProposalLocation(root: string, jobId: string, proposalId: string, create = false) {
+    id(proposalId);
+    const current = await jobImprovementContext(root, jobId), link = await improvementConnection(current.controller, current.profile.repository.url);
+    if (!link) throw new Error("Connect this job's future improvements first with experiment connect --job and --task-family");
+    const state = await experimentPath(link.researchRoot, `proposals/${proposalId}`);
+    if (create) await createAssistantDirectory(state);
+    else await privateExperimentRoot(state);
+    return { state, researchRoot: link.researchRoot, repository: link.repository, taskFamily: link.taskFamily };
+}
+/** Every held-out task identity and source tree of the job's connected comparisons:
+ * a job-form evidence build fences them all, never a hand-picked list. */
+export async function jobEvidenceFence(researchRoot: string, repository: string) {
+    const rows = await listExperiments(researchRoot, { repository });
+    return rows.flatMap(row => row.plan.tasks.filter(task => task.split === "held-out").flatMap(task => [task.id, task.sourceTree]));
+}
+

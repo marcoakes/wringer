@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { createExperimentGrant, createPlaybookProposalRequest, registerExperiment, readExperiment, evaluateExperiment, collectExperiment, finishExperimentResearch, promoteExperiment, rollbackPlaybook, readPlaybookAdoptions, failurePatternReport, recordExperimentReview, proposePlaybookImprovement } from "@wringer/application";
+import { createExperimentGrant, createPlaybookProposalRequest, recordImprovementLesson, registerExperiment, readExperiment, evaluateExperiment, collectExperiment, finishExperimentResearch, promoteExperiment, rollbackPlaybook, readPlaybookAdoptions, failurePatternReport, recordExperimentReview, proposePlaybookImprovement } from "@wringer/application";
 import { readExperimentJson, exclusiveJson, privateExperimentRoot } from "../../application/src/experiment-store";
 import { allowed, flag, positionals, required, string, type Args } from "./args";
 import type { Answer } from "./app";
@@ -67,7 +67,7 @@ const confirmed = (a: Args) => { if (!flag(a, "yes")) throw new Error("This sepa
 export async function experimentCommand(a: Args, repo: string): Promise<Answer> {
     if (["gate", "workflow"].includes(a.words[0] ?? "")) { const { gateExperimentCommand } = await import("./gate-experiment-cli"); return gateExperimentCommand(a, repo); }
     if (a.words[0] === "replicate") { const { replicateCommand } = await import("./replicate-cli"); return replicateCommand(a, repo); }
-    if (["evidence", "proposal-result", "export-proposal", "select-tree"].includes(a.words[0] ?? "")) {
+    if (["evidence", "proposal-result", "export-proposal", "select-tree"].includes(a.words[0] ?? "") || ["prepare-proposal", "propose"].includes(a.words[0] ?? "") && a.flags.has("proposal")) {
         const { proposalCommand, PROPOSAL_HELP } = await import("./proposal-cli");
         if (flag(a, "help")) return { value: { help: PROPOSAL_HELP }, text: PROPOSAL_HELP };
         positionals(a, 1); return proposalCommand(a, repo, a.words[0]!);
@@ -109,7 +109,10 @@ export async function experimentCommand(a: Args, repo: string): Promise<Answer> 
     }
     if (operation === "status" || operation === "evaluate") {
         allowed(a, ["state"]); const result = await evaluateExperiment(root());
-        return { value: result, text: `Improvement: ${result.eligibility}\nTrials retained: ${result.recordedTrials}/${result.plannedTrials} (${result.liveTrials} live, ${result.fixtureTrials} fixtures).\nHeld-out: ${result.heldOut.pairs} pairs across ${result.heldOut.independentTasks} tasks.\nEvidence revision: ${result.evidenceRevision}\n${result.findings.join("\n")}\nCosts remain unknown. No provider or credential calls; adoption not granted.` };
+        // Evaluation records what a complete, decided comparison established; status only reads.
+        const lesson = operation === "evaluate" ? await recordImprovementLesson(root()) : null;
+        const learned = operation !== "evaluate" ? "" : lesson ? `Lesson recorded: ${lesson.outcome} (${lesson.evidenceKind}), read by later proposals.\n` : "No lesson: an inconclusive or incomplete comparison establishes nothing to learn from.\n";
+        return { value: result, text: `${learned}Improvement: ${result.eligibility}\nTrials retained: ${result.recordedTrials}/${result.plannedTrials} (${result.liveTrials} live, ${result.fixtureTrials} fixtures).\nHeld-out: ${result.heldOut.pairs} pairs across ${result.heldOut.independentTasks} tasks.\nEvidence revision: ${result.evidenceRevision}\n${result.findings.join("\n")}\nCosts remain unknown. No provider or credential calls; adoption not granted.` };
     }
     if (operation === "grant") {
         allowed(a, ["state", "actor", "expires", "output"]); const current = await readExperiment(root());

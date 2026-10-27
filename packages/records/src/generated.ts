@@ -5737,6 +5737,51 @@ export type ImprovementConnectionV1 = {
 };
 
 /**
+ * improvement-lesson-v1
+ *
+ * Generated from `schema/improvement-lesson-v1.schema.json`. Do not edit.
+ */
+export type ImprovementLessonV1 = {
+  "schema_version": "wringer.improvement-lesson.v1";
+  "repository": string;
+  "taskFamily": string;
+  "outcome": "qualified" | "refuted";
+  "experimentSha256": string;
+  "evaluationSha256": string;
+  "evidenceRevision": string;
+  "evidenceKind": "live" | "deterministic-fixture" | "mixed";
+  "prediction": {
+    "statement": string;
+    "metric": "worker-attempts" | "functional-completion";
+    "minimumImprovement": number;
+    "minimumHeldOutPairs": number;
+    "maximumSignProbability": number;
+    "visualQualityClaim": boolean;
+  };
+  "heldOut": {
+    "pairs": number;
+    "independentTasks": number;
+    "improvements": number;
+    "regressions": number;
+    "ties": number;
+    "meanImprovement": number | null;
+    "signProbability": number | null;
+  };
+  "baselinePlaybook": string | null;
+  "candidatePlaybook": string;
+  "diff": {
+    "path": string;
+    "change": "added" | "removed" | "changed";
+    "before": string | null;
+    "after": string | null;
+    "diff": string;
+  }[];
+  "findings": string[];
+  "at": string;
+  "sha256": string;
+};
+
+/**
  * Read-only job improvements and exact applicability
  *
  * Generated from `schema/job-improvements-v1.schema.json`. Do not edit.
@@ -5905,6 +5950,215 @@ export type JobImprovementsV1 = {
       }[];
     };
   }[];
+  "limits": string[];
+};
+
+/**
+ * Read-only job improvements, research evidence and exact applicability
+ *
+ * Generated from `schema/job-improvements-v2.schema.json`. Do not edit.
+ */
+export type JobImprovementsV2 = {
+  "schema_version": "wringer.job-improvements.v2";
+  "jobId": string;
+  "connected": boolean;
+  "revision": string;
+  "selectedDigest": null | string;
+  "adoption": null | {
+    "schema_version": "wringer.playbook-adoption.v1";
+    "repository": string;
+    "taskFamily": string;
+    "action": "promote" | "rollback";
+    "actor": string;
+    "note": string;
+    "at": string;
+    "previousRevision": string;
+    "previousDigest": string | null;
+    "selectedDigest": string | null;
+    "experimentSha256": string;
+    "evidenceRevision": string;
+    "appliesTo": "future-plans-only";
+    "executionApproved": false;
+    "sha256": string;
+  };
+  "profile": {
+    "source": {
+      "url": string;
+      "commit": string;
+    };
+    "runtimeSha256": string;
+    "modelsSha256": string;
+    "environmentSha256": string;
+    "checksSha256": string;
+  };
+  "future": {
+    "playbookDigest": null | string;
+    "selectionReceipt": null | string;
+    "note": string;
+    "executionApproved": false;
+  };
+  "experiments": {
+    "id": string;
+    "prediction": string;
+    "taskFamily": string;
+    "candidateDigest": string;
+    "baselineDigest": null | string;
+    "planSha256": string;
+    "limits": {
+      "maxTrials": number;
+      "maxRoleSessions": number;
+      "wallClockSeconds": number;
+    };
+    /** Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology. */
+    "result": {
+      "schema_version": "wringer.experiment-result.v1";
+      "experimentSha256": string;
+      "evidenceRevision": string;
+      "eligibility": "eligible" | "ineligible" | "inconclusive";
+      "findings": string[];
+      "plannedTrials": number;
+      "recordedTrials": number;
+      "liveTrials": number;
+      "fixtureTrials": number;
+      "missingTrials": string[];
+      "pairs": {
+        "taskId": string;
+        "repetition": number;
+        "split": "development" | "held-out";
+        "baseline": string | null;
+        "candidate": string | null;
+        "improvement": number | null;
+        "regressions": string[];
+      }[];
+      "heldOut": {
+        "pairs": number;
+        "independentTasks": number;
+        "improvements": number;
+        "regressions": number;
+        "ties": number;
+        "meanImprovement": number | null;
+        "signProbability": number | null;
+      };
+      "cost": null;
+      "limits": string[];
+      "sha256": string;
+    };
+    "applicability": {
+      "taskId": string;
+      "sourceIdentity": {
+        "url": string;
+        "commit": string;
+      };
+      "source": boolean;
+      "runtime": boolean;
+      "models": boolean;
+      "environment": boolean;
+      "checks": boolean;
+    }[];
+    "proposal": {
+      "changedVariable": "worker-playbook";
+      "prediction": {
+        "statement": string;
+        "metric": "worker-attempts" | "functional-completion";
+        "minimumImprovement": number;
+        "minimumHeldOutPairs": number;
+        "maximumSignProbability": number;
+        "visualQualityClaim": boolean;
+      };
+      "holdout": {
+        "corpusId": string;
+        "candidateIteration": number;
+        "maximumCandidateIterations": number;
+        "candidateAuthorSawHeldOutSolutions": false;
+      };
+      "stoppingRule": "fixed-sample-no-extension";
+      "accounting": "all-planned-trials-including-failures";
+      "playbooks": {
+        "taskId": string;
+        "baseline": null | {
+          "path": string;
+          "sha256": string;
+          "taskFamily": string;
+          "adoption"?: {
+            "schema_version": "wringer.playbook-adoption.v1";
+            "repository": string;
+            "taskFamily": string;
+            "action": "promote" | "rollback";
+            "actor": string;
+            "note": string;
+            "at": string;
+            "previousRevision": string;
+            "previousDigest": string | null;
+            "selectedDigest": string | null;
+            "experimentSha256": string;
+            "evidenceRevision": string;
+            "appliesTo": "future-plans-only";
+            "executionApproved": false;
+            "sha256": string;
+          };
+        };
+        "candidate": null | {
+          "path": string;
+          "sha256": string;
+          "taskFamily": string;
+          "adoption"?: {
+            "schema_version": "wringer.playbook-adoption.v1";
+            "repository": string;
+            "taskFamily": string;
+            "action": "promote" | "rollback";
+            "actor": string;
+            "note": string;
+            "at": string;
+            "previousRevision": string;
+            "previousDigest": string | null;
+            "selectedDigest": string | null;
+            "experimentSha256": string;
+            "evidenceRevision": string;
+            "appliesTo": "future-plans-only";
+            "executionApproved": false;
+            "sha256": string;
+          };
+        };
+      }[];
+    };
+  }[];
+  "evidence": {
+    "replicateSets": {
+      "id": string;
+      "k": number;
+      "recorded": number;
+      "outcomes": "completed" | "human-hold" | "stopped" | "infrastructure-failed" | "uncertain" | "not-started"[];
+      "evidenceKinds": "live" | "deterministic-fixture"[];
+      "diverging": string[];
+      "divergenceSha256": string | null;
+    }[];
+    "proposals": {
+      "id": string;
+      "status": "proposed" | "no-change-proposed" | "stopped" | "not-run";
+      "surface": "claude-code" | "codex" | "generic" | null;
+      "playbookId": string | null;
+      "changed": string[];
+      "citations": {
+        "path": string;
+        "label": string;
+        "line": number;
+      }[];
+      "reason": string | null;
+      "evidenceKind": "live" | "deterministic-fixture" | null;
+    }[];
+    "lessons": {
+      "qualified": number;
+      "refuted": number;
+      "rows": {
+        "experimentSha256": string;
+        "outcome": "qualified" | "refuted";
+        "evidenceKind": "live" | "deterministic-fixture" | "mixed";
+        "candidatePlaybook": string;
+        "heldOutPairs": number;
+        "at": string;
+      }[];
+    };
+  };
   "limits": string[];
 };
 
@@ -6780,6 +7034,41 @@ export type OrchestrationV1 = {
   "reason": string;
   /** What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests. */
   "limits": string[];
+};
+
+/**
+ * pilot-amendment-v1
+ *
+ * Generated from `schema/pilot-amendment-v1.schema.json`. Do not edit.
+ */
+export type PilotAmendmentV1 = {
+  "schema_version": "wringer.pilot-amendment.v1";
+  "registeredAt": string;
+  "status": "registered-not-run" | "running" | "reported";
+  "amends": {
+    "path": "docs/qualification/pilot-registration.json";
+    "sha256": string;
+  };
+  "design": string;
+  "comparison": {
+    "id": string;
+    "armA": string;
+    "armB": string;
+    "appliesTo": string[];
+    "tasks": number;
+    "repetitionsPerArm": number;
+    "role": "secondary";
+  };
+  "proposal": {
+    "evidence": string;
+    "proposer": string;
+    "surface": string;
+    "armsDifferOnlyIn": string;
+    "adoption": string;
+  };
+  "inherits": "primaryEndpoint" | "minimumUsefulEffect" | "regressionLimits" | "uncertainty" | "stopping" | "equalResourceCeilings" | "evaluatorFixedAcrossArms" | "independentReviewers" | "reportedAlways"[];
+  "limits": string[];
+  "sha256": string;
 };
 
 /**
@@ -9235,7 +9524,9 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "graph-manifest.schema.json": "wringer.graph.v1",
   "health-report.schema.json": "wringer.health.v1",
   "improvement-connection-v1.schema.json": "wringer.improvement-connection.v1",
+  "improvement-lesson-v1.schema.json": "wringer.improvement-lesson.v1",
   "job-improvements-v1.schema.json": "wringer.job-improvements.v1",
+  "job-improvements-v2.schema.json": "wringer.job-improvements.v2",
   "job-list-v2.schema.json": "wringer.job-list.v2",
   "job-response-v2.schema.json": "wringer.job-response.v2",
   "journey.schema.json": "wringer.journey.v1",
@@ -9258,6 +9549,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "manifest.schema.json": "wringer.evidence.v1",
   "next-move.schema.json": "wringer.nextmove.v1",
   "orchestration-v1.schema.json": "wringer.orchestration.v1",
+  "pilot-amendment-v1.schema.json": "wringer.pilot-amendment.v1",
   "pilot-registration-v1.schema.json": "wringer.pilot-registration.v1",
   "planning-request-v2.schema.json": "wringer.planning-request.v2",
   "planning-request-v3.schema.json": "wringer.planning-request.v3",
@@ -9464,7 +9756,9 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.graph.v1": "graph-manifest.schema.json",
   "wringer.health.v1": "health-report.schema.json",
   "wringer.improvement-connection.v1": "improvement-connection-v1.schema.json",
+  "wringer.improvement-lesson.v1": "improvement-lesson-v1.schema.json",
   "wringer.job-improvements.v1": "job-improvements-v1.schema.json",
+  "wringer.job-improvements.v2": "job-improvements-v2.schema.json",
   "wringer.job-list.v2": "job-list-v2.schema.json",
   "wringer.job-response.v2": "job-response-v2.schema.json",
   "wringer.journey.v1": "journey.schema.json",
@@ -9484,6 +9778,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.evidence.v1": "manifest.schema.json",
   "wringer.nextmove.v1": "next-move.schema.json",
   "wringer.orchestration.v1": "orchestration-v1.schema.json",
+  "wringer.pilot-amendment.v1": "pilot-amendment-v1.schema.json",
   "wringer.pilot-registration.v1": "pilot-registration-v1.schema.json",
   "wringer.planning-request.v2": "planning-request-v2.schema.json",
   "wringer.planning-request.v3": "planning-request-v3.schema.json",

@@ -92,6 +92,7 @@
   "health-report.schema.json": "6c12b49a9adcb7200604a9dd6c072735c965796aad077184ea96d31237301336",
   "improvement-connection-v1.schema.json": "b93118a85eb45e89f3d11120b89e32db9863cd3976acd150134a2ca95ade6c45",
   "job-improvements-v1.schema.json": "bf39814d80cb22f4db2f683abac9cb025ee8e0632ed8a84a2952481e66bf19c7",
+  "job-improvements-v2.schema.json": "fab86c12002f3a65d0dcc4c48ce5d7dd5a30592232a1d1b5f726951edb3ecfb9",
   "journey.schema.json": "a1727d1cb51cdd776acc133f244370deb6382dc824dd3555cd285ae3491a8b23",
   "judge-request.schema.json": "aff2a3c8fcbb051950098f531bb17e981b82ace45705161f42313f8dfe8d2467",
   "judge-verdict.schema.json": "0a895b4a9906080effa088323bfdcc9f92e881d1e3c79ef50dc4d8b293c4f81a",
@@ -172,6 +173,7 @@
   "contained-graph-delegation-v1.schema.json": "ac918a3d6eef3284dae1926af4ece66ece7c7202672ca8f92402b57608f43dc5",
   "capability-ledger-v1.schema.json": "e88c652eed727a362d6b6a57b51647358a76dc6e2ae6ae2b68e0286ca96aac6c",
   "pilot-registration-v1.schema.json": "fc828825c48b3100fbee1650b116b056411693a90655e21fd2c95960d86ae965",
+  "pilot-amendment-v1.schema.json": "4fc6ee83290cbd724cd1b36f6c6870f815c29ed6be8e965753137871a146d672",
   "assistant-response-v3.schema.json": "77f2a0966a60877e02216246519602f0e17346f6e790a42306e23c9087e8c378",
   "delegation-setup-v2.schema.json": "fbf552987a184b654d3179ab7473ebce047d453049d573755e2f684e4ac2d6db",
   "proposal-supersession-v2.schema.json": "49f1ddd4470acccb24924a7fd0050c5aa1466c10c0ccca656ce2927e04afa5d0",
@@ -183,6 +185,7 @@
   "replicate-v1.schema.json": "703dc9f0f50f5636753a53ac2791ceded8a7cd26e355beb3d1deef5e84906264",
   "replicate-identity-v1.schema.json": "bc7bee215c3f4fea6e33f26ab6dd6703cc5b5fa85c558a6461ff48d1e5b58889",
   "divergence-report-v1.schema.json": "2fd419d45b8abba42f2ac93d0824ac806f71e1dd4797338f0f431c4e37b44bb7",
-  "proposer-evidence-v1.schema.json": "3424b434e6a2041b4383cb6cd580f494f4f21ffe47acdd25cb5dcdad5b8f378a"
+  "proposer-evidence-v1.schema.json": "3424b434e6a2041b4383cb6cd580f494f4f21ffe47acdd25cb5dcdad5b8f378a",
+  "improvement-lesson-v1.schema.json": "5f04344814a6b7b95807841309e5608bb421a9e84083ac8c580da2602e66ade4"
  }
 }

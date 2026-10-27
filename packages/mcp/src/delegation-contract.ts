@@ -12,7 +12,7 @@ import setupV2 from "../../../schema/delegation-setup-v2.schema.json";
 import inventory from "../../../schema/job-list-v2.schema.json";
 import loopInspection from "../../../schema/loop-inspection-v1.schema.json";
 import trajectoryPage from "../../../schema/loop-trajectory-page-v1.schema.json";
-import improvements from "../../../schema/job-improvements-v1.schema.json";
+import improvements from "../../../schema/job-improvements-v2.schema.json";
 const object = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({ type: "object", properties, required, additionalProperties: false });
 const uuid = { type: "string", pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" }, hash = { type: "string", pattern: "^[a-f0-9]{64}$" };
 const withoutId = ({ $id, $schema, ...body }: any) => body;

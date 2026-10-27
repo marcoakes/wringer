@@ -2,7 +2,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { ordinaryImprovementFixture } from "../packages/application/fixtures/ordinary-improvement";
-import { retainDelegationJob } from "../packages/application/src";
+import { jobProposalLocation, retainDelegationJob } from "../packages/application/src";
+import { exclusiveJson, stamped } from "../packages/application/src/experiment-store";
 import { dispatch } from "../packages/cli/src/app";
 import { createDelegationOwner } from "../packages/cli/src/delegation-owner";
 import { launchPmBrowser } from "./pm-browser";
@@ -12,6 +13,9 @@ export async function runJobImprovementsBrowserRehearsal() {
     await dispatch(["experiment", "connect", "--job", f.jobId, "--app-dir", f.root, "--task-family", "reports"]);
     const input = join(f.root, "comparison.json"); await writeFile(input, JSON.stringify(f.experiment));
     await dispatch(["experiment", "register", "--job", f.jobId, "--app-dir", f.root, "--experiment", f.experiment.id, "--input", input]);
+    // A scripted proposal result, as the proposer would retain one in the job's research root.
+    const proposal = await jobProposalLocation(f.root, f.jobId, "browser-proposal", true), digest = "c".repeat(64);
+    await exclusiveJson(proposal.state, "proposal-result.json", stamped({ schema_version: "wringer.playbook-proposal-result.v2", requestSha256: digest, reservationSha256: digest, status: "proposed", evidenceKind: "deterministic-fixture", startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), evidenceSha256: digest, outputDirectory: "wringer/proposals/browser-proposal", sourceCommit: "d".repeat(40), sourceTree: "e".repeat(40), manifest: { schema_version: "wringer.playbook.v2", id: "check-first", revision: "one", title: "Run the check first", role: "worker", taskFamily: "reports", surface: "claude-code", files: [], limits: ["Scripted"], evaluationRefs: [] }, files: [], changed: ["CLAUDE.md"], notes: { sha256: digest, text: "- CLAUDE.md: replicate-02 line 7", citations: [{ path: "CLAUDE.md", label: "replicate-02", line: 7 }] }, prediction: f.experiment.prediction, runtimeId: null, reason: null, sessionsReserved: 1, cost: null, adoption: "not-granted", executionApproval: "not-granted", limits: ["Scripted browser fixture"] }));
     const second = await f.controller.recordProposal({ workspaceId: f.controller.workspace.id, idempotencyKey: crypto.randomUUID(), proposal: { intent: "Second scripted job", title: "Another question", questions: ["Which behavior?"] } });
     await retainDelegationJob(f.root, f.context, String(second.jobId));
     const owner = await createDelegationOwner(f.root, f.workspaceId), browser = await launchPmBrowser(directory, async () => {}), page = browser.page;
@@ -27,6 +31,8 @@ export async function runJobImprovementsBrowserRehearsal() {
         check("ordinary job shows prediction, finite allowance and exact applicability", (await page.locator("#improvements-content").innerText()).includes("SCRIPTED hypothesis") && (await page.locator("#improvements-content").innerText()).includes("at most 2 fresh trials"));
         await page.getByText("Evidence and limits", { exact: true }).click();
         check("the registered source/runtime/model/check matches are visible", (await page.locator("#improvements-content").innerText()).includes("models matches"));
+        const card = await page.locator("#improvements-content").innerText();
+        check("a proposal shows its status and the trajectory moment it cites, beside lesson counts", card.includes("Proposal browser-proposal: a proposed playbook, not yet tested") && card.includes("CLAUDE.md — cites replicate-02 line 7") && card.includes("0 qualified, 0 refuted"));
         check("reading leaves research and production decisions untouched", writes.every(row => row.path === "/api/session") && !await f.controller.inspectApproval(f.jobId));
         // Hold a genuine first-job response while switching to another job.
         const barrier = new Promise<void>(resolve => { releaseRead = resolve; }); let heldResolve!: () => void;
@@ -65,7 +71,7 @@ export async function runJobImprovementsBrowserRehearsal() {
         check("Chromium reports no uncaught page error", errors.length === 0);
     } finally {
         releaseRead?.(); releaseDecision?.(); await browser.close(); await owner.stop();
-        await writeFile(join(directory, "result.json"), JSON.stringify({ fixture: true, status: checks.length === 9 && checks.every(row => row.passed) ? "passed" : "failed", checks, providerCalls: 0, independentPmMeasured: false, limits: ["Scripted browser/HTTP observations, no live research or human acceptance."] }, null, 2) + "\n");
+        await writeFile(join(directory, "result.json"), JSON.stringify({ fixture: true, status: checks.length === 10 && checks.every(row => row.passed) ? "passed" : "failed", checks, providerCalls: 0, independentPmMeasured: false, limits: ["Scripted browser/HTTP observations, no live research or human acceptance."] }, null, 2) + "\n");
     }
     return { directory, checks };
 }

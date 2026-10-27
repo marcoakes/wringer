@@ -26,11 +26,26 @@ function improvementClient(jobScoped: boolean) {
         try {
             const view = await api("/api/improvements" + (jobScoped ? "?jobId=" + encodeURIComponent(jobId) : ""));
             if (busy || locked || own !== generation || jobId !== selectedJob()) return;
-            if (view.schema_version !== (jobScoped ? "wringer.job-improvements.v1" : "wringer.improvement-view.v1") || jobScoped && view.jobId !== jobId || typeof view.connected !== "boolean" || !hash(view.revision) || !(view.selectedDigest === null || hash(view.selectedDigest)) || !Array.isArray(view.experiments) || view.experiments.length > 16) throw new Error("Unreadable comparison record: adoption remains disabled");
+            if (view.schema_version !== (jobScoped ? "wringer.job-improvements.v2" : "wringer.improvement-view.v1") || jobScoped && view.jobId !== jobId || typeof view.connected !== "boolean" || !hash(view.revision) || !(view.selectedDigest === null || hash(view.selectedDigest)) || !Array.isArray(view.experiments) || view.experiments.length > 16) throw new Error("Unreadable comparison record: adoption remains disabled");
             panel.hidden = !view.connected && !jobScoped; content.replaceChildren();
             if (!view.connected) { if (jobScoped) content.append(node("p", "Connect a task family with wring experiment connect --job " + jobId + " --task-family FAMILY. This creates private comparison storage and grants no spending.")); return; }
             content.append(node("p", "Optional improvements for future work. Reviewing costs no model calls. Your current job, Yes and Send remain separate."));
             if (jobScoped) content.append(node("p", view.future.note), node("p", "Applicability is exact: source, runtime, model selection, environment and checks. A new source may need new evidence."));
+            if (jobScoped) {
+                const evidence = view.evidence, label = (status: string) => ({ proposed: "a proposed playbook, not yet tested", "no-change-proposed": "no change proposed (KEEP_BASE)", stopped: "stopped", "not-run": "not run yet" } as Record<string, string>)[status] ?? "unreadable";
+                if (!evidence || !Array.isArray(evidence.replicateSets) || !Array.isArray(evidence.proposals) || evidence.replicateSets.length > 16 || evidence.proposals.length > 16 || !Number.isSafeInteger(evidence.lessons?.qualified) || !Number.isSafeInteger(evidence.lessons?.refuted)) throw new Error("Unreadable research evidence: adoption remains disabled");
+                if (evidence.replicateSets.length || evidence.proposals.length || evidence.lessons.qualified || evidence.lessons.refuted) {
+                    const section = node("section"); section.className = "panel";
+                    section.append(node("h3", "Evidence for a better way of working"));
+                    for (const set of evidence.replicateSets) section.append(node("p", `Replicate set ${set.id}: ${set.recorded} of ${set.k} attempts recorded (${set.evidenceKinds.join(", ") || "none"}). ${set.diverging.length ? "They disagreed on " + set.diverging.join(", ") + "." : "They agreed where compared."}`));
+                    for (const proposal of evidence.proposals) {
+                        section.append(node("p", `Proposal ${proposal.id}: ${label(proposal.status)}${proposal.playbookId ? ` — ${proposal.surface} playbook ${proposal.playbookId}` : ""}${proposal.reason ? `. ${proposal.reason}` : ""}`));
+                        if (proposal.citations.length) { const cited = node("ul"); for (const row of proposal.citations) cited.append(node("li", `${row.path} — cites ${row.label} line ${row.line}`)); section.append(cited); }
+                    }
+                    section.append(node("p", `Lessons from finished comparisons: ${evidence.lessons.qualified} qualified, ${evidence.lessons.refuted} refuted.`), node("p", "A proposal is only a hypothesis. Registering a comparison tests it; nothing here adopts it."));
+                    content.append(section);
+                }
+            }
             if (view.adoption) {
                 if (!hash(view.adoption.evidenceRevision) || view.adoption.sha256 !== view.revision) throw new Error("Adoption identity changed");
                 content.append(node("p", `Current future approach: ${view.selectedDigest ?? "no playbook"}. ${view.adoption.note}`));

@@ -12,7 +12,7 @@ import { hashValue } from "../packages/plan/src";
 const root = resolve(import.meta.dir, ".."), source = resolve(root, "docs/capability-ledger.json"), output = resolve(root, "docs/CAPABILITY_LEDGER.md");
 const LEVELS = ["implemented", "fixtureTested", "liveQualified", "comparativelyBeneficial"] as const;
 const LABEL: Record<string, string> = { yes: "Yes", partial: "Partly", no: "No", "not-established": "Not established", "not-applicable": "Not applicable" };
-export async function checkLedger(input?: unknown, overrides: { registration?: any; showcase?: any } = {}) {
+export async function checkLedger(input?: unknown, overrides: { registration?: any; amendment?: any; showcase?: any } = {}) {
     const ledger = (input ?? JSON.parse(await readFile(source, "utf8"))) as any, schema = JSON.parse(await readFile(resolve(root, "schema/capability-ledger-v1.schema.json"), "utf8"));
     const ajv = addFormats(new Ajv2020({ strict: false }));
     if (!ajv.validate(schema, ledger as unknown)) throw new Error(`Capability ledger does not match its schema: ${ajv.errorsText()}`);
@@ -29,6 +29,12 @@ export async function checkLedger(input?: unknown, overrides: { registration?: a
     if (!ajv.validate(JSON.parse(await readFile(resolve(root, "schema/pilot-registration-v1.schema.json"), "utf8")), registration as unknown)) problems.push(`The pilot registration does not match its schema: ${ajv.errorsText()}`);
     if (registration.schema_version !== "wringer.pilot-registration.v1" || hashValue(body) !== sha256) problems.push("The pilot registration changed after it was registered");
     if (registration.status !== "registered-not-run" && !await Bun.file(resolve(root, "docs/qualification/results")).exists()) problems.push("The pilot registration claims a run without results");
+    // An amendment adds a comparison to that registration: fixed by its own digest, citing the registration's.
+    const amendment = overrides.amendment ?? JSON.parse(await readFile(resolve(root, "docs/qualification/pilot-amendment-1.json"), "utf8")), { sha256: amendmentSha256, ...amendmentBody } = amendment;
+    if (!ajv.validate(JSON.parse(await readFile(resolve(root, "schema/pilot-amendment-v1.schema.json"), "utf8")), amendment as unknown)) problems.push(`The pilot amendment does not match its schema: ${ajv.errorsText()}`);
+    if (amendment.schema_version !== "wringer.pilot-amendment.v1" || hashValue(amendmentBody) !== amendmentSha256) problems.push("The pilot amendment changed after it was registered");
+    if (amendment.amends?.sha256 !== registration.sha256) problems.push("The pilot amendment cites another registration than the one registered");
+    if (amendment.status !== "registered-not-run" && !await Bun.file(resolve(root, "docs/qualification/results")).exists()) problems.push("The pilot amendment claims a run without results");
     // The committed showcase record names every required journey, each passed.
     const showcase = overrides.showcase ?? JSON.parse(await readFile(resolve(root, "docs/showcase/showcase.json"), "utf8"));
     const journeys = ["parallel-integration", "tournament", "future-improvement", "external-task"];

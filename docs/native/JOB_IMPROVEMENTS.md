@@ -79,9 +79,17 @@ environment and checks match. Changing the source can require a new comparison.
 Previously retained proposals, approval hashes and same-key replays keep their
 original approach. Undo changes the future selection; it does not rewrite history.
 
+The card also shows what the connected research root holds beyond comparisons:
+replicate sets and where their attempts disagreed, each playbook proposal with its
+status and the trajectory lines it cites, and how many finished comparisons
+qualified or were refuted. These are read-only. A proposal is tested only by
+registering a comparison; see [the improvement guide](../improvement/README.md).
+
 MCP exposes only `wringer.inspect_improvements({jobId})`. It cannot collect,
-adopt, approve or Send. The public record is
-[`wringer.job-improvements.v1`](../../schema/job-improvements-v1.schema.json).
+propose, adopt, approve or Send. The public record is
+[`wringer.job-improvements.v2`](../../schema/job-improvements-v2.schema.json);
+[v1](../../schema/job-improvements-v1.schema.json) remains for records from
+1.0.0-alpha.37 and earlier.
 
 ## What has been measured
 

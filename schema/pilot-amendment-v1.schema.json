@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/pilot-amendment-v1.schema.json",
+  "title": "pilot-amendment-v1",
+  "description": "A registered addition to the pilot qualification, fixed by its own digest before any of its trials run. It cites the pilot registration's digest and inherits that registration's endpoint, minimum effect, regression limits, uncertainty rule and fixed-sample stopping rule unchanged. Registration is not a result.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registeredAt",
+    "status",
+    "amends",
+    "design",
+    "comparison",
+    "proposal",
+    "inherits",
+    "limits",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.pilot-amendment.v1"
+    },
+    "registeredAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "status": {
+      "enum": [
+        "registered-not-run",
+        "running",
+        "reported"
+      ]
+    },
+    "amends": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "const": "docs/qualification/pilot-registration.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "design": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "armA",
+        "armB",
+        "appliesTo",
+        "tasks",
+        "repetitionsPerArm",
+        "role"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,79}$"
+        },
+        "armA": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "armB": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "appliesTo": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "tasks": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "repetitionsPerArm": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "role": {
+          "enum": [
+            "secondary"
+          ]
+        }
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence",
+        "proposer",
+        "surface",
+        "armsDifferOnlyIn",
+        "adoption"
+      ],
+      "properties": {
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "proposer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "surface": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "armsDifferOnlyIn": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "adoption": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "inherits": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "primaryEndpoint",
+          "minimumUsefulEffect",
+          "regressionLimits",
+          "uncertainty",
+          "stopping",
+          "equalResourceCeilings",
+          "evaluatorFixedAcrossArms",
+          "independentReviewers",
+          "reportedAlways"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "limits": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

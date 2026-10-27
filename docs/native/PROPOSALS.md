@@ -88,7 +88,7 @@ wring experiment proposal-result --state PROPOSAL_DIR
 | `REPLICATES/<label>/produced.md` | what came of it: checks, judgement, the change |
 | `DIVERGENCE.md` | where the attempts disagreed |
 | `PLAYBOOK/` | today's playbook, or `NONE.md` |
-| `LESSONS/` | what earlier comparisons established (none yet) |
+| `LESSONS/` | what earlier comparisons established: qualified and refuted, oldest first |
 | `MISSION.md` | the proposer's job |
 
 Before anything is written, every file is scanned **by name and by content** for
@@ -96,6 +96,13 @@ held-out item identities, oracle digests and denied paths (`labels.json`,
 `oracle.json`, `held-out/`, plus any you add with `--fence` or `--held-out-from`). A
 match refuses the build and names the file and the record it was read from. Fix the
 leak; the fence is never widened.
+
+For a job whose improvements are connected, use `--job JOB --proposal ID` instead of
+`--state` (and `--replicate-set ID` instead of `--replicates`). Evidence then fences
+every held-out task of the job's registered comparisons, by identity and source tree,
+and reads the task family's lessons. It refuses outright when the replicates ran a
+held-out task's own source tree. The whole route is in
+[the improvement guide](../improvement/README.md).
 
 `PROPOSAL_GRANT.json` names `{plan, proposalId, surface, dimension, prediction, actor,
 expiresAt, maxTurns, wallClockSeconds}`. The proposer's own plan may be contained or
@@ -131,6 +138,18 @@ both version 6 plans at that commit, identical except the playbook. Add the prin
 `protect` paths to the baseline arm too. Such a comparison is recorded by the
 `experiment-plan.v2` and `experiment-registration.v2` siblings. Collect and evaluate it
 as in [EXPERIMENTS.md](EXPERIMENTS.md).
+
+## Lessons
+
+`wring experiment evaluate` records a lesson (`wringer.improvement-lesson.v1`) when a
+comparison is decided (eligible or ineligible) with every planned trial recorded. An
+inconclusive comparison records none. A lesson carries the prediction, the held-out
+counts and the exact playbook difference the trials used, file by file, from the
+snapshots they ran with. The next evidence tree serves it under `LESSONS/`, so a
+proposer reads what was tried and refuted. Per-task findings stay in the operator's
+records, because they name held-out tasks. No model writes or edits a lesson
+(ruling R-C), and a fixture-only comparison can record a refutation, never a
+qualification.
 
 ## Limits
 

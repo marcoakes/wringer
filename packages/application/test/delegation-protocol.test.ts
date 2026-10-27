@@ -28,7 +28,7 @@ test("T07 T08 typed delegation protocol validates, proposes and returns compact 
     expect(loop.planSha256).toBeDefined(); expect(loop).not.toHaveProperty("authority");
     expect(() => validateDelegationOutput("wringer.inspect_loop", { ...loop, authority: { send: true } })).toThrow();
     const improvements = await call("inspect_improvements", { jobId: job.jobId });
-    expect(improvements.schema_version).toBe("wringer.job-improvements.v1"); expect(improvements.jobId).toBe(job.jobId); expect(improvements.connected).toBeFalse();
+    expect(improvements.schema_version).toBe("wringer.job-improvements.v2"); expect(improvements.jobId).toBe(job.jobId); expect(improvements.connected).toBeFalse();
     expect(() => validateDelegationOutput("wringer.inspect_improvements", { ...improvements, authority: { collect: true } })).toThrow();
     expect(() => validateDelegationOutput("wringer.inspect_improvements", { ...improvements, future: { ...improvements.future, executionApproved: true } })).toThrow();
     const privateRead = spyOn(service, "inspectProposal");

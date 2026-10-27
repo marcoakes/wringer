@@ -1,0 +1,45 @@
+{
+ "schema_version": "wringer.pilot-amendment.v1",
+ "registeredAt": "2026-10-27",
+ "status": "registered-not-run",
+ "amends": {
+  "path": "docs/qualification/pilot-registration.json",
+  "sha256": "c2def271d2350bc1f5887d320e7fb21cdc7b3a8f47321b3366dbbc892d7b170e"
+ },
+ "design": "docs/qualification/PILOT_AMENDMENT_1.md",
+ "comparison": {
+  "id": "no-playbook-versus-proposed-playbook",
+  "armA": "no-playbook",
+  "armB": "proposer-written-playbook-tree",
+  "appliesTo": [
+   "ordinary-repairs"
+  ],
+  "tasks": 7,
+  "repetitionsPerArm": 2,
+  "role": "secondary"
+ },
+ "proposal": {
+  "evidence": "replicate sets of development tasks in the same repositories only; the seven pilot repair tasks are held out and fenced from the evidence by task identity and source tree",
+  "proposer": "one separately granted session (wringer.playbook-proposal-request.v2) and one proposal iteration, frozen before the first comparison trial",
+  "surface": "the adapter surface of the builder used in both arms",
+  "armsDifferOnlyIn": "the worker playbook: both arms are version 6 plans at the same commit with the same protected paths",
+  "adoption": "none; this comparison reports, it does not select a playbook for future work"
+ },
+ "inherits": [
+  "primaryEndpoint",
+  "minimumUsefulEffect",
+  "regressionLimits",
+  "uncertainty",
+  "stopping",
+  "equalResourceCeilings",
+  "evaluatorFixedAcrossArms",
+  "independentReviewers",
+  "reportedAlways"
+ ],
+ "limits": [
+  "Registered, not run. Live runs need a signed-in builder and the pilot's prerequisites.",
+  "Seven tasks at two repetitions is a pilot-sized sample; the inherited sign test and minimum effect apply to it unchanged.",
+  "A KEEP_BASE proposal ends this comparison before any trial, reported as such."
+ ],
+ "sha256": "9466a51b61abbe10f27c570e244f43b4dff6dec8ce5a47dfd98c8216a18ca750"
+}

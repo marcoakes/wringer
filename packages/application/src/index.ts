@@ -44,3 +44,4 @@ export * from "./gate-experiments";
 export * from "./replicates";
 export * from "./proposer-evidence";
 export * from "./proposer";
+export * from "./lessons";

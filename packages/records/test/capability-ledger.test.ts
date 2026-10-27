@@ -27,6 +27,13 @@ test("a pilot registration changed after registering is refused", async () => {
     const registration = await read("docs/qualification/pilot-registration.json"); registration.minimumUsefulEffect.additionalAcceptedTasks = 2;
     await expect(checkLedger(undefined, { registration })).rejects.toThrow("changed after it was registered");
 });
+test("a pilot amendment changed after registering, or citing another registration, is refused", async () => {
+    const amendment = await read("docs/qualification/pilot-amendment-1.json");
+    await expect(checkLedger(undefined, { amendment: { ...amendment, comparison: { ...amendment.comparison, tasks: 5 } } })).rejects.toThrow("The pilot amendment changed after it was registered");
+    const { hashValue } = await import("../../plan/src");
+    const { sha256, ...body } = amendment, other = { ...body, amends: { ...body.amends, sha256: "0".repeat(64) } };
+    await expect(checkLedger(undefined, { amendment: { ...other, sha256: hashValue(other) } })).rejects.toThrow("cites another registration");
+});
 test("a showcase record missing a journey, with a failed journey or a machine path is refused", async () => {
     const showcase = await read("docs/showcase/showcase.json");
     await expect(checkLedger(undefined, { showcase: { ...showcase, journeys: showcase.journeys.slice(1) } })).rejects.toThrow("missing a journey");
