@@ -9,7 +9,7 @@ network policy and secret references must be provisioned and checked before
 agent work. A successful job submission is not proof that gVisor or egress
 enforcement is active. Live isolation tests remain a release gate.
 
-The root Dockerfile builds the Bun **harness**, not a Claude Code/Codex agent
+The root Dockerfile builds the Bun **controller**, not a Claude Code/Codex agent
 image. Agent runtime images must contain their declared ACP implementation,
 repository toolchain and Git; the repository is cloned inside the role's sandbox.
 No host checkout, home directory or control socket is mounted into a role.

@@ -6,11 +6,11 @@ A PM delegates a bounded specification and returns to useful, review-ready
 software with evidence another machine can inspect. Refusal machinery is
 necessary, but a refusal is not a successful build.
 
-Wringer is a **Bun/TypeScript harness**. This is the existing repository's full
-replacement, developed and published on main. Python is retired as the harness
+Wringer is a **Bun/TypeScript controller**. This is the existing repository's full
+replacement, developed and published on main. Python is retired as the controller
 runtime; do not restore Python packaging, a runtime fallback or a second edition
 under `ts/`. Historical source remains in Git. Target repositories and historical
-fixtures may use other languages: Bun runs the harness, not every user's project.
+fixtures may use other languages: Bun runs the controller, not every user's project.
 
 The binding architecture is in [docs/REWRITE_PLAN.md](docs/REWRITE_PLAN.md):
 
@@ -90,7 +90,7 @@ Keep live platform tests and their exact prerequisites visible as release gates.
 - `packages/mcp`: bounded assistant protocol tools; no approval, publication or agent reasoning loop.
 - `packages/cli`: thin command routing and the human pen.
 - `adapters/temporal`: an optional Node worker that runs the unchanged graph kernel
-  as Temporal workflows; effects go through `wringer-drive graph effect`. No harness
+  as Temporal workflows; effects go through `wringer-drive graph effect`. No controller
   logic of its own, and not part of the native archives.
 
 ## Contracts and evidence
