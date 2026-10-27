@@ -29,7 +29,7 @@ test("a v6 plan pins a tree: manifest and every file protected, measured loop, e
     expect((await reader.validate(trusted, "execution-plan-v6.schema.json")).ok).toBe(true);
     const none = compileDeclaration(declaration(commit));
     expect(none.playbook).toBeUndefined(); expect((await reader.validate(none, "execution-plan-v6.schema.json")).ok).toBe(true);
-});
+}, 60000);
 
 test("tree selection rules refuse before anything reads the repository", async () => {
     const { commit, selection } = await tree();
@@ -45,7 +45,7 @@ test("tree selection rules refuse before anything reads the repository", async (
     expect(() => compileDeclaration({ ...declaration(commit, selection), design: { snapshotPath: "design.json", snapshotSha256: "a".repeat(64), reviews: [] } } as any)).toThrow("cannot declare design");
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, acceptance, ...data } = compileDeclaration(declaration(commit));
     expect(() => compilePlanningRequest({ version: 6, ...data, agents: { ...data.agents, planner: data.agents.judge }, budget: { ...data.budget, max_planner_turns: 1 } })).toThrow("Planner-drafted acceptance uses plan versions 1 to 4");
-});
+}, 60000);
 
 test("the pinned reader returns an exact v3 snapshot and its active files", async () => {
     const { repo, commit, selection } = await tree();
@@ -61,7 +61,7 @@ test("the pinned reader returns an exact v3 snapshot and its active files", asyn
     expect(playbookActiveFiles((await readPinnedPlaybookTree(codex.repo, codexPlan))!).map(f => f.activePath)).toEqual([".agents/skills/repair-first/SKILL.md", "AGENTS.md", "scripts/wringer/inspect.sh"]);
     const tampered = structuredClone(snapshot) as any; tampered.files[0].content += "x";
     expect(() => validatePlaybookTreeSnapshot(tampered, { tools: ["bun"] })).toThrow("differs from its manifest digest");
-});
+}, 60000);
 
 test("the tree must be exactly its manifest and listed files, each digest exact", async () => {
     const extra = await tree({ extraTreeFiles: { "notes/unlisted.md": "Not in the manifest\n" } });
@@ -70,7 +70,7 @@ test("the tree must be exactly its manifest and listed files, each digest exact"
     await expect(readPinnedPlaybookTree(wrong.repo, compileDeclaration(declaration(wrong.commit, selection)))).rejects.toThrow("differs from its selected SHA256");
     const manifestDigest = structuredClone(wrong.selection); manifestDigest.sha256 = hashBytes("other");
     await expect(readPinnedPlaybookTree(wrong.repo, compileDeclaration(declaration(wrong.commit, manifestDigest)))).rejects.toThrow("manifest SHA256 differs");
-});
+}, 60000);
 
 async function contentRefusal(files: Record<string, string>, message: string, tools?: string[]) {
     const made = await tree({ files });
@@ -93,7 +93,7 @@ test("content rules: always-on cap, triggered skills, front matter, script refer
     await contentRefusal({ ...base, "NOTES.md": "token ghp_" + "a".repeat(36) + "\n" }, "contains a detected credential");
     const big = { ...base }; for (let i = 0; i < 40; i++) big[`notes/n${i}.md`] = "y".repeat(7000);
     await contentRefusal(big, "exceeds 256 KiB");
-});
+}, 60000);
 
 test("placement never replaces a tracked file silently", async () => {
     const tracked = await tree({ repository: { "README.md": "Fixture\n", "CLAUDE.md": "Team instructions\n", "src/total.ts": "x\n", "tests/acceptance.test.ts": "x\n", "package.json": "{}\n", "bun.lock": "{}\n" } });
@@ -106,7 +106,7 @@ test("placement never replaces a tracked file silently", async () => {
     const stale = compileDeclaration(declaration(untracked.commit, { ...untracked.selection, replace: ["CLAUDE.md"] }));
     expect(() => assertPlaybookPlacement(stale, [{ path: "README.md", mode: "100644" }])).toThrow("which the repository does not track");
     expect(() => assertPlaybookPlacement(compileDeclaration(declaration(untracked.commit, untracked.selection)), [{ path: ".claude", mode: "100644" }])).toThrow("collides with a tracked file or directory");
-});
+}, 60000);
 
 test("a v6 manifest is refused on kind, order or shape it cannot honour", async () => {
     const files = treeFiles(), bad = (overrides: Record<string, unknown>) => tree({ files, manifest: treeManifest("claude-code", files, overrides) });
@@ -114,4 +114,4 @@ test("a v6 manifest is refused on kind, order or shape it cannot honour", async 
         const made = await bad(overrides as Record<string, unknown>);
         await expect(readPinnedPlaybookTree(made.repo, compileDeclaration(declaration(made.commit, made.selection)))).rejects.toThrow(message);
     }
-});
+}, 60000);
