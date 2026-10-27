@@ -36,6 +36,6 @@ test("a local identity is refused outside v4, and v4 refuses every other source 
     expect((await reader.validate(tamper(plan, "https://example.com/operator/source.git"), "execution-plan-v4.schema.json")).ok).toBe(false);
     // Version 5 exists only for a trusted-local runtime: it cannot carry a contained profile.
     expect(() => compileDeclaration({ ...declaration(4, local), version: 5 } as unknown as PlanDeclaration)).toThrow("A version 5 plan names a trusted-local runtime");
-    expect(() => compileDeclaration({ ...declaration(4, local), version: 6 } as unknown as PlanDeclaration)).toThrow("Plan version must be 1, 2, 3, 4 or 5");
+    expect(() => compileDeclaration({ ...declaration(4, local), version: 7 } as unknown as PlanDeclaration)).toThrow("Plan version must be 1, 2, 3, 4, 5 or 6");
 });
 

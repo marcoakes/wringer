@@ -11,10 +11,10 @@ export const RECORD_FAMILIES = {
 } as const;
 export type RecordKind = keyof typeof RECORD_FAMILIES;
 export type SourceFamily = "hosted" | "local";
-/** Plan v4 is local-only; a v5 trusted-local plan takes its kind from its source. */
-export const sourceFamily = (plan: { schema_version: string; repository?: { url: string } }): SourceFamily => plan.schema_version === "wringer.execution-plan.v4" || plan.schema_version === "wringer.execution-plan.v5" && LOCAL_SOURCE_URL.test(plan.repository?.url ?? "") ? "local" : "hosted";
-/** Plan v3, v4 and v5 share the measured-loop contract; v4 names a local-only source and v5 a trusted-local runtime. */
-export const measuredLoopPlan = (plan: { schema_version: string }): boolean => plan.schema_version === "wringer.execution-plan.v3" || plan.schema_version === "wringer.execution-plan.v4" || plan.schema_version === "wringer.execution-plan.v5";
+/** Plan v4 is local-only; v5 and v6 plans take their kind from their source. */
+export const sourceFamily = (plan: { schema_version: string; repository?: { url: string } }): SourceFamily => plan.schema_version === "wringer.execution-plan.v4" || (plan.schema_version === "wringer.execution-plan.v5" || plan.schema_version === "wringer.execution-plan.v6") && LOCAL_SOURCE_URL.test(plan.repository?.url ?? "") ? "local" : "hosted";
+/** Plan v3 to v6 share the measured-loop contract; v4 names a local-only source, v5 a trusted-local runtime and v6 a playbook tree. */
+export const measuredLoopPlan = (plan: { schema_version: string }): boolean => ["wringer.execution-plan.v3", "wringer.execution-plan.v4", "wringer.execution-plan.v5", "wringer.execution-plan.v6"].includes(plan.schema_version);
 /** A trusted-local plan: ran on this computer, nothing contained. */
 export const trustedLocalPlan = (plan: { runtime?: { kind: string } }): boolean => plan.runtime?.kind === "trusted-local";
 /** Records whose content names a runtime have their own trusted-local sibling, whatever the source. */

@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, lstat, readdir, realpath, mkdtemp, rm } from "node:fs/promises";
 import { join, relative, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
-import { assertRecordFamily, measuredLoopPlan, recordVersion, hashValue, hashBytes, canonicalJson, validateExecutionPlan, validateExecutionAuthority, readPinnedPlaybook, type ExecutionPlan } from "@wringer/plan";
+import { assertRecordFamily, measuredLoopPlan, recordVersion, hashValue, hashBytes, canonicalJson, validateExecutionPlan, validateExecutionAuthority, readPinnedPlaybook, readPinnedPlaybookTree, type EnvironmentMap, type ExecutionPlan } from "@wringer/plan";
 import { assertResearchPublication, validateResearchDeliveryPurpose } from "./research-purpose";
 import { processDriver, provenanceMatchesRuntime, runtimeImage, TRUSTED_LOCAL_SENTENCE } from "@wringer/runtime";
 import { readValidatedContainedState, withContainedJourneyLock, validContainedHumanAttribution } from "@wringer/workflow";
@@ -285,6 +285,8 @@ function displayRowsValid(measured: any, plan: ExecutionPlan, criterionId: strin
     const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), show.id];
     return canonicalJson(measured.results.map((r: any) => r.id)) === canonicalJson(expected) && measured.results.every((r: any) => r.code === 0 && typeof r.stdout === "string" && typeof r.stderr === "string" && Buffer.byteLength(r.stdout + r.stderr) <= 1024 * 1024) && canonicalJson(measured.provenance?.observed?.writableDirectories ?? []) === canonicalJson(plan.environment.writable_directories);
 }
+/** The plan's worker playbook, one JSON file or a tree, read from the carried source. */
+const selectedPlaybook = (store: string, plan: ExecutionPlan, environment: EnvironmentMap) => plan.playbook?.files ? readPinnedPlaybookTree(store, plan, { environment }) : readPinnedPlaybook(store, plan, { environment });
 function expectedInventory(manifest: any, receiptIds: string[], plan: ExecutionPlan): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(["wringer.contained-delivery.v2", "wringer.contained-delivery.v3", "wringer.contained-delivery.v4"].includes(manifest.schema_version) ? ["view.json", "certificate.json", "board.html"] : []), ...(manifest.schema_version === "wringer.contained-delivery.v4" ? ["engineering.json"] : []), ...(manifest.researchPurpose ? ["research-purpose.json"] : []), ...(manifest.sourceReview ? ["source-inspection.json"] : []), ...visualInventory(plan, manifest.humanCriteria), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
 /** Direct operator CLI only; no provider call, publication or MCP approval. */
 export async function reviewContainedSource(options: { stateDir: string; policyDirectory?: string; decision?: SourceReviewDecision; decisionFile?: string; signal?: AbortSignal }) {
@@ -354,7 +356,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     await cloneBundle(carried, store, state.candidate.source.commit, options.signal);
     const designSnapshot = await readPinnedDesignSnapshot(plan, store);
     if (designSnapshot) await immutable(join(bundleDir, "visuals/snapshot.json"), designSnapshot);
-    const engineering = v4 ? engineeringEvidence(plan, environment.map_sha256, events, await readPinnedPlaybook(store, plan, { environment })) : null;
+    const engineering = v4 ? engineeringEvidence(plan, environment.map_sha256, events, await selectedPlaybook(store, plan, environment)) : null;
     if (engineering) await immutable(join(bundleDir, "engineering.json"), clean(engineering, redactor, "Engineering evidence"));
     const observations = new Map<string, any>(), verifications = new Map<string, any>();
     for (const event of events)
@@ -712,7 +714,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
             await cloneBundle(await inside(bundleDir, "candidate.bundle"), store, manifest.source.codeCommit);
             await verifySource(store, manifest, plan, environment, observations);
             if (v4) {
-                const evidence = engineeringEvidence(plan, environment.map_sha256, carriedEvents, await readPinnedPlaybook(store, plan, { environment }));
+                const evidence = engineeringEvidence(plan, environment.map_sha256, carriedEvents, await selectedPlaybook(store, plan, environment));
                 same(await read(bundleDir, "engineering.json"), evidence, "Carried engineering evidence from source and journal");
                 same(manifest.engineering, summarizeEngineering(evidence), "Engineering summary");
             }

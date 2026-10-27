@@ -94,6 +94,8 @@ export async function initializeAssistant(root: string, input: { plan: Execution
     insist(input.cooperativeLocal || (input.plan as { runtime?: { kind?: unknown } } | undefined)?.runtime?.kind !== "trusted-local", "trusted-local-refused", "Protected mode refuses a trusted-local runtime: it runs on this computer under the operator's account and nothing is contained.");
     insist(input.cooperativeLocal, "protected-mode-unavailable", "Protected assistant mode is not available: the controller and human-confirmation OS boundary is not established. An operator may explicitly select --cooperative-local for the labelled engineering preview.");
     const plan = validateExecutionPlan(input.plan);
+    // Workspace revisions embed their plans in supersession records that name versions 1 to 5.
+    insist(plan.schema_version !== "wringer.execution-plan.v6", "profile-version-refused", "A version 6 plan (a playbook tree) runs through wringer-drive journeys, replicate sets and registered comparisons in this release. An assistant workspace uses a version 1 to 5 profile; nothing was installed.");
     insist(clean.scrub(JSON.stringify(plan)) === JSON.stringify(plan), "secret-refused", "The profile contains a detected credential; nothing was installed.");
     if (input.destination) parseWorkspaceCommand({ idempotencyKey: crypto.randomUUID(), expectedRevision: "0".repeat(64), expectedCandidateTree: null, action: "prepare-delivery", payload: input.destination });
     insist(isLocalSource(plan) || !input.localSource, "local-source-refused", "A hosted profile has no prepared local source; nothing was installed.");

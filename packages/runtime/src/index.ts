@@ -10,3 +10,4 @@ export * from "./redact";
 export * from "./oci-resolution";
 export * from "./inspection";
 export * from "./trusted-local";
+export * from "./overlay";

@@ -46,6 +46,12 @@ Renaming an identical source/intent/acceptance contract cannot create a new task
 Both plans need an explicit applicable playbook where selected; the no-playbook
 baseline uses `baselinePlaybook: null` and the same protected input paths.
 
+Arms may instead both be version 6 plans selecting playbook trees (or none); every task
+in one comparison then uses version 6, and the comparison is recorded by the
+`experiment-plan.v2` and `experiment-registration.v2` siblings. `wring experiment
+select-tree` prints a tree's exact selection and the paths to protect in the baseline
+arm. See [PROPOSALS.md](PROPOSALS.md).
+
 The complete input contract is `ExperimentPlanInput` in
 `packages/application/src/experiment-types.ts`; the inert construction example
 is `examples/improvements/prepare-comparison.ts`. Its output is an unapproved

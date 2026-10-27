@@ -24,6 +24,7 @@ export function planningRequestVersion(schemaVersion: unknown): 1 | 2 | 3 | 4 {
 export function compilePlanningRequest(value: unknown): PlanningRequest {
     canonicalJson(value);
     const input = record(value, "planning request", ["version", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "budget", "design", "loop", "playbook", "approachAdoption"]);
+    if (input.version === 6) throw new Error("Planner-drafted acceptance uses plan versions 1 to 4. A version 6 plan selects a playbook tree and is compiled directly from its declaration");
     const intent = text(input.intent, "planning intent");
     const designRows = input.design === undefined ? undefined : record(input.design, "planning design", ["snapshotPath", "snapshotSha256", "reviews"]).reviews;
     if (input.design !== undefined && (!Array.isArray(designRows) || !designRows.length || designRows.length > 16)) throw new Error("Design planning needs bounded explicit visual review declarations");

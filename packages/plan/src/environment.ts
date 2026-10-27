@@ -7,6 +7,7 @@ import { validateExecutionPlan, type PlanValidationOptions } from "./compile";
 import { assertRecordUrlFamily, recordVersion } from "./family";
 import type { EnvironmentMap, EnvironmentObservation, ExecutionPlan } from "./types";
 import { readPinnedPlaybook } from "./playbook";
+import { assertPlaybookPlacement, readPinnedPlaybookTree } from "./playbook-tree";
 async function git(repo: string, args: string[]): Promise<string> {
     const child = Bun.spawn(["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", ...args], { cwd: repo, env: { ...process.env, GIT_NO_REPLACE_OBJECTS: "1", GIT_TERMINAL_PROMPT: "0" }, stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
@@ -58,7 +59,9 @@ export async function discoverEnvironment(repo: string, rawPlan: ExecutionPlan, 
             if (!snapshot.assets.some(a => a.id === reference)) throw new Error(`Design review reference ${reference} is absent from the exact approved snapshot`);
     }
     // Inspect the selected worker artifact without leaking its advice into shared role context.
-    if (plan.playbook) await readPinnedPlaybook(repo, plan);
+    // A tree must also be placeable: its active paths never silently replace tracked files.
+    if (plan.playbook?.files) { await readPinnedPlaybookTree(repo, plan); assertPlaybookPlacement(plan, files); }
+    else if (plan.playbook) await readPinnedPlaybook(repo, plan);
     const automatic = ["AGENTS.md", "README.md", "ARCHITECTURE.md", "CODEOWNERS", ".github/CODEOWNERS", "package.json", "bun.lock", "package-lock.json", "pnpm-lock.yaml", "Cargo.toml", "Cargo.lock", "go.mod", "go.sum"];
     const requested = [...new Set([...plan.environment.context, ...automatic.filter(path => path !== plan.design?.snapshotPath && path !== plan.playbook?.path && files.some(f => f.path === path))])].sort();
     const context: EnvironmentMap["context"] = [];

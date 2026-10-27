@@ -14,7 +14,8 @@ parallel branches and verified integration into one resumable workflow.
 [Measured repair loops](MEASURED_LOOPS.md) explains the v3 contract: actual failure
 feedback, assertion-level checks, repeated-candidate stops and pinned worker
 playbooks. [Experiments](EXPERIMENTS.md) covers separately authorised comparisons
-and future-only adoption. Neither path can replace human acceptance or Send;
+and future-only adoption. [Proposals](PROPOSALS.md) covers playbook trees, which the
+worker finds in its clone, and the proposer that writes one from evidence. Neither path can replace human acceptance or Send;
 live improvement evidence remains a separate measurement.
 
 ## Build from a source checkout

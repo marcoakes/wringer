@@ -6,6 +6,7 @@ export { canonicalJson, hashBytes, hashValue } from "./canonical";
 export * from "./planning";
 export * from "./family";
 export * from "./playbook";
+export * from "./playbook-tree";
 export { validatePlaybookAdoption } from "./adoption";
 export * from "./graph";
 export type { PlanValidationOptions } from "./compile";

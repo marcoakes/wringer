@@ -6,7 +6,8 @@ import { canonicalJson, freezeData, hashBytes, hashValue } from "./canonical";
 import { parsePlanTypeScript } from "./dsl";
 import { validatePlaybookAdoption } from "./adoption";
 import { assertRecordFamily, RECORD_FAMILIES, recordVersion, sourceFamily } from "./family";
-import type { AgentDeclaration, AcceptanceContract, DeclaredCommand, DesignDeclaration, ExecutionAuthority, ExecutionBudget, ExecutionPlan, PlanDeclaration, RuntimeDeclaration, LoopPolicy, PlaybookSelection } from "./types";
+import { PLAYBOOK_ALWAYS_ON, PLAYBOOK_MANIFEST, PLAYBOOK_SURFACES, playbookTreeDirectory, playbookTreeEntry } from "./playbook-paths";
+import type { AgentDeclaration, AcceptanceContract, DeclaredCommand, DesignDeclaration, ExecutionAuthority, ExecutionBudget, ExecutionPlan, PlanDeclaration, RuntimeDeclaration, LoopPolicy, PlaybookSelection, PlaybookSurface } from "./types";
 export function record(value: unknown, label: string, keys: string[]): Record<string, any> {
     if (!value || typeof value !== "object" || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value)))
         throw new Error(`${label} must be a plain mapping`);
@@ -88,10 +89,13 @@ function runtime(v: unknown, version: number): RuntimeDeclaration {
             throw new Error("A version 5 plan names a trusted-local runtime: runtime.kind must be trusted-local. Contained runtimes use plan version 1–4.");
         return parseRuntimePolicy({ kind: "trusted-local", ...Object.fromEntries(Object.entries(r).filter(([key]) => key !== "kind")), env: envNames(r.env) });
     }
+    // Version 6 adds a playbook tree to either runtime family; trusted-local stays explicit.
+    if (version === 6 && r.kind === "trusted-local")
+        return parseRuntimePolicy({ kind: "trusted-local", ...Object.fromEntries(Object.entries(r).filter(([key]) => key !== "kind")), env: envNames(r.env) });
     if (r.kind === "trusted-local")
-        throw new Error("A trusted-local runtime needs a version 5 plan; it runs on this computer and nothing is contained, so it is never implied by an older plan");
+        throw new Error("A trusted-local runtime needs a version 5 plan (or a version 6 plan with a playbook tree); it runs on this computer and nothing is contained, so it is never implied by an older plan");
     if (r.kind !== "apple-container" && r.kind !== "gvisor-kubernetes")
-        throw new Error("Runtime must be apple-container, gvisor-kubernetes or, in a version 5 plan, trusted-local; nothing falls back to the host");
+        throw new Error("Runtime must be apple-container, gvisor-kubernetes or, in a version 5 or 6 plan, trusted-local; nothing falls back to the host");
     const image = text(r.image, "runtime.image");
     if (!/^\S+@sha256:[a-f0-9]{64}$/.test(image))
         throw new Error("runtime.image must be pinned by an explicit sha256 digest");
@@ -206,10 +210,14 @@ export interface PlanValidationOptions { credentialEnvironment?: NodeJS.ProcessE
 export function compileDeclaration(value: unknown, options: PlanValidationOptions = {}): ExecutionPlan {
     canonicalJson(value); // Reject executable/exotic input even through the programmatic API.
     const p = record(value, "plan", ["version", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "acceptance", "budget", "design", "loop", "playbook", "approachAdoption"]);
-    if (p.version !== 1 && p.version !== 2 && p.version !== 3 && p.version !== 4 && p.version !== 5)
-        throw new Error("Plan version must be 1, 2, 3, 4 or 5");
+    if (p.version !== 1 && p.version !== 2 && p.version !== 3 && p.version !== 4 && p.version !== 5 && p.version !== 6)
+        throw new Error("Plan version must be 1, 2, 3, 4, 5 or 6");
     if (p.version === 5 && p.design !== undefined)
         throw new Error("Design references need a contained runtime; a version 5 trusted-local plan cannot declare design");
+    if (p.version === 6 && p.design !== undefined)
+        throw new Error("A version 6 plan selects a playbook tree and cannot declare design; design-aware plans use version 2, 3 or 4");
+    if (p.version !== 6 && p.playbook && typeof p.playbook === "object" && ["surface", "files", "replace"].some(key => key in p.playbook))
+        throw new Error("A playbook tree (surface, files, replace) needs a version 6 plan; versions 3 to 5 select one JSON playbook");
     if (p.version < 3 && (p.loop !== undefined || p.playbook !== undefined || p.approachAdoption !== undefined)) throw new Error("Loop policy and playbook selection require plan version 3");
     if (p.version === 1 && p.design !== undefined || p.version === 2 && p.design === undefined)
         throw new Error("Design inputs require a version 2 plan with an explicit design declaration");
@@ -218,8 +226,8 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
     const url = text(repository.url, "repository.url"), commit = text(repository.commit, "repository.commit");
     if (!/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(commit))
         throw new Error("repository.commit must be a full immutable Git object id");
-    // Version 4 exists only to name a local-only source; version 5 may name either kind.
-    if (p.version === 4 || p.version === 5 && LOCAL_SOURCE_URL.test(url)) {
+    // Version 4 exists only to name a local-only source; versions 5 and 6 may name either kind.
+    if (p.version === 4 || (p.version === 5 || p.version === 6) && LOCAL_SOURCE_URL.test(url)) {
         if (!LOCAL_SOURCE_URL.test(url))
             throw new Error("A version 4 plan names a local-only source: repository.url must be local:// followed by the 40-character root commit of its history. Hosted sources use plan version 1, 2 or 3.");
     }
@@ -243,19 +251,21 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
     const design = p.design !== undefined ? designDeclaration(p.design, contract, writableDirectories) : undefined;
     const loop: LoopPolicy | undefined = p.version >= 3 ? (() => { const value = p.loop === undefined ? { repeatCandidate: "stop", repeatedOutcomeWarning: 3 } : record(p.loop, "loop policy", ["repeatCandidate", "repeatedOutcomeWarning"]); if (value.repeatCandidate !== "stop") throw new Error("Exact repeated unsuccessful candidates must stop; loop policy cannot grant delivery"); return { repeatCandidate: "stop", repeatedOutcomeWarning: integer(value.repeatedOutcomeWarning, "loop.repeatedOutcomeWarning", 2, 64) }; })() : undefined;
     const playbook: PlaybookSelection | undefined = p.playbook === undefined ? undefined : (() => {
-        const value = record(p.playbook, "playbook selection", ["path", "sha256", "taskFamily", "adoption"]), path = repoPath(value.path);
+        const value = record(p.playbook, "playbook selection", p.version === 6 ? ["path", "sha256", "taskFamily", "surface", "files", "replace", "adoption"] : ["path", "sha256", "taskFamily", "adoption"]), path = repoPath(value.path);
         if (path === "." || path.length > 512 || !path.endsWith(".json") || !/^[a-f0-9]{64}$/.test(value.sha256 ?? "")) throw new Error("Playbook requires one bounded exact JSON source path and its SHA256");
         if (writableDirectories.some(base => path === base || path.startsWith(base + "/"))) throw new Error("Playbook cannot be stored in a writable output directory");
         const taskFamily = identifier(value.taskFamily, "playbook task family"), adoption = value.adoption === undefined ? undefined : validatePlaybookAdoption(value.adoption);
         if (adoption && (adoption.repository !== url || adoption.taskFamily !== taskFamily || adoption.selectedDigest !== value.sha256)) throw new Error("Playbook adoption belongs to another repository, task family or selected digest");
-        return { path, sha256: value.sha256, taskFamily, ...(adoption ? { adoption } : {}) };
+        if (p.version !== 6) return { path, sha256: value.sha256, taskFamily, ...(adoption ? { adoption } : {}) };
+        return { path, sha256: value.sha256, taskFamily, ...playbookTreeSelection(value, path, writableDirectories), ...(adoption ? { adoption } : {}) };
     })();
     if (design) contract.protected_paths = [...new Set([...contract.protected_paths, design.snapshotPath])].sort();
     const approachAdoption = p.approachAdoption === undefined ? undefined : validatePlaybookAdoption(p.approachAdoption);
     if (approachAdoption && (playbook || approachAdoption.repository !== url || approachAdoption.action !== "rollback" || approachAdoption.selectedDigest !== null || approachAdoption.previousDigest === null)) throw new Error("A no-playbook adoption must be an exact rollback for this repository without a selected playbook");
-    if (playbook) contract.protected_paths = [...new Set([...contract.protected_paths, playbook.path])].sort();
+    // A tree protects its manifest and every file it lists: each exists in the approved source.
+    if (playbook) contract.protected_paths = [...new Set([...contract.protected_paths, playbook.path, ...(playbook.files ?? []).map(file => file.path)])].sort();
     if (design && paths(env.context, "environment.context").includes(design.snapshotPath)) throw new Error("Design snapshots use their dedicated pinned reference channel, not the general text context list");
-    if (playbook && paths(env.context, "environment.context").includes(playbook.path)) throw new Error("Worker playbooks use their dedicated role context, never shared planner/judge context");
+    if (playbook && paths(env.context, "environment.context").some(path => path === playbook.path || playbook.files?.some(file => file.path === path))) throw new Error("Worker playbooks use their dedicated role context, never shared planner/judge context");
     if (playbook && design?.snapshotPath === playbook.path) throw new Error("Design snapshot and worker playbook must be distinct source artifacts");
     const normalized: Omit<ExecutionPlan, "plan_sha256"> = {
         schema_version: `wringer.execution-plan.v${p.version}` as ExecutionPlan["schema_version"], name, intent, intent_sha256: hashBytes(intent), repository: { url, commit }, runtime: runtime(p.runtime, p.version),
@@ -276,10 +286,32 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
         throw new Error("Plan contains a detected credential. Remove secret values and declare environment-variable names; no plan was retained");
     return freezeData({ ...normalized, plan_sha256: hashValue(normalized) });
 }
-const PLAN_VERSIONS: Record<ExecutionPlan["schema_version"], 1 | 2 | 3 | 4 | 5> = { "wringer.execution-plan.v1": 1, "wringer.execution-plan.v2": 2, "wringer.execution-plan.v3": 3, "wringer.execution-plan.v4": 4, "wringer.execution-plan.v5": 5 };
+/** A v6 tree selection: the surface, every listed file under the manifest's
+ * directory with its exact digest, and the active paths it may replace. */
+function playbookTreeSelection(value: Record<string, any>, path: string, writableDirectories: string[]): Required<Pick<PlaybookSelection, "surface" | "files">> & Pick<PlaybookSelection, "replace"> {
+    const directory = playbookTreeDirectory(path);
+    if (!PLAYBOOK_MANIFEST.test(path)) throw new Error("A version 6 playbook is a tree: its selection path is wringer/playbooks/<id>/manifest.json");
+    if (!PLAYBOOK_SURFACES.includes(value.surface)) throw new Error("A playbook tree names its adapter surface: claude-code, codex or generic");
+    const surface = value.surface as PlaybookSurface;
+    const files = distinct(list(value.files, "playbook files", raw => {
+        const file = record(raw, "playbook file", ["path", "sha256"]), filePath = repoPath(file.path);
+        if (!filePath.startsWith(directory) || filePath === path || !playbookTreeEntry(surface, filePath.slice(directory.length))) throw new Error(`Playbook file ${filePath} is not a ${surface} playbook path under ${directory}`);
+        if (!/^[a-f0-9]{64}$/.test(file.sha256 ?? "")) throw new Error("Every playbook file needs its exact SHA256");
+        if (writableDirectories.some(base => filePath === base || filePath.startsWith(base + "/"))) throw new Error("Playbook cannot be stored in a writable output directory");
+        return { path: filePath, sha256: file.sha256 as string };
+    }), file => file.path, "playbook files").sort((a, b) => a.path.localeCompare(b.path));
+    const entries = files.map(file => playbookTreeEntry(surface, file.path.slice(directory.length))!);
+    if (!files.length || files.length > 64) throw new Error("A playbook tree lists 1 to 64 files");
+    if (entries.filter(entry => entry.kind === "always-on").length !== 1) throw new Error(`A ${surface} playbook tree has exactly one always-on ${PLAYBOOK_ALWAYS_ON[surface]}`);
+    const active = entries.flatMap(entry => entry.active ? [entry.active] : []);
+    const replace = paths(value.replace ?? [], "playbook.replace");
+    for (const target of replace) if (!active.includes(target)) throw new Error(`playbook.replace names ${target}, which this tree does not materialise`);
+    return { surface, files, ...(replace.length ? { replace } : {}) };
+}
+const PLAN_VERSIONS: Record<ExecutionPlan["schema_version"], 1 | 2 | 3 | 4 | 5 | 6> = { "wringer.execution-plan.v1": 1, "wringer.execution-plan.v2": 2, "wringer.execution-plan.v3": 3, "wringer.execution-plan.v4": 4, "wringer.execution-plan.v5": 5, "wringer.execution-plan.v6": 6 };
 /** The declaration version a canonical plan recompiles from. Every site that
  * re-derives a plan asks here, so a new version cannot be missed at one of them. */
-export function planVersion(plan: { readonly schema_version?: unknown }): 1 | 2 | 3 | 4 | 5 {
+export function planVersion(plan: { readonly schema_version?: unknown }): 1 | 2 | 3 | 4 | 5 | 6 {
     if (typeof plan.schema_version !== "string" || !Object.hasOwn(PLAN_VERSIONS, plan.schema_version))
         throw new Error("Unsupported canonical execution-plan version");
     return PLAN_VERSIONS[plan.schema_version as ExecutionPlan["schema_version"]];

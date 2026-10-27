@@ -1,6 +1,6 @@
 {
   "schema_version": "wringer.capability-ledger.v1",
-  "updated": "2026-10-20",
+  "updated": "2026-10-27",
   "levels": {
     "implemented": "The capability exists in the released source and its public command or contract.",
     "fixtureTested": "Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved.",
@@ -419,6 +419,78 @@
       "comparativelyBeneficial": {
         "status": "not-applicable",
         "evidence": []
+      }
+    },
+    {
+      "id": "playbook-trees",
+      "name": "Playbook trees: a worker's always-on file, skills and scripts, materialised for the worker alone",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "packages/plan/src/playbook-tree.ts",
+          "packages/runtime/src/overlay.ts",
+          "schema/playbook-v2.schema.json",
+          "schema/playbook-snapshot-v3.schema.json",
+          "schema/playbook-materialisation-v1.schema.json",
+          "schema/execution-plan-v6.schema.json",
+          "docs/native/PROPOSALS.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "packages/plan/test/playbook-tree.test.ts",
+          "packages/runtime/test/overlay.test.ts",
+          "packages/workflow/test/playbook-materialisation.test.ts",
+          "scripts/improvement-phase2-reversions.ts"
+        ],
+        "note": "Real Git sources, overlays, captures and validation with scripted roles and checks; the judge's clone is checked to hold no overlay file."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No live agent has run on a materialised playbook tree."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No registered comparison of a tree against no playbook has run live."
+      }
+    },
+    {
+      "id": "trajectory-grounded-proposals",
+      "name": "Trajectory-grounded playbook proposals: evidence in the proposer's clone, every change cited",
+      "implemented": {
+        "status": "yes",
+        "evidence": [
+          "packages/application/src/proposer-evidence.ts",
+          "packages/application/src/proposer.ts",
+          "schema/proposer-evidence-v1.schema.json",
+          "schema/playbook-proposal-request-v2.schema.json",
+          "schema/playbook-proposal-result-v2.schema.json",
+          "schema/experiment-plan-v2.schema.json",
+          "docs/native/PROPOSALS.md"
+        ]
+      },
+      "fixtureTested": {
+        "status": "yes",
+        "evidence": [
+          "packages/application/test/proposer.test.ts",
+          "packages/cli/test/proposal-cli.test.ts",
+          "scripts/improvement-distribution.ts",
+          "scripts/improvement-phase2-reversions.ts"
+        ],
+        "note": "The whole chain on fixtures: replicate set, evidence, a scripted proposer, export, commit, selection, a registered v6 comparison, collection with real private handovers, evaluation."
+      },
+      "liveQualified": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No proposal has been written by a live agent."
+      },
+      "comparativelyBeneficial": {
+        "status": "not-established",
+        "evidence": [],
+        "note": "No proposer-written playbook has been compared live; nothing is claimed to improve."
       }
     }
   ]

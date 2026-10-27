@@ -61,11 +61,17 @@ approach for FUTURE unapproved plans only; they do not start or approve a job.
 Fixtures cannot prove live benefit. Guide: docs/native/EXPERIMENTS.md
 Gate and workflow proposals, judged by a frozen oracle: wring experiment gate --help
 The same plan k times, and where the attempts disagreed: wring experiment replicate --help
+Playbook trees proposed from that evidence: wring experiment evidence --help
 `;
 const confirmed = (a: Args) => { if (!flag(a, "yes")) throw new Error("This separate operator action needs --yes after reviewing its exact finite allowance or adoption evidence. No action was taken."); };
 export async function experimentCommand(a: Args, repo: string): Promise<Answer> {
     if (["gate", "workflow"].includes(a.words[0] ?? "")) { const { gateExperimentCommand } = await import("./gate-experiment-cli"); return gateExperimentCommand(a, repo); }
     if (a.words[0] === "replicate") { const { replicateCommand } = await import("./replicate-cli"); return replicateCommand(a, repo); }
+    if (["evidence", "proposal-result", "export-proposal", "select-tree"].includes(a.words[0] ?? "")) {
+        const { proposalCommand, PROPOSAL_HELP } = await import("./proposal-cli");
+        if (flag(a, "help")) return { value: { help: PROPOSAL_HELP }, text: PROPOSAL_HELP };
+        positionals(a, 1); return proposalCommand(a, repo, a.words[0]!);
+    }
     if (flag(a, "help")) return { value: { help: EXPERIMENT_HELP }, text: EXPERIMENT_HELP };
     positionals(a, 1); const operation = a.words[0];
     if (a.flags.has("job")) {
@@ -143,14 +149,18 @@ export async function experimentCommand(a: Args, repo: string): Promise<Answer> 
     }
     if (operation === "prepare-proposal") {
         allowed(a, ["input", "state", "output"]); await privateExperimentRoot(root());
-        const result = createPlaybookProposalRequest(await readExperimentJson(resolve(repo, required(a, "input"))));
+        const input = await readExperimentJson<Record<string, unknown>>(resolve(repo, required(a, "input")));
+        if (input && typeof input === "object" && "surface" in input) { const { proposalCommand } = await import("./proposal-cli"); return proposalCommand(a, repo, "prepare-proposal"); }
+        const result = createPlaybookProposalRequest(input as Parameters<typeof createPlaybookProposalRequest>[0]);
         await exclusiveJson(root(), required(a, "output"), result);
         return { value: result, text: `Prepared one separate proposal allowance: 1 session, ${result.maxTurns} turns, ${result.wallClockSeconds} seconds.\nOnly writable output: ${result.outputPath}\nNo runtime or provider called. Proposed text cannot adopt itself.` };
     }
     if (operation === "propose") {
         allowed(a, ["state", "request", "yes"]); confirmed(a);
         const { experimentPath } = await import("../../application/src/experiment-store");
-        const result = await proposePlaybookImprovement(root(), await readExperimentJson(await experimentPath(root(), required(a, "request"))));
+        const request = await readExperimentJson<{ schema_version?: string }>(await experimentPath(root(), required(a, "request")));
+        if (request?.schema_version === "wringer.playbook-proposal-request.v2") { const { proposalCommand } = await import("./proposal-cli"); return proposalCommand(a, repo, "propose"); }
+        const result = await proposePlaybookImprovement(root(), request as Parameters<typeof proposePlaybookImprovement>[1]);
         return { value: result, text: `Playbook proposal: ${result.status}.\nOne reservation retained. No experiment, promotion, execution approval or publication followed. Inspect the private proposal-result.json.` };
     }
     throw new Error(EXPERIMENT_HELP);

@@ -123,20 +123,26 @@ export interface CapturedCandidate {
     tree: string;
     changedPaths: string[];
 }
+/** A worker that ran on a playbook overlay: its change is read against the overlay,
+ * may not touch an overlay path, and is then applied to the real base. */
+export interface CandidateOverlay { source: RepositorySource; paths: string[]; }
 /** Apply an agent-captured binary patch to a bare Git index, never generate product code. */
 export async function captureCandidate(result: RoleExecutionResult, base: RepositorySource, options: {
     controllerDir: string;
     effectId: string;
     driver?: RuntimeDriver;
+    overlay?: CandidateOverlay;
 }): Promise<CapturedCandidate> {
     validateRepository(base);
-    if (!result.change || result.provenance.role !== "worker" || result.provenance.repository.url !== base.url || result.provenance.repository.commit !== base.commit || result.change.baseCommit !== base.commit || hash(result.change.patch) !== result.change.sha256)
+    const ran = options.overlay?.source ?? base;
+    if (options.overlay) { validateRepository(ran); if (ran.url !== base.url || !options.overlay.paths.length) throw new RuntimeError("A playbook overlay belongs to the same source and names its paths", "candidate-identity-mismatch"); }
+    if (!result.change || result.provenance.role !== "worker" || result.provenance.repository.url !== base.url || result.provenance.repository.commit !== ran.commit || result.change.baseCommit !== ran.commit || hash(result.change.patch) !== result.change.sha256)
         throw new RuntimeError("Candidate capture requires the isolated worker's source-bound exact patch", "candidate-identity-mismatch");
     if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$/.test(options.effectId))
         throw new RuntimeError("Candidate capture effect id is unsafe");
     const root = resolve(options.controllerDir, "candidates");
     await storeDirectory(root);
-    const directory = join(root, options.effectId), recordPath = join(directory, "capture.json"), identity = hash(JSON.stringify({ url: base.url, commit: base.commit, patch: result.change.sha256 }));
+    const directory = join(root, options.effectId), recordPath = join(directory, "capture.json"), identity = hash(JSON.stringify({ url: base.url, commit: base.commit, patch: result.change.sha256, ...(options.overlay ? { overlay: ran.commit } : {}) }));
     await storeDirectory(directory);
     const previousIdentity = hash(JSON.stringify({ commit: base.commit, patch: result.change.sha256 }));
     const readSaved = async (): Promise<CapturedCandidate> => {
@@ -175,10 +181,24 @@ export async function captureCandidate(result: RoleExecutionResult, base: Reposi
     const attempt = join(directory, `attempt-${randomUUID()}`);
     await storeDirectory(attempt);
     const driver = options.driver ?? processDriver, objectStore = join(attempt, "objects.git"), bundlePath = join(attempt, "source.bundle");
-    await seed(base, objectStore, driver);
-    await git(driver, objectStore, ["read-tree", base.commit]);
-    if (result.change.patch)
+    // The overlay's bundle carries its base too: both commits resolve in one store.
+    await seed(ran, objectStore, driver);
+    if (options.overlay && result.change.patch) {
+        await git(driver, objectStore, ["read-tree", ran.commit]);
         await git(driver, objectStore, ["apply", "--cached", "--binary", "--whitespace=nowarn", "-"], result.change.patch);
+        const onOverlay = (await git(driver, objectStore, ["diff-index", "--cached", "--name-only", "-z", ran.commit, "--"])).split("\0").filter(Boolean);
+        const touched = onOverlay.find(path => options.overlay!.paths.some(active => path === active || path.startsWith(active + "/") || active.startsWith(path + "/")));
+        if (touched) throw new RuntimeError(`The worker changed ${touched}, a path of its playbook overlay. The playbook is the evaluator's, not the candidate's; no candidate was captured`, "playbook-overlay-edited");
+    }
+    if (options.overlay && (await git(driver, objectStore, ["rev-list", "--parents", "-n", "1", ran.commit])).trim() !== `${ran.commit} ${base.commit}`) throw new RuntimeError("The playbook overlay is not one commit on the worker's base", "candidate-identity-mismatch");
+    await git(driver, objectStore, ["read-tree", base.commit]);
+    if (result.change.patch) {
+        if (options.overlay) {
+            const applied = await driver.command([...gitArgs, "--git-dir", objectStore, "apply", "--cached", "--binary", "--whitespace=nowarn", "-"], { env: gitEnvironment, timeoutMs: 60000, input: result.change.patch });
+            if (applied.code !== 0) throw new RuntimeError("The worker's change no longer applies to the base without its playbook overlay. It is stopped, never silently rebased", "playbook-overlay-rebase-failed");
+        }
+        else await git(driver, objectStore, ["apply", "--cached", "--binary", "--whitespace=nowarn", "-"], result.change.patch);
+    }
     const tree = (await git(driver, objectStore, ["write-tree"])).trim();
     const changedPaths = (await git(driver, objectStore, ["diff", "--name-only", "-z", base.commit, tree, "--"])).split("\0").filter(Boolean);
     const commit = changedPaths.length ? (await git(driver, objectStore, ["commit-tree", tree, "-p", base.commit, "-m", `Agent candidate ${result.change.sha256}`])).trim() : base.commit;
@@ -191,3 +211,6 @@ export async function captureCandidate(result: RoleExecutionResult, base: Reposi
     catch (error) { if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error; }
     return await readSaved();
 }
+/** Shared with the overlay helpers in this package: the same hardened Git
+ * transport, seeding and bundling, never a second implementation. */
+export const SOURCE_TRANSPORT = { git, seed, bundle, storeDirectory } as const;

@@ -4,6 +4,50 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.37 — propose from evidence: playbook trees and a cited proposer
+
+The second release of the improvement build. A playbook becomes a small tree the
+worker actually finds in its clone, and a proposer writes one from what earlier
+attempts did, citing the moment behind every change. Nothing adopts on its word.
+
+- **Playbook trees** (`wringer.playbook.v2`, `wringer.execution-plan.v6`,
+  `wringer.playbook-snapshot.v3`): a version 6 plan selects
+  `wringer/playbooks/<id>/manifest.json` and every file it lists, each pinned by
+  digest and protected, for one adapter surface (`claude-code`, `codex` or
+  `generic`). Validation refuses a second or oversized always-on file, an
+  untriggered skill, front matter beyond name and description (no hooks, tools or
+  permissions), a missing or unparsable script, Python without a declared tool, a
+  credential, and a tree that is not exactly its manifest. A version 6 plan may name
+  a contained or trusted-local runtime; it declares no design, and assistant
+  workspaces stay on versions 1–5 in this release.
+- **Materialisation** (`wringer.playbook-materialisation.v1`): before each worker
+  session the controller makes one deterministic overlay commit (the worker's base
+  plus the tree at its active paths: `CLAUDE.md`, `.claude/skills/`, `AGENTS.md`,
+  `.agents/skills/`, `scripts/wringer/`). Only the worker clones it. A tracked file
+  at an active path is refused unless `playbook.replace` names it. The worker's
+  change is read against the overlay; an edit to an overlay path stops the worker,
+  and the change is applied to the base itself, or stopped, never silently rebased.
+  Every reader re-checks each overlay in Git. The tournament now uses the same
+  overlay helper from the runtime package.
+- **Proposer evidence** (`wringer.proposer-evidence.v1`): `wring experiment
+  evidence` builds `wringer/evidence/` from a replicate set's validated journals:
+  the task, numbered trajectories, what each attempt produced, where they
+  disagreed, today's playbook. Every file is scanned by name and content for
+  held-out identities, oracle digests and denied paths; a match refuses and names
+  where it was read from.
+- **Proposer v2** (`wringer.playbook-proposal-request.v2` /
+  `-result.v2`): one granted worker-kind session (contained or trusted-local) reads
+  the evidence in its clone and writes only `wringer/proposals/<id>/`: a validated
+  tree whose `NOTES.md` cites a real trajectory line for every changed file, or
+  `KEEP_BASE`, recorded as `no-change-proposed`. Then `export-proposal`,
+  `select-tree`, and a registered comparison of version 6 arms recorded by
+  `wringer.experiment-plan.v2` / `experiment-registration.v2`.
+- The word "harness" no longer describes Wringer itself: the controller is the
+  controller.
+- 33 isolated reversions: 32 red on the first run; the 33rd stayed green because its
+  test accepted any refusal, and is red now that the test names that guard's own
+  refusal. A compiled walkthrough of the whole chain runs in validation.
+
 ## 1.0.0-alpha.36 — see the loop: trajectories and replicate sets
 
 The first release of the improvement build: before anything proposes a better way

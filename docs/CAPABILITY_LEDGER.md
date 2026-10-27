@@ -2,17 +2,17 @@
 
 Generated from [capability-ledger.json](capability-ledger.json) by
 `scripts/capability-ledger.ts`; edit the JSON, not this page. Updated
-2026-10-20.
+2026-10-27.
 
 Each capability is judged at four separate levels. A level is raised only by
 evidence of its own kind.
 
 | Level | Meaning | Capabilities at "Yes" |
 | --- | --- | --- |
-| Implemented | The capability exists in the released source and its public command or contract. | 14 of 14 |
-| Fixture-tested | Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved. | 13 of 14 |
-| Live-qualified | A recorded run with a live agent or real counterpart completed it under its declared contract. | 0 of 14 |
-| Comparatively beneficial | A registered comparison with fair baselines and complete denominators found it helps on a named workload. | 0 of 14 |
+| Implemented | The capability exists in the released source and its public command or contract. | 16 of 16 |
+| Fixture-tested | Deterministic tests, isolated reversions and a compiled walkthrough exercise it; no live model, real peer or independent person is involved. | 15 of 16 |
+| Live-qualified | A recorded run with a live agent or real counterpart completed it under its declared contract. | 0 of 16 |
+| Comparatively beneficial | A registered comparison with fair baselines and complete denominators found it helps on a named workload. | 0 of 16 |
 
 | Capability | Implemented | Fixture-tested | Live-qualified | Comparatively beneficial |
 | --- | --- | --- | --- | --- |
@@ -30,6 +30,8 @@ evidence of its own kind.
 | Loop trajectories: what each role session did, as numbered lines | Yes ([trajectory.ts](../packages/workflow/src/trajectory.ts), [loop-trajectory-v1.schema.json](../schema/loop-trajectory-v1.schema.json), [loop-trajectory-page-v1.schema.json](../schema/loop-trajectory-page-v1.schema.json), [LOOP_INSPECTION.md](native/LOOP_INSPECTION.md)) | Yes ([trajectory.test.ts](../packages/workflow/test/trajectory.test.ts), [loop-trajectory-page.test.ts](../packages/application/test/loop-trajectory-page.test.ts), [trusted-local-journey.test.ts](../packages/application/test/trusted-local-journey.test.ts), [improvement-phase1-reversions.ts](../scripts/improvement-phase1-reversions.ts)). Field sources measured on one live session per pinned adapter (docs/improvement/PHASE_A_MEASUREMENTS.md); rendering is tested on fixtures shaped from those measurements. | Not established. No live journey has been read through this view yet. | Not applicable |
 | Replicate sets: one approved plan k times, and where the attempts disagreed | Yes ([replicates.ts](../packages/application/src/replicates.ts), [replicate-set-v1.schema.json](../schema/replicate-set-v1.schema.json), [divergence-report-v1.schema.json](../schema/divergence-report-v1.schema.json), [REPLICATES.md](native/REPLICATES.md)) | Yes ([replicates.test.ts](../packages/application/test/replicates.test.ts), [replicate-cli.test.ts](../packages/cli/test/replicate-cli.test.ts), [improvement-phase1-reversions.ts](../scripts/improvement-phase1-reversions.ts)). Real journals and validation with scripted roles and checks; fixture-labelled throughout. | Not established. No live replicate set has run; no claim about any agent's variance. | Not applicable |
 | Contained execution (Apple Container, gVisor on Kubernetes) | Yes ([ARCHITECTURE.md](native/ARCHITECTURE.md), [INTERFACES.md](native/INTERFACES.md)) | Partly. Restoration walkthroughs inject a fixture verifier; containment tests are a separate matrix. | Not established. Live isolation claims need platform-specific measurements. | Not applicable |
+| Playbook trees: a worker's always-on file, skills and scripts, materialised for the worker alone | Yes ([playbook-tree.ts](../packages/plan/src/playbook-tree.ts), [overlay.ts](../packages/runtime/src/overlay.ts), [playbook-v2.schema.json](../schema/playbook-v2.schema.json), [playbook-snapshot-v3.schema.json](../schema/playbook-snapshot-v3.schema.json), [playbook-materialisation-v1.schema.json](../schema/playbook-materialisation-v1.schema.json), [execution-plan-v6.schema.json](../schema/execution-plan-v6.schema.json), [PROPOSALS.md](native/PROPOSALS.md)) | Yes ([playbook-tree.test.ts](../packages/plan/test/playbook-tree.test.ts), [overlay.test.ts](../packages/runtime/test/overlay.test.ts), [playbook-materialisation.test.ts](../packages/workflow/test/playbook-materialisation.test.ts), [improvement-phase2-reversions.ts](../scripts/improvement-phase2-reversions.ts)). Real Git sources, overlays, captures and validation with scripted roles and checks; the judge's clone is checked to hold no overlay file. | Not established. No live agent has run on a materialised playbook tree. | Not established. No registered comparison of a tree against no playbook has run live. |
+| Trajectory-grounded playbook proposals: evidence in the proposer's clone, every change cited | Yes ([proposer-evidence.ts](../packages/application/src/proposer-evidence.ts), [proposer.ts](../packages/application/src/proposer.ts), [proposer-evidence-v1.schema.json](../schema/proposer-evidence-v1.schema.json), [playbook-proposal-request-v2.schema.json](../schema/playbook-proposal-request-v2.schema.json), [playbook-proposal-result-v2.schema.json](../schema/playbook-proposal-result-v2.schema.json), [experiment-plan-v2.schema.json](../schema/experiment-plan-v2.schema.json), [PROPOSALS.md](native/PROPOSALS.md)) | Yes ([proposer.test.ts](../packages/application/test/proposer.test.ts), [proposal-cli.test.ts](../packages/cli/test/proposal-cli.test.ts), [improvement-distribution.ts](../scripts/improvement-distribution.ts), [improvement-phase2-reversions.ts](../scripts/improvement-phase2-reversions.ts)). The whole chain on fixtures: replicate set, evidence, a scripted proposer, export, commit, selection, a registered v6 comparison, collection with real private handovers, evaluation. | Not established. No proposal has been written by a live agent. | Not established. No proposer-written playbook has been compared live; nothing is claimed to improve. |
 
 The checker refuses a live claim without a record under
 `docs/qualification/live/` and a benefit claim without a registered comparison

@@ -9,7 +9,7 @@ import { lstat } from "node:fs/promises";
 import { graphGate, hashValue, PROSECUTOR_ARTIFACT, type ContainedGraphNode, type GraphGate } from "@wringer/plan";
 import type { GraphBranchInput, GraphCandidate, GraphEffectRequest } from "@wringer/scheduler";
 import { Redactor } from "@wringer/engine";
-import { captureCandidate, executeAgentRole, processDriver, runContainedCommands, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "@wringer/runtime";
+import { captureCandidate, executeAgentRole, overlayCommit as pinnedOverlay, processDriver, runContainedCommands, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "@wringer/runtime";
 import { immutableControllerFile, readControllerFile } from "./controller";
 import { unavailableExit } from "./services";
 
@@ -42,7 +42,6 @@ export interface TournamentServices {
 }
 
 const GIT_ENV = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0" };
-const FIXED_ENV = { ...GIT_ENV, GIT_AUTHOR_NAME: "Wringer tournament", GIT_AUTHOR_EMAIL: "wringer@localhost", GIT_COMMITTER_NAME: "Wringer tournament", GIT_COMMITTER_EMAIL: "wringer@localhost", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
 /** Outcomes that mean a branch's candidate passed its own checks and holds. */
 const ELIGIBLE = ["ready", "passed", "continued"];
 const CHALLENGE_PREFIX = "wringer/challenges/";
@@ -89,19 +88,8 @@ function challenges(value: unknown, node: Tournament, criteria: string[]): Tourn
     for (const file of rows.flatMap(row => row.files)) { if (pinned.has(file.path) && pinned.get(file.path) !== file.content) fail(`Two challenges pin ${file.path} differently`); pinned.set(file.path, file.content); }
     return rows;
 }
-/** The fork's source plus pinned files, as one evaluator-owned commit. */
-async function overlayCommit(store: string, base: string, files: { path: string; content: string }[], ref: string, message: string) {
-    const env = { ...FIXED_ENV, GIT_INDEX_FILE: join(store, `index-${ref}`) };
-    await git(["--git-dir", store, "read-tree", base], "Reading the fork's source", { env });
-    for (const file of files) {
-        const blob = (await git(["--git-dir", store, "hash-object", "-w", "--stdin"], "Storing a pinned file", { env, input: file.content })).out;
-        await git(["--git-dir", store, "update-index", "--add", "--cacheinfo", `100644,${blob},${file.path}`], "Pinning a file", { env });
-    }
-    const tree = (await git(["--git-dir", store, "write-tree"], "Writing a pinned tree", { env })).out;
-    const commit = (await git(["--git-dir", store, "commit-tree", tree, "-p", base, "-m", message], "Recording a pinned commit", { env })).out;
-    await git(["--git-dir", store, "update-ref", `refs/heads/${ref}`, commit], "Recording a pinned reference");
-    return commit;
-}
+/** The fork's source plus pinned files, as one evaluator-owned commit (fixed identity and date). */
+const overlayCommit = (store: string, base: string, files: { path: string; content: string }[], ref: string, message: string) => pinnedOverlay(store, base, files, ref, message, { identity: "Wringer tournament" });
 
 /** Run every step once. The kernel dispatches a tournament once; a crash inside it
  * leaves an uncertain node that is reconciled by observation, never rerun. */

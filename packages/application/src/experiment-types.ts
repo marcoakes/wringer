@@ -41,7 +41,8 @@ export interface ExperimentPlanInput {
     stoppingRule: "fixed-sample-no-extension";
 }
 export interface ExperimentPlan extends ExperimentPlanInput {
-    schema_version: "wringer.experiment-plan.v1";
+    /** v2 is the sibling whose task arms are playbook-tree (v6) plans; v1 is unchanged. */
+    schema_version: "wringer.experiment-plan.v1" | "wringer.experiment-plan.v2";
     sha256: string;
 }
 export interface ExperimentGrant {

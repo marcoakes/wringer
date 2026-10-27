@@ -1,45 +1,58 @@
-Wringer 1.0.0-alpha.36 lets you read what the agents actually did, and run the
-same approved plan several times to see where the attempts disagree.
+Wringer 1.0.0-alpha.37 turns a playbook into a small tree the worker actually finds in
+its clone, and lets an agent propose one from what earlier attempts did, citing the
+moment behind every change.
 
 ```sh
-wring job loop --job JOB_ID --trajectory
-wring experiment replicate register --job JOB_ID --task-family FAMILY --replicate-set ID --k 3
+wring experiment evidence --state PROPOSAL_DIR --replicates REPLICATE_DIR
+wring experiment propose --state PROPOSAL_DIR --request proposal-request.json --yes
+wring experiment select-tree --source CHECKOUT --manifest wringer/playbooks/ID/manifest.json
 ```
 
-**Loop trajectories.** Every role session is shown as numbered lines:
-`[ACTION]` for each tool call and its command, `[OBSERVATION]` for its output and
-exit code, `[ASSISTANT]` for the agent's own messages, plus the controller's
-prompt, permission decisions and usage. It is a projection of the ACP updates
-Wringer already retains, so nothing new is recorded. Where to read output from
-was measured first, with one live session on each pinned adapter. Claude's
-adapter sends output as content and raw output. Codex's sends it as raw output
-and terminal metadata, never as content. A view that read only `content` would
-have shown Codex doing nothing. Text is redacted again when rendered, items are
-cut at 4 KiB and sessions at 512 KiB with every cut counted, and a call with no
-output says so rather than inventing one. Connected assistants read the same
-lines in 64 KiB pages through `wringer.inspect_loop`.
+**Playbook trees.** A version 6 plan selects `wringer/playbooks/<id>/`: one always-on
+file (`CLAUDE.md`, `AGENTS.md` or `PLAYBOOK.md`, at most 8 KiB), skills, scripts and
+subagents for one adapter surface, every file pinned by digest and protected. It is
+refused before any run if:
 
-**Replicate sets.** `wring experiment replicate` runs one approved plan 2 to 5
-times under its own finite grant. All attempts are reserved before anything runs,
-and every outcome is kept, failures and unstarted attempts included. An
-interrupted attempt is reconciled from what it retained, never replayed, and the
-set stops there. A budget identity is checked after collection; a violation is
-refused, not repaired. The divergence report compares checks, judgements, loop
-decisions, candidates and the attempt at which each first failed. It says where
-the attempts disagreed, never why, and no model reads it. Replicates are research
-evidence: they never enter ordinary failure patterns and are never delivered.
+- a skill is never named in the always-on file;
+- front matter carries more than a name and description (no hooks, tools or permissions);
+- a referenced script is missing or does not parse;
+- the tree holds anything its manifest does not list.
 
-Tested on deterministic fixtures with real journals and validation, and 18
-isolated reversions, each red. Not measured: a live replicate set, or anyone
-reading a live journey through the trajectory view. Nothing here claims an
-improvement.
+**Materialisation.** Before each worker session the controller makes one
+deterministic overlay commit: the worker's base plus the tree at its active paths.
+Only the worker clones it; the judge and the checks never see it.
+
+- A tracked file at an active path is refused unless the plan names it in `replace`.
+- An edit to the playbook stops the worker.
+- The worker's change is applied to the base itself, or stopped, never silently
+  rebased.
+- Every reader re-checks each overlay in Git.
+
+**Proposals from evidence.** `wring experiment evidence` builds `wringer/evidence/` from
+a replicate set's validated journals: the task, numbered trajectories, what each
+attempt produced, where the attempts disagreed, and today's playbook. Every file is
+scanned by name and content for held-out identities, oracle digests and denied paths.
+
+One separately granted session then reads that evidence in its clone and writes only
+`wringer/proposals/<id>/`. The result is either a validated tree whose `NOTES.md`
+cites a real trajectory line for each change, or `KEEP_BASE`, recorded as no change.
+The proposer may run contained or trusted-local. Export, commit and `select-tree` lead
+to a registered comparison of version 6 arms that differ only in the playbook.
+
+Tested with real Git sources, overlays, captures and private handovers, and with
+scripted agents and checks. 33 guards were each removed alone. 32 tests went red on
+the first run. The 33rd stayed green because its test accepted any refusal; the test
+now names that guard's own refusal, and it goes red. A compiled walkthrough of the
+whole chain runs in validation.
+
+Not measured: a live proposer, a live agent on a tree, or any benefit. Nothing here
+claims an improvement. Assistant workspaces still use version 1–5 profiles.
 
 Native macOS arm64 and Linux x64 archives retain checksums, inventories, signed
 provenance and exact-artifact claim reports. GitHub publication does not itself
 publish an npm package, Homebrew tap or MCP registry listing. The documented
 cooperative-local operator boundary remains.
 
-[Loop inspection](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.36/docs/native/LOOP_INSPECTION.md)
-· [Replicate sets](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.36/docs/native/REPLICATES.md)
-· [Measurements](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.36/docs/improvement/PHASE_A_MEASUREMENTS.md)
-· [Previous release: a Codex connection Codex will actually use](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.35)
+[Proposals](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.37/docs/native/PROPOSALS.md)
+· [Replicate sets](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.37/docs/native/REPLICATES.md)
+· [Previous release: see the loop](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.36)

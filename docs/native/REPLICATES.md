@@ -6,9 +6,10 @@ disagreed: which checks passed in one attempt and failed in another, where each
 attempt first went wrong, whether the loop decisions and the candidates matched.
 
 It says **where** the attempts disagreed, never **why**. No model reads the
-report, and nothing in it is a claim that one approach is better. A later
-proposal for a better way of working can cite it; the proposal still has to win
-a registered comparison before anything changes.
+report, and nothing in it is a claim that one approach is better. A
+[proposal](PROPOSALS.md) for a better way of working reads it with the attempts'
+trajectories and cites them; the proposal still has to win a registered comparison
+before anything changes.
 
 ## Run one
 

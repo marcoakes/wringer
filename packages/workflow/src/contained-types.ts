@@ -38,8 +38,10 @@ export interface CandidateVerification {
 export interface ContainedJourneyServices {
     /** No agent program runs here; prepare an existing commit/bundle transport. */
     prepareSource: (source: RepositoryRef) => Promise<RepositorySource>;
-    /** Idempotent for effectId. Apply runtime-captured patch, never worker narrative. */
-    captureCandidate: (result: RoleExecutionResult, base: RepositorySource, effectId: string) => Promise<CandidateSource>;
+    /** Idempotent for effectId. Apply runtime-captured patch, never worker narrative.
+     * With an overlay, the worker ran on a playbook overlay of `base`: its change may not
+     * touch an overlay path and is applied to `base` itself. */
+    captureCandidate: (result: RoleExecutionResult, base: RepositorySource, effectId: string, options?: { overlay?: { source: RepositorySource; paths: string[] } }) => Promise<CandidateSource>;
     /** Pinned original acceptance inputs in a fresh independent runtime. */
     verifyCandidate: (request: ContainedVerificationRequest) => Promise<CandidateVerification>;
     /** Read retained observations only. Must never allocate or execute a runtime. */

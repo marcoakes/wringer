@@ -118,7 +118,7 @@ export function containedServices(controllerDir: string, original: PreparedRepos
                 throw new Error("Prepared source does not match the frozen plan");
             return original;
         },
-        captureCandidate: (result, base, effectId) => captureCandidate(result, base, { controllerDir, effectId }),
+        captureCandidate: (result, base, effectId, capture) => captureCandidate(result, base, { controllerDir, effectId, ...(capture?.overlay ? { overlay: capture.overlay } : {}) }),
         verifyCandidate: async request => (await verifyCandidate(request))!,
         reconcileVerification: request => verifyCandidate(request, true),
     };

@@ -46,6 +46,8 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["capability-ledger", [process.execPath, "scripts/capability-ledger.ts", "--check"], workspace],
         // No-model compiled gate proposal: oracle, register, evaluate, change, Send, future-only adoption.
         ["compiled-gate-experiment-contract", [process.execPath, "scripts/gate-experiment-distribution.ts"], workspace],
+        // No-model compiled improvement route: replicates, evidence, one proposal, export, selection, a v6 comparison.
+        ["compiled-improvement-distribution", [process.execPath, "scripts/improvement-distribution.ts"], workspace],
         ["compiled-loop-inspection", [process.execPath, "scripts/loop-inspection-rehearsal.ts"], workspace],
         ["compiled-evidence-export", [process.execPath, "scripts/evidence-export-rehearsal.ts"], workspace],
         ["compiled-job-improvements", [process.execPath, "scripts/job-improvements-rehearsal.ts"], workspace],

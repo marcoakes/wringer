@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/playbook-proposal-result-v2.schema.json",
+  "title": "playbook-proposal-result-v2",
+  "description": "The outcome of one proposer session: proposed (a playbook tree validated as playbook.v2, every changed file citing a trajectory line of the evidence), no-change-proposed (KEEP_BASE, a real answer that still spends its one reservation), or stopped with a reason. Nothing is adopted, registered or approved by this record. Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "requestSha256",
+    "reservationSha256",
+    "status",
+    "evidenceKind",
+    "startedAt",
+    "finishedAt",
+    "evidenceSha256",
+    "outputDirectory",
+    "sourceCommit",
+    "sourceTree",
+    "manifest",
+    "files",
+    "changed",
+    "notes",
+    "prediction",
+    "runtimeId",
+    "reason",
+    "sessionsReserved",
+    "cost",
+    "adoption",
+    "executionApproval",
+    "limits",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.playbook-proposal-result.v2"
+    },
+    "requestSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reservationSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "no-change-proposed",
+        "stopped"
+      ]
+    },
+    "evidenceKind": {
+      "enum": [
+        "live",
+        "deterministic-fixture"
+      ]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidenceSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "outputDirectory": {
+      "type": "string",
+      "pattern": "^wringer/proposals/[a-z][a-z0-9-]{0,79}$"
+    },
+    "sourceCommit": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sourceTree": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "manifest": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "id",
+            "revision",
+            "title",
+            "role",
+            "taskFamily",
+            "surface",
+            "files",
+            "limits",
+            "evaluationRefs"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "wringer.playbook.v2"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "role": {
+              "const": "worker"
+            },
+            "taskFamily": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "surface": {
+              "enum": [
+                "claude-code",
+                "codex",
+                "generic"
+              ]
+            },
+            "files": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "sha256",
+                  "kind"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "description": "Relative to the manifest directory."
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "kind": {
+                    "enum": [
+                      "always-on",
+                      "skill",
+                      "script",
+                      "subagent",
+                      "notes"
+                    ]
+                  }
+                }
+              }
+            },
+            "limits": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "uniqueItems": true
+            },
+            "evaluationRefs": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 32,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "files": {
+      "type": "array",
+      "maxItems": 65,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "changed": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      }
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "text",
+            "citations"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 16000
+            },
+            "citations": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "label",
+                  "line"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "label": {
+                    "type": "string",
+                    "pattern": "^(replicate|journey)-[0-9]{2}$"
+                  },
+                  "line": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "metric",
+        "minimumImprovement",
+        "minimumHeldOutPairs",
+        "maximumSignProbability",
+        "visualQualityClaim"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "metric": {
+          "enum": [
+            "worker-attempts",
+            "functional-completion"
+          ]
+        },
+        "minimumImprovement": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "minimumHeldOutPairs": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 128
+        },
+        "maximumSignProbability": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.05
+        },
+        "visualQualityClaim": {
+          "type": "boolean"
+        }
+      }
+    },
+    "runtimeId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sessionsReserved": {
+      "const": 1
+    },
+    "cost": {
+      "type": "null"
+    },
+    "adoption": {
+      "const": "not-granted"
+    },
+    "executionApproval": {
+      "const": "not-granted"
+    },
+    "limits": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

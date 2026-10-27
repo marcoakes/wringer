@@ -55,11 +55,19 @@ export interface LoopPolicy {
     repeatCandidate: "stop";
     repeatedOutcomeWarning: number;
 }
+export type PlaybookSurface = "claude-code" | "codex" | "generic";
 export interface PlaybookSelection {
     path: string;
     /** SHA-256 of the complete exact UTF-8 source blob, not a mutable name. */
     sha256: string;
     taskFamily: string;
+    /** v6 only: a playbook tree. `path` is its manifest; these name the adapter
+     * surface it is materialised for and every file it lists, so the inert
+     * compiler protects each one without reading the repository. */
+    surface?: PlaybookSurface;
+    files?: { path: string; sha256: string }[];
+    /** v6 only: active paths whose tracked repository files the overlay may replace, recorded. */
+    replace?: string[];
     /** Retained future-selection provenance, not execution or research eligibility authority. */
     adoption?: PlaybookAdoptionReceipt;
 }
@@ -81,7 +89,7 @@ export interface PlaybookAdoptionReceipt {
     sha256: string;
 }
 export interface PlanDeclaration {
-    version: 1 | 2 | 3 | 4 | 5;
+    version: 1 | 2 | 3 | 4 | 5 | 6;
     name: string;
     intent: string;
     repository: RepositoryRef;
@@ -120,7 +128,7 @@ export interface ExecutionPlan extends Omit<PlanDeclaration, "version"> {
     environment: PlanDeclaration["environment"] & {
         writable_directories: string[];
     };
-    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2" | "wringer.execution-plan.v3" | "wringer.execution-plan.v4" | "wringer.execution-plan.v5";
+    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2" | "wringer.execution-plan.v3" | "wringer.execution-plan.v4" | "wringer.execution-plan.v5" | "wringer.execution-plan.v6";
     intent_sha256: string;
     acceptance_sha256: string;
     plan_sha256: string;

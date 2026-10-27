@@ -3,7 +3,7 @@ import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { compileExecutionPlan, compileDeclaration, createExecutionAuthority, hashBytes, hashValue, type ExecutionPlan, type EnvironmentMap } from "@wringer/plan";
+import { compileExecutionPlan, compileDeclaration, createExecutionAuthority, hashBytes, hashValue, type ExecutionPlan, type EnvironmentMap, type PlaybookSnapshot } from "@wringer/plan";
 import type { RoleExecutionRequest, RoleExecutionResult, PreparedRepositorySource } from "@wringer/runtime";
 import { containedServices } from "../../application/src/services";
 import { runContainedJourney, readValidatedContainedState } from "../src/contained";
@@ -222,7 +222,7 @@ test("combined design and playbook context replays after worker completion befor
     expect(f.requests.map(r => r.role)).toEqual(["worker"]);
     const before = await readValidatedContainedState(f.options.controllerDir);
     expect(before.state.effects).toHaveLength(1); expect(before.state.effects[0]!.status).toBe("completed");
-    expect(before.playbook?.manifest.applicability.design).toBe(true);
+    expect((before.playbook as PlaybookSnapshot | null | undefined)?.manifest.applicability.design).toBe(true);
     const worker = f.requests[0]!;
     expect(worker.prompt.indexOf("WORKER_ONLY_ADVISORY_GUIDANCE")).toBeLessThan(worker.prompt.lastIndexOf("\nApproved design:"));
     expect(worker.design?.snapshotSha256).toBe(f.options.plan.design!.snapshotSha256);

@@ -277,3 +277,17 @@ describe("narrow failure patterns and operator entry", () => {
         await symlink(child, join(parent, "experiments", "linked")); await expect(listExperiments(parent)).rejects.toThrow("symbolic");
     });
 });
+
+test("tree-arm comparisons are recorded by the v2 siblings; one comparison never mixes plan families", () => {
+    const tree = (i: number) => {
+        const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...base } = template;
+        const selection = { path: "wringer/playbooks/candidate/manifest.json", sha256: candidateDigest, taskFamily: "reports", surface: "claude-code" as const, files: [{ path: "wringer/playbooks/candidate/CLAUDE.md", sha256: "b".repeat(64) }] };
+        const declaration = { version: 6 as const, ...base, repository: { ...base.repository, commit: String(i).padStart(40, "0") }, acceptance: { ...base.acceptance, protected_paths: [...base.acceptance.protected_paths, selection.path, ...selection.files.map(f => f.path)] } };
+        return { baseline: compileDeclaration(declaration), candidate: compileDeclaration({ ...declaration, playbook: selection }) };
+    };
+    const trees = input(); trees.tasks = trees.tasks.map((task, i) => ({ ...task, ...tree(i) }));
+    expect(createExperimentPlan(trees).schema_version).toBe("wringer.experiment-plan.v2");
+    expect(createExperimentPlan(input()).schema_version).toBe("wringer.experiment-plan.v1");
+    const mixed = input(); mixed.tasks = mixed.tasks.map((task, i) => i === 0 ? { ...task, ...tree(i) } : task);
+    expect(() => createExperimentPlan(mixed)).toThrow("all playbook-tree (v6) plans or none are");
+});

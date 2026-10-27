@@ -55,6 +55,7 @@
   "execution-plan-v3.schema.json": "d1663686073227c14712942151b2f9be7b92c7bd8df05b7db104e64fa2c8dc76",
   "execution-plan-v4.schema.json": "99e2c64041c0e18c8f01b60093eb29c2a5ee30eaa1e095e1dc0347238b0dec54",
   "execution-plan-v5.schema.json": "43ab2c87126e482eb97157d4c2270ecd7440a6830ea8ee8234cf070c7002f928",
+  "execution-plan-v6.schema.json": "6564e5b64d31dad2f578791cf555f04017b6f7fc8b6645a17d808ace1a3e8d5d",
   "execution-v2.schema.json": "7752a4730cc0dfbfe9f63e8b3b1aa9958e20ca2fd8f5aa629e7b6fec674455be",
   "execution.schema.json": "692e30cdb252873fe1ec9ee9a62c0118d1567fa995d5eb2be08c3f972331cc1e",
   "experiment-collection-v1.schema.json": "c7ee66e04cfbbbc7c8cbeab7766103610a26426afa35f341d8c550310670751f",
@@ -64,7 +65,9 @@
   "experiment-handover-reservation-v1.schema.json": "b718816ae487e486a83c58e8dcc95a2fd836f66dc64311d378bf9709aea340e8",
   "experiment-handover-v1.schema.json": "896a7cdc1b4b8e1e2a78d293a92bd1096a58019e060519d675cfe5f2f86b56cf",
   "experiment-plan-v1.schema.json": "b2920bae4a65a71fdf5a7f9fc8cbfc2105e6e98f9d632a6c8466f17d232fc2f3",
+  "experiment-plan-v2.schema.json": "ea6ce7430331c714c4d07e929751fb6d743ed4d294ba83f270ba51c413b6e19a",
   "experiment-registration-v1.schema.json": "4b224bb69d073374f9c5e7ce53a25e6fd1d9ffee2f8f10fa1633387a53de7074",
+  "experiment-registration-v2.schema.json": "93dee1d2f54154ba3e47dee275268ec874630892fc3e05e77417d8c5b9ccd6f2",
   "experiment-research-completion-v1.schema.json": "b4f7564280501f68d2c3d570f55b944db5815a8a9d6f044e883775f90f483a78",
   "experiment-research-display-v1.schema.json": "83e00a7a074edc98438bf699e406db5b1cdd7a1aa2479c2c69869215bac2ebe7",
   "experiment-research-display-v2.schema.json": "31957a1618c5d3e79ed45196c3eb8fb23dd0e6438695aa7678f5e1280dec7a25",
@@ -109,11 +112,16 @@
   "planning-request-v4.schema.json": "5cc7fb556a952dedb3ca4a5063e99c24872174f545982057034cfe96544e9e44",
   "playbook-adoption-v1.schema.json": "68977f6f5fdb97558c1b0f31b7fd160ef55086765dc59d970590b05d8b8c4fa1",
   "playbook-proposal-request-v1.schema.json": "6aa5d0615d0ba05b73dc7f830d2bc91681d612f8610a4b79dc7c4a52e21da6c6",
+  "playbook-proposal-request-v2.schema.json": "243aa87ff4883a762cd19a8b824f2720dccd38e84ff174906d70ea6401937963",
   "playbook-proposal-reservation-v1.schema.json": "e8706cb4a8b68cc5625c420c4ced786e3640dc0e70b871d85f920939623e7a10",
   "playbook-proposal-result-v1.schema.json": "afdb7aebc69df8638c56d36566192df310c5f3d1b47ff9c5efefb0d4e7272a02",
+  "playbook-proposal-result-v2.schema.json": "e88089116fc980d75b8b90dd6ce4305fe1550d18e467244368a739652aa7ca4c",
   "playbook-snapshot-v1.schema.json": "6883eba3990e3d50e851f47804f0b1f156820d1eb8db7ddb3dee85c66316a98a",
   "playbook-snapshot-v2.schema.json": "11dfd85be6288740e70c035857d4150012ad48bd928719e5c178e212420f6285",
+  "playbook-snapshot-v3.schema.json": "9c244250493b59fd0c9cab88ec86ed329eeb4258d764904242fcb55204b42ad1",
+  "playbook-materialisation-v1.schema.json": "5f0695d278be0c2645c132cb8ef7c69e48029c7cb49adcc96b6f11ae64d086b1",
   "playbook-v1.schema.json": "5d3e9f955374dbf91a75a8fdd1c9eddc0bf6fdd6df24cbf6711e73fcb19bd4d6",
+  "playbook-v2.schema.json": "40779a802af4bcf425de138086ff98e2f2f3f2f1d63c4fdab37d2fb45bb1789a",
   "readiness.schema.json": "be2aa588c1f7259edb5011ecf1dc696715de93114fc56f1e5830872c904dbcf3",
   "refusal.schema.json": "80f0a038170b3d0d6da481663e58fe2d0c40c0ec1d7dec7bbbf48d2b88661096",
   "repair-packet-v1.schema.json": "f9fc51d561b76bd5553d14134ec900f2592094081fdaa38228d28fed8ee997d4",
@@ -174,6 +182,7 @@
   "replicate-collection-v1.schema.json": "94c0b7e93cb6194615c61a6beaf98c8d4576a6de0acb44a577d325c7cfcc1427",
   "replicate-v1.schema.json": "703dc9f0f50f5636753a53ac2791ceded8a7cd26e355beb3d1deef5e84906264",
   "replicate-identity-v1.schema.json": "bc7bee215c3f4fea6e33f26ab6dd6703cc5b5fa85c558a6461ff48d1e5b58889",
-  "divergence-report-v1.schema.json": "2fd419d45b8abba42f2ac93d0824ac806f71e1dd4797338f0f431c4e37b44bb7"
+  "divergence-report-v1.schema.json": "2fd419d45b8abba42f2ac93d0824ac806f71e1dd4797338f0f431c4e37b44bb7",
+  "proposer-evidence-v1.schema.json": "3424b434e6a2041b4383cb6cd580f494f4f21ffe47acdd25cb5dcdad5b8f378a"
  }
 }

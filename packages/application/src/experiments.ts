@@ -55,19 +55,22 @@ export function createExperimentPlan(input: ExperimentPlanInput): ExperimentPlan
         if (names.some(name => /(?:GITHUB|GH_TOKEN|GITLAB|FORGE|PUBLICATION|DEPLOY|WRINGER_.*(?:TOKEN|KEY))/i.test(name))) throw new Error("Experiment role environments cannot contain forge, controller or publication credential names");
         if (input.stratum.platform === "darwin" ? baseline.runtime.kind !== "apple-container" : baseline.runtime.kind !== "gvisor-kubernetes") throw new Error("Runtime does not match the fixed platform stratum");
     }
+    // Tree arms (plan v6) are recorded by the v2 sibling; every task uses one family.
+    const trees = input.tasks.flatMap(task => [task.baseline, task.candidate]).map(plan => plan.schema_version === "wringer.execution-plan.v6");
+    if (trees.some(Boolean) && !trees.every(Boolean)) throw new Error("A comparison's arms are all playbook-tree (v6) plans or none are");
     const identities = input.tasks.map(task => hashValue({ sourceTree: task.sourceTree, intent: task.baseline.intent_sha256, acceptance: task.baseline.acceptance_sha256 }));
     if (new Set(identities).size !== identities.length) throw new Error("Renaming an identical source/intent/acceptance task cannot manufacture independent held-out evidence");
     validateImprovementPrediction(input.prediction);
-    const plan = stamped({ schema_version: "wringer.experiment-plan.v1" as const, ...structuredClone(input) });
+    const plan = stamped({ schema_version: trees.every(Boolean) ? "wringer.experiment-plan.v2" as const : "wringer.experiment-plan.v1" as const, ...structuredClone(input) });
     const schedule = experimentSchedule(plan);
     if (schedule.length > plan.limits.maxTrials || schedule.reduce((sum, slot) => sum + slot.reservedSessions, 0) > plan.limits.maxRoleSessions) throw new Error("The whole planned comparison must fit its finite aggregate trial/session ceiling before any side effect");
     return plan;
 }
 export function validateExperimentPlan(value: ExperimentPlan): ExperimentPlan {
     verifyStamp(value); const { schema_version, sha256, ...input } = value;
-    if (schema_version !== "wringer.experiment-plan.v1") throw new Error("Unsupported experiment plan version");
+    if (schema_version !== "wringer.experiment-plan.v1" && schema_version !== "wringer.experiment-plan.v2") throw new Error("Unsupported experiment plan version");
     const normalized = createExperimentPlan(input);
-    if (normalized.sha256 !== sha256) throw new Error("Experiment plan is not canonical");
+    if (normalized.schema_version !== schema_version || normalized.sha256 !== sha256) throw new Error("Experiment plan is not canonical");
     return normalized;
 }
 export function experimentSchedule(plan: ExperimentPlan): ExperimentTrialSlot[] {
@@ -93,19 +96,23 @@ export function validateExperimentGrant(grant: ExperimentGrant, plan: Experiment
     if (expected.sha256 !== grant.sha256 || !Number.isFinite(at.getTime()) || Date.parse(grant.grantedAt) > at.getTime() || Date.parse(grant.expiresAt) <= at.getTime()) throw new Error("Experiment allowance is altered, future-dated or expired");
     return grant;
 }
-interface Registration { schema_version: "wringer.experiment-registration.v1"; plan: ExperimentPlan; registeredAt: string; sha256: string; }
+interface Registration { schema_version: "wringer.experiment-registration.v1" | "wringer.experiment-registration.v2"; plan: ExperimentPlan; registeredAt: string; sha256: string; }
+/** A registration's version follows its plan's: v2 carries tree-arm plans only. */
+const registrationVersion = (plan: ExperimentPlan) => plan.schema_version === "wringer.experiment-plan.v2" ? "wringer.experiment-registration.v2" as const : "wringer.experiment-registration.v1" as const;
 export async function registerExperiment(root: string, input: ExperimentPlanInput): Promise<Registration> {
     return experimentLock(root, async () => {
         if (await optionalJson(root, "registration.json") || (await records(root, "trials", 128)).length || await optionalJson(root, "collection.json")) throw new Error("Use a fresh private experiment directory: a prediction cannot be registered after its trials");
-        const registration = stamped({ schema_version: "wringer.experiment-registration.v1" as const, plan: createExperimentPlan(input), registeredAt: new Date().toISOString() });
+        const plan = createExperimentPlan(input), registration = stamped({ schema_version: registrationVersion(plan), plan, registeredAt: new Date().toISOString() });
         await exclusiveJson(root, "registration.json", registration); return registration;
     });
 }
 export async function readExperiment(root: string) {
     await privateExperimentRoot(root);
     const registration = verifyStamp((await optionalJson<Registration>(root, "registration.json"))!);
-    if (registration.schema_version !== "wringer.experiment-registration.v1" || !Number.isFinite(Date.parse(registration.registeredAt))) throw new Error("Experiment has no valid preregistration");
-    const plan = validateExperimentPlan(registration.plan), trials = await records<ExperimentTrial>(root, "trials", 128), reviews = await records<ExperimentResearchReview>(root, "reviews", 128), displays = await records<ExperimentResearchDisplay>(root, "displays", 128), handovers = await records<ExperimentHandover>(root, "handovers", 128), completions = await records<ExperimentResearchCompletion>(root, "research-completions", 128);
+    if (!["wringer.experiment-registration.v1", "wringer.experiment-registration.v2"].includes(registration.schema_version) || !Number.isFinite(Date.parse(registration.registeredAt))) throw new Error("Experiment has no valid preregistration");
+    const plan = validateExperimentPlan(registration.plan);
+    if (registration.schema_version !== registrationVersion(plan)) throw new Error("Registration and plan versions disagree; nothing is relabelled");
+    const trials = await records<ExperimentTrial>(root, "trials", 128), reviews = await records<ExperimentResearchReview>(root, "reviews", 128), displays = await records<ExperimentResearchDisplay>(root, "displays", 128), handovers = await records<ExperimentHandover>(root, "handovers", 128), completions = await records<ExperimentResearchCompletion>(root, "research-completions", 128);
     for (const trial of trials) validateTrial(trial, registration);
     if (new Set(trials.map(t => t.slot.id)).size !== trials.length) throw new Error("Duplicate trial cannot enter the denominator twice");
     for (const display of displays) validateResearchDisplay(display, plan, trials);

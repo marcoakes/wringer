@@ -1,4 +1,4 @@
-import { measuredLoopPlan, hashValue, type ExecutionPlan, type PlaybookSnapshot, type PlaybookAdoptionReceipt } from "@wringer/plan";
+import { measuredLoopPlan, hashValue, type ExecutionPlan, type PlaybookSnapshot, type PlaybookTreeSnapshot, type PlaybookAdoptionReceipt } from "@wringer/plan";
 import { analyzeLoop, validateEngineeringJournal, type LoopDecision } from "@wringer/workflow";
 
 export interface PlaybookUse {
@@ -12,7 +12,7 @@ export interface PlaybookUse {
 export interface EngineeringEvidence {
     schema_version: "wringer.engineering-evidence.v1";
     planSha256: string;
-    playbook: PlaybookSnapshot | null;
+    playbook: PlaybookSnapshot | PlaybookTreeSnapshot | null;
     adoption: PlaybookAdoptionReceipt | null;
     uses: PlaybookUse[];
     loopDecisions: LoopDecision[];
@@ -29,7 +29,7 @@ export interface EngineeringSummary {
 }
 
 /** Reconstructed from the same validated journal used for delivery, not a mutable status view. */
-export function engineeringEvidence(plan: ExecutionPlan, environmentSha256: string, events: any[], snapshot: PlaybookSnapshot | null): EngineeringEvidence {
+export function engineeringEvidence(plan: ExecutionPlan, environmentSha256: string, events: any[], snapshot: PlaybookSnapshot | PlaybookTreeSnapshot | null): EngineeringEvidence {
     if (!measuredLoopPlan(plan)) throw new Error("Engineering receipts require execution plan v3");
     validateEngineeringJournal(plan, environmentSha256, events);
     const decisions: LoopDecision[] = [], uses: PlaybookUse[] = [];
@@ -57,6 +57,6 @@ export function engineeringEvidence(plan: ExecutionPlan, environmentSha256: stri
         limits: ["Playbook use is a controller-recorded request, not proof of model understanding or measured improvement. Guidance is not injected into judge instructions, but tracked repository bytes remain readable.", "Repair excerpts are reconstructed from carried redacted outputs. The original observation digest is an opaque controller commitment: host-specific runtime provenance is projected for portability, not reconstructed byte for byte.", "Any carried adoption receipt records a future-selection decision and evidence revision, not a rerun of its private comparative trials or proof of live benefit.", "Command-red means the command failed before implementation. Assertion-red additionally binds executed protected-runner assertions; neither proves requirement completeness.", "Loop decisions are deterministic observations under one approved policy. Repeated outcomes are not a quality score."] };
 }
 export function summarizeEngineering(value: EngineeringEvidence): EngineeringSummary {
-    return { receipt: "engineering.json", sha256: hashValue(value), playbook: value.playbook ? { id: value.playbook.manifest.id, revision: value.playbook.manifest.revision, title: value.playbook.manifest.title, path: value.playbook.source.path, sha256: value.playbook.sha256, taskFamily: value.playbook.manifest.applicability.taskFamily, workerUses: value.uses.length } : null,
+    return { receipt: "engineering.json", sha256: hashValue(value), playbook: value.playbook ? { id: value.playbook.manifest.id, revision: value.playbook.manifest.revision, title: value.playbook.manifest.title, path: value.playbook.source.path, sha256: value.playbook.sha256, taskFamily: "applicability" in value.playbook.manifest ? value.playbook.manifest.applicability.taskFamily : value.playbook.manifest.taskFamily, workerUses: value.uses.length } : null,
         adoption: value.adoption, checks: value.checks, decisions: value.loopDecisions.map(d => ({ sequence: d.sequence, phase: d.phase, action: d.action, reason: d.reason, sha256: d.sha256 })) };
 }
