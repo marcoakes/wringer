@@ -1,0 +1,270 @@
+{
+  "schema_version": "wringer.improvement-local-validation.v1",
+  "release": 2,
+  "version": "1.0.0-alpha.37",
+  "source": "ff63e0d1557eee99110075b5ebe027bbad8f54ce",
+  "sourceState": "a fresh full clone of the exact commit",
+  "kind": "deterministic engineering fixtures; no provider calls or human acceptance",
+  "command": "bun scripts/validate.ts (all groups)",
+  "stages": [
+    {
+      "name": "workspace-links",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 94
+    },
+    {
+      "name": "standalone-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 1250
+    },
+    {
+      "name": "native-confirmation-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 9574
+    },
+    {
+      "name": "native-confirmation-probe",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 592
+    },
+    {
+      "name": "assistant-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 43113
+    },
+    {
+      "name": "native-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 1723329
+    },
+    {
+      "name": "design-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 28002
+    },
+    {
+      "name": "figma-api-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 17975
+    },
+    {
+      "name": "meta-loop-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 59071
+    },
+    {
+      "name": "meta-portable-handover",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 22297
+    },
+    {
+      "name": "portable-python-corpus",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5600
+    },
+    {
+      "name": "standalone-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5123
+    },
+    {
+      "name": "compiled-contained-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 38736
+    },
+    {
+      "name": "compiled-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 42514
+    },
+    {
+      "name": "compiled-parallel-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 24456
+    },
+    {
+      "name": "compiled-tournament-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 35673
+    },
+    {
+      "name": "compiled-delegate-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 17559
+    },
+    {
+      "name": "capability-ledger",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 232
+    },
+    {
+      "name": "compiled-gate-experiment-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 16625
+    },
+    {
+      "name": "compiled-improvement-distribution",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 67653
+    },
+    {
+      "name": "compiled-loop-inspection",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2907
+    },
+    {
+      "name": "compiled-evidence-export",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 23882
+    },
+    {
+      "name": "compiled-job-improvements",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3395
+    },
+    {
+      "name": "local-delivery-fixture",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 4266
+    },
+    {
+      "name": "compiled-version",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 137
+    },
+    {
+      "name": "compiled-cli-reference",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 4336
+    },
+    {
+      "name": "adoption-examples",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5619
+    },
+    {
+      "name": "compiled-board",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 141
+    },
+    {
+      "name": "compiled-drive",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 138
+    },
+    {
+      "name": "compiled-assistant",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 414
+    },
+    {
+      "name": "compiled-figma-broker",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 98
+    },
+    {
+      "name": "compiled-assistant-lifecycle",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 8351
+    },
+    {
+      "name": "local-source-route",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 16638
+    },
+    {
+      "name": "assistant-launch-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 109233
+    },
+    {
+      "name": "guided-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 91446
+    },
+    {
+      "name": "design-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 143925
+    },
+    {
+      "name": "figma-api-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 148662
+    },
+    {
+      "name": "local-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 110029
+    },
+    {
+      "name": "local-design-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 146999
+    },
+    {
+      "name": "improvements-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2818
+    },
+    {
+      "name": "job-improvements-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2693
+    },
+    {
+      "name": "adoption-connections-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3295
+    },
+    {
+      "name": "verification-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 15548
+    }
+  ],
+  "passed": true
+}

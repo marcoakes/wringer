@@ -89,7 +89,7 @@ MCP exposes only `wringer.inspect_improvements({jobId})`. It cannot collect,
 propose, adopt, approve or Send. The public record is
 [`wringer.job-improvements.v2`](../../schema/job-improvements-v2.schema.json);
 [v1](../../schema/job-improvements-v1.schema.json) remains for records from
-1.0.0-alpha.37 and earlier.
+1.0.0-alpha.36 and earlier.
 
 ## What has been measured
 

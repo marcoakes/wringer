@@ -33,7 +33,11 @@ research trail.
 - `docs/improvement/README.md`: the whole route for an operator, in ten steps.
 - 11 isolated reversions, each red on the first run.
 
-## 1.0.0-alpha.37 — propose from evidence: playbook trees and a cited proposer
+## 1.0.0-alpha.37 — prepared, not published: playbook trees and a cited proposer
+
+This version was prepared (`ff63e0d`, then `df68517`) but never published: its CI
+stopped first on time limits and then on a stale budget test, by which time release 3
+had landed on main. Everything below ships in 1.0.0-alpha.38.
 
 The second release of the improvement build. A playbook becomes a small tree the
 worker actually finds in its clone, and a proposer writes one from what earlier

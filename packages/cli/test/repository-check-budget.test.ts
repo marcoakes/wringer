@@ -7,9 +7,10 @@ test("the repository Action keeps the full test gate within its measured finite 
     const gate = config.gates.find(gate => gate.id === "tests")!;
     expect(gate.run).toBe("bun test ./packages");
     expect(gate.optional).toBe(false);
-    // The complete local native suite measured730s; the Action's600s cap
-    // killed its process. Keep at least25% headroom, within the native1200s
-    // hang guard. This is a repository budget, never a default for user gates.
-    expect(gate.timeout).toBeGreaterThanOrEqual(Math.ceil(730 * 1.25));
-    expect(gate.timeout).toBeLessThanOrEqual(1200);
+    // The complete local native suite measured 730 s at first; at the alpha.37
+    // candidate hosted Ubuntu ran 1,195 s of passing tests into a 1,200 s cap.
+    // Keep at least 25% headroom over that, within native-check's 2,400 s hang
+    // guard in scripts/validate.ts. A repository budget, never a default for user gates.
+    expect(gate.timeout).toBeGreaterThanOrEqual(Math.ceil(1195 * 1.25));
+    expect(gate.timeout).toBeLessThanOrEqual(2400);
 });

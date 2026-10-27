@@ -149,8 +149,9 @@ jobs:
   action:
     runs-on: ubuntu-latest
     # A hang guard for the full declared suite: measured 12.7, 13.8 and 14.1 minutes for alpha.26–.28;
-    # alpha.29's added gate-experiment tests crossed 15 and were cancelled. Twice the measured time.
-    timeout-minutes: 30
+    # alpha.29's added gate-experiment tests crossed 15 and were cancelled. At alpha.36 the job took 20
+    # minutes and its tests gate now allows 40 (.wringer.yaml), so the job allows that plus setup.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
