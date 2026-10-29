@@ -1,0 +1,42 @@
+{
+  "kind": "Isolated end-to-end hang probe of the local design rehearsal; scripted fixture, no live model or human judgment",
+  "baseline": "115bda843cac92a792ea467b9c18c02dd7229048",
+  "stage": "local-design-rehearsal (bun scripts/assistant-launch-rehearsal.ts --design --local)",
+  "injection": "scripts/rehearsal-capture.ts: newContext for any capture label ending /mobile returned a promise that never settles; restored before commit",
+  "observedExit": 1,
+  "observedWallSeconds": 20,
+  "previousObservation": "CI run 40576154266 attempt 1 (504543d): the guided page waited 90 s for #review-panel and the stage failed at 93 s on that page wait, not on the capture",
+  "rehearsalTitle": "Owned Reports design engineering rehearsal — local-only source through prepare --local",
+  "startedAt": "2026-10-29T16:15:37.159Z",
+  "tail": [
+    {
+      "capture": "8e15aaf62199b88352a720c68f1ec2afafc65edb/desktop",
+      "width": 1280,
+      "height": 800,
+      "bytes": 70755,
+      "elapsedMs": 112,
+      "realChromium": true,
+      "isolatedBrowserContext": true,
+      "realContainmentMeasured": false
+    },
+    {
+      "capture": "8e15aaf62199b88352a720c68f1ec2afafc65edb/mobile",
+      "failedStep": "newContext",
+      "stepBoundMs": 10000,
+      "elapsedMs": 10001,
+      "error": "no result within 10000 ms",
+      "realChromium": true
+    },
+    {
+      "browserStopText": "unavailable"
+    },
+    {
+      "stop": "Design capture 8e15aaf62199b88352a720c68f1ec2afafc65edb/mobile stopped at newContext: no result within 10000 ms"
+    },
+    {
+      "finishedAt": "2026-10-29T16:15:56.463Z",
+      "failed": true,
+      "ownerStopped": true
+    }
+  ]
+}

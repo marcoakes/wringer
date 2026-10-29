@@ -20,8 +20,9 @@ import { createMcpSession } from "../packages/mcp/src/server";
 import { readValidatedContainedState } from "../packages/workflow/src";
 import { readContainedDeliveryProjection } from "../packages/delivery/src";
 import { runProcess } from "../packages/engine/src/process";
-import { createDesignSnapshot, importDesignFromFigmaRest, inspectPng, sealDesignSnapshot, type DesignFigmaRestRequest, type DesignSnapshot } from "../packages/design/src";
+import { createDesignSnapshot, importDesignFromFigmaRest, sealDesignSnapshot, type DesignFigmaRestRequest, type DesignSnapshot } from "../packages/design/src";
 import type { RehearsalScenario } from "./rehearsal-scenario";
+import { captureFixtureHtml } from "./rehearsal-capture";
 
 const actor = "SCRIPTED TEST FIXTURE (not an independent person)";
 const negativeNote = "SCRIPTED negative review: the value is correct, but the label is still hard to understand.";
@@ -96,18 +97,17 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
     }
     const git = async (args: string[]) => (await command("fixture-local-git", ["git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args])).stdout;
     const reportsHtml = (label: string) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reports · Northstar fixture</title><style>*{box-sizing:border-box}body{margin:0;background:#f5f3ec;color:#21352f;font:16px/1.6 Arial,sans-serif}main{max-width:1120px;margin:auto;padding:48px 32px}.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#60716a}h1{font-size:44px;line-height:1.1;letter-spacing:-.045em;margin:18px 0}h2{font-size:21px;line-height:1.3;margin:0 0 14px}p{color:#60716a}.toolbar{display:flex;gap:16px;margin:26px 0}.toolbar div{border:1px solid #d9dfd6;border-radius:10px;background:#fff;padding:12px 16px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.card{padding:24px;background:#fff;border:1px solid #d9dfd6;border-radius:18px}.status{display:inline-block;font-size:11px;border-radius:20px;background:#e7eee8;padding:5px 10px;margin-bottom:16px}.draft{background:#f6eacd}.button{display:block;padding:10px;background:#244f40;border-radius:10px;color:#fff;font-size:14px;text-align:center}.fixture{font-size:11px;margin-top:28px}@media(max-width:760px){main{padding:28px 20px}h1{font-size:36px}.grid{grid-template-columns:1fr}.toolbar{flex-direction:column;gap:8px}.card{padding:18px}}</style></head><body><main><div class="eyebrow">Northstar / workspace</div><h1>Reports</h1><p>Find your latest reports and see which are ready to share.</p><div class="toolbar"><div>Search reports</div><div>Status: All reports</div></div><p>3 reports</p><section class="grid"><article class="card"><span class="status">Ready</span><h2>Monthly performance</h2><p>${htmlText(label)}</p><p>September 2026 · Updated today</p><span class="button">Open report</span></article><article class="card"><span class="status draft">Draft</span><h2>Customer activity</h2><p>Review activity across your customer accounts.</p><p>September 2026 · Updated yesterday</p><span class="button">Open report</span></article><article class="card"><span class="status">Ready</span><h2>Team capacity</h2><p>See availability and plan the next week.</p><p>September 2026 · Updated yesterday</p><span class="button">Open report</span></article></section><p class="fixture">Owned engineering fixture. This rendered layout is not evidence of functional controls or a human design decision.</p></main></body></html>`;
+    let captureFailure: Error | undefined;
     const captureReports = async (html: string, viewport: { width: number; height: number }, label: string) => {
         if (!browser) throw new Error("Design captures require the rehearsal Chromium browser");
-        // Separate context: fixture HTML never receives the operator session or
-        // privileged console origin. Scripts and all network access are disabled.
-        const context = await browser.page.context().browser()!.newContext({ viewport, javaScriptEnabled: false, serviceWorkers: "block", acceptDownloads: false });
-        await context.route("**/*", route => route.abort());
-        try {
-            const page = await context.newPage(); await page.setContent(html, { waitUntil: "load" });
-            const bytes = await page.screenshot({ type: "png", animations: "disabled" }), base64 = bytes.toString("base64"), image = inspectPng(base64);
-            await record({ capture: label, htmlSha256: hashBytes(html), ...image, realChromium: true, isolatedBrowserContext: true, realContainmentMeasured: false });
-            return { base64, ...image };
-        } finally { await context.close(); }
+        try { return await captureFixtureHtml(browser.page.context().browser()!, html, viewport, label, record); } catch (error) {
+            // A verifier capture fails inside the controller, where the guided page
+            // would only notice at its 90 s phase wait. Keep this cause and close the
+            // browser, as the wall limit does, so every pending page wait stops now.
+            captureFailure ??= error instanceof Error ? error : new Error(String(error));
+            void browser.close().catch(() => {});
+            throw error;
+        }
     };
     try {
         const checkpoint = (await git(["-C", repository, "rev-parse", "HEAD"])).trim();
@@ -358,7 +358,9 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await writeFile(join(root, "result.json"), JSON.stringify(result, null, 2) + "\n");
         failed = false;
         return { directory: root, ...result };
-    } catch (error) {
+    } catch (thrown) {
+        // A closed browser's page error is the effect of a capture stop, not its cause.
+        const error = captureFailure ?? thrown;
         if (guided && browser) { await browser.page.screenshot({ path: join(root, "browser-guided-stop.png"), fullPage: true }).catch(() => {}); await record({ browserStopText: await browser.page.locator("#job-message").innerText().catch(() => "unavailable") }); }
         await record({ stop: error instanceof Error ? error.message : String(error) });
         await writeFile(join(root, "result.json"), JSON.stringify({ status: "failed", fixture: true, rehearsalTitle, sourceFixtureKind, startedAt, wallMs: Date.now() - began, checks, limits }, null, 2) + "\n");

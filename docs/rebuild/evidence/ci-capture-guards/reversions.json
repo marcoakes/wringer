@@ -1,0 +1,51 @@
+{
+  "baseline": "115bda843cac92a792ea467b9c18c02dd7229048",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "unbounded-capture-steps",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "unbounded-context-close",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "set-content-default-timeout",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "screenshot-default-timeout",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "unrecorded-failing-step",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}
