@@ -26,6 +26,10 @@ summary and the merge-request text.
   `LOGNAME`, `SHELL`, `LANG`, `LC_*`, `TERM` and `TMPDIR`, plus any name the plan
   declares. Git, Node and Bun control variables, SSH agents and Kubernetes
   configuration are not passed.
+- **A worker that stops keeps what it did.** Its edits are saved beside its result
+  and offered to the next attempt. They are not a candidate, are not checked and
+  are not carried in a delivery. Each later attempt is also told how earlier ones
+  ended, what they changed and which checks failed, from the controller's records.
 - **The human decisions are unchanged.** Approval, result review and Send are
   separate, source-bound decisions on the job page. The agent cannot make them.
 - **Delivery and audit work as for contained jobs.** A fresh clone of the review
@@ -64,6 +68,13 @@ and `--base` name where a finished job can be sent; without them the work can be
 accepted but not sent. Review the profile it prints: the adapters, the checks, the
 writable paths and the limits. Keep it by repeating the same command with
 `--apply --expected IDENTITY --actor NAME --cooperative-local`.
+
+Check the agents can start, which sends no model prompt and shows on the approval
+page. It does not prove a sign-in still works; only the first model call can:
+
+```sh
+wring job check --workspace WORKSPACE_ID
+```
 
 A new requirement needs a check that fails today: the worker cannot change checks,
 and a check that already passes stops the approved job before any worker turn. Add

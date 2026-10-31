@@ -11,6 +11,7 @@ import { assistantCommand } from "../src/assistant-cli";
 import { stopForPerson } from "../src/assistant-job";
 import { callAssistantConnection } from "../src/assistant-transport";
 import { createDelegationOwner } from "../src/delegation-owner";
+import { validatePmJob } from "@wringer/board";
 import { dispatch } from "../src/app";
 
 const cleanup: (() => Promise<unknown>)[] = [];
@@ -129,6 +130,8 @@ test("the private page unlocks in the same tab, drops its stale notice and never
     expect(new URL(page.url()).hash).toBe("");
     expect(await page.locator("#approval-source").innerText()).toContain("The local repository on this computer");
     expect(await page.locator("#job-next-action").innerText()).toContain("cannot be sent");
+    expect(await page.locator("#approval-agents").isVisible()).toBeTrue();
+    expect(await page.locator("#approval-agents").innerText()).toContain(`have not been checked. To check them without a model prompt, run wring job check --workspace ${f.workspace!.id}`);
     // Two jobs on one request stay tellable apart.
     const options = await page.locator("#job-picker option").allInnerTexts();
     const labelled = options.filter(text => text.endsWith(INTENT));
@@ -141,3 +144,77 @@ test("the private page unlocks in the same tab, drops its stale notice and never
     const shown = await page.evaluate(() => ({ lead: document.getElementById("job-next-action")!.hidden, errorHidden: document.getElementById("job-error")!.hidden }));
     expect(shown).toEqual({ lead: true, errorHidden: false });
 }, 60000);
+
+/** The adapter the profile names is `npx …`: a stand-in on PATH keeps this a real process and real ACP, with no model. */
+async function adapterOnPath(root: string, body: string) {
+    const directory = join(root, "stub-bin"); await mkdir(directory);
+    await writeFile(join(directory, "npx"), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+    const path = process.env.PATH; process.env.PATH = `${directory}:${path}`;
+    cleanup.push(async () => { process.env.PATH = path; });
+}
+const fixtureAgent = join(import.meta.dir, "../../application/fixtures/host-acp-agent.ts");
+
+test("the check starts each agent without a prompt, records what happened and says what it does not prove", async () => {
+    const f = await fixture(); await adapterOnPath(f.root, `exec ${JSON.stringify(process.execPath)} ${JSON.stringify(fixtureAgent)} worker`);
+    const checked: any = await dispatch(["job", "check", "--app-dir", f.app, "--workspace", f.workspace!.id]);
+    expect(checked.exit).toBe(0);
+    expect(checked.value).toMatchObject({ schema_version: "wringer.agent-check.v1", workspaceId: f.workspace!.id, ready: true, promptSent: false, modelWorkRequested: false });
+    expect(checked.value.roles.map((row: any) => [row.role, row.ready])).toEqual([["worker", true], ["judge", true]]);
+    expect(checked.value.roles[0].agent).toEqual({ name: "host-fixture", version: "0" });
+    expect(checked.text).toContain("worker: Started host-fixture 0 and opened a session.");
+    expect(checked.text).toContain("No model prompt was sent.");
+    expect(checked.text).toContain("does not show its sign-in still works");
+    expect(checked.text).toContain(`Next: wring job new --workspace ${f.workspace!.id}`);
+    // A session opens in a throwaway clone: nothing in the repository changed.
+    expect((await git(f.repo, ["status", "--porcelain"])).stdout).toBe("");
+}, 30000);
+
+test("an agent that cannot start fails the check before anyone approves, and the page says so", async () => {
+    const f = await fixture(); await adapterOnPath(f.root, `echo "npm error network unreachable" >&2\nexit 1`);
+    const checked: any = await dispatch(["job", "check", "--app-dir", f.app, "--workspace", f.workspace!.id]);
+    expect(checked.exit).toBe(3);
+    expect(checked.value.ready).toBe(false);
+    expect(checked.value.roles[0]).toMatchObject({ role: "worker", ready: false, agent: null });
+    expect(checked.value.roles[0].detail).toContain("could not start: npm error network unreachable");
+    expect(checked.text).toContain("Next: fix what stopped it, then run wring job check");
+    const owner = await createDelegationOwner(f.app, f.workspace!.id); cleanup.push(() => owner.stop());
+    await createDelegationJob(f.app, f.workspace!.id, { intent: INTENT, idempotencyKey: crypto.randomUUID() });
+    const proposed: any = await callAssistantConnection(owner.connectionPath, "wringer.propose", { workspaceId: f.workspace!.id, idempotencyKey: crypto.randomUUID(), proposal });
+    const browser = await chromium.launch({ headless: true }); cleanup.push(() => browser.close());
+    const page = await browser.newPage();
+    await page.goto(`${owner.page}/?jobId=${proposed.jobId}#token=${owner.operatorUrl.split("#token=")[1]}`);
+    await page.locator("#approval-panel").waitFor({ state: "visible", timeout: 15000 });
+    const line = page.locator("#approval-agents");
+    expect(await line.isVisible()).toBeTrue();
+    expect(await line.innerText()).toContain("could not start: npm error network unreachable");
+    expect(await line.innerText()).toContain("Approving now would stop at that step");
+    expect(await line.getAttribute("class")).toContain("error");
+    // A later check replaces what the page shows, without anyone reloading it.
+    process.env.PATH = process.env.PATH!.replace(`${join(f.root, "stub-bin")}:`, "");
+    await adapterOnPath(await mkdtemp(join(f.root, "second-")), `exec ${JSON.stringify(process.execPath)} ${JSON.stringify(fixtureAgent)} worker`);
+    expect(((await dispatch(["job", "check", "--app-dir", f.app, "--workspace", f.workspace!.id])) as any).exit).toBe(0);
+    await page.waitForFunction(() => document.getElementById("approval-agents")?.textContent?.includes("each one started and opened a session"), undefined, { timeout: 15000 });
+    expect(await line.getAttribute("class")).not.toContain("error");
+}, 60000);
+
+test("an unchecked workspace says how to check, and approval is still possible", async () => {
+    const f = await fixture();
+    const owner = await createDelegationOwner(f.app, f.workspace!.id); cleanup.push(() => owner.stop());
+    await createDelegationJob(f.app, f.workspace!.id, { intent: INTENT, idempotencyKey: crypto.randomUUID() });
+    const proposed: any = await callAssistantConnection(owner.connectionPath, "wringer.propose", { workspaceId: f.workspace!.id, idempotencyKey: crypto.randomUUID(), proposal });
+    const job: any = await (await fetch(`${owner.page}/api/job?jobId=${proposed.jobId}`, { headers: { Authorization: `Bearer ${owner.operatorUrl.split("#token=")[1]}` } })).json();
+    expect(job.phase).toBe("approval");
+    expect(job.agentCheck).toEqual({ command: `wring job check --workspace ${f.workspace!.id}`, latest: null });
+    expect(validatePmJob(job).agentCheck).toEqual(job.agentCheck);
+    expect(() => validatePmJob({ ...job, agentCheck: { command: "x", latest: { at: "not a date", ready: true, roles: [], limit: "" } } })).toThrow("incomplete or unreadable");
+}, 30000);
+
+test("the check is only for a workspace that starts agents on this computer", async () => {
+    const f = await fixture();
+    await writeFile(join(f.repo, ".wringer.yaml"), "version: 1\ngates:\n  - id: test\n    run: bun tests/check.ts\n");
+    await git(f.repo, ["add", "."]); await git(f.repo, ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "commit", "-m", "Checks"]);
+    const verification = await registerWorkspace(f.app, { repo: f.repo, mode: "verification", client: "claude-code" });
+    await expect(dispatch(["job", "check", "--app-dir", f.app, "--workspace", verification.id])).rejects.toThrow("has no coding agents to check");
+    const contained = await registerWorkspace(f.app, { repo: f.repo, mode: "delegation", client: "generic", profileId: f.workspace!.preferences.profileId! });
+    await expect(dispatch(["job", "check", "--app-dir", f.app, "--workspace", contained.id])).rejects.toThrow("wring runtime measure");
+}, 30000);

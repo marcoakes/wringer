@@ -21,6 +21,8 @@ const agentEnvironment = ["env", "HOME=/home/agent", "GIT_CONFIG_NOSYSTEM=1", "G
 export interface Sandbox {
     provenance: RuntimeProvenance;
     exec(argv: string[], options?: RuntimeCommandOptions): Promise<CommandResult>;
+    /** Reads what a stopped role left, past the deadline or interrupt that stopped it. */
+    salvage(argv: string[], options?: RuntimeCommandOptions): Promise<CommandResult>;
     run(argv: string[], options?: RuntimeCommandOptions): Promise<CommandResult>;
     connect(agent: AgentDeclaration): Promise<AcpTransport>;
     importSource(source: RepositorySource, destination: string): Promise<void>;
@@ -107,6 +109,9 @@ export async function openSandbox(input: {
         ...(policy.kind === "apple-container" && options.input !== undefined ? ["--interactive"] : []),
         ...execPrefix.slice(2), ...argv,
     ], options);
+    // Like cleanup, independent of the expired or interrupted execution deadline. The
+    // sandbox outlives that deadline by a minute, so each read keeps its own short bound.
+    const salvage = (argv: string[], options: RuntimeCommandOptions = {}) => driver.command([...execPrefix, ...argv], { ...options, env: {}, timeoutMs: Math.min(options.timeoutMs ?? 30000, 30000) });
     const must = async (argv: string[], options: RuntimeCommandOptions = {}) => { const result = await exec(argv, options); if (result.code !== 0)
         throw new RuntimeError(`Sandbox preparation failed (${result.code}): ${redact(result.stderr || result.stdout)}`, "sandbox-preparation-failed"); return result; };
     const importSource = async (source: RepositorySource, destination: string) => {
@@ -169,7 +174,7 @@ export async function openSandbox(input: {
         observed.filesystem = { mode: readonly ? "read-only-source" : "scoped-worker", ...(scope ? { scope } : {}), gitMetadata: "controller-owned-read-only", protectedParents: "read-only", limitation: "New siblings cannot be created in a locked parent. Declare existing scoped paths and explicit untracked output directories in the approved plan." };
         observed.executionIdentity = redact((await must([...dropPrivileges, ...agentEnvironment, "/bin/sh", "-c", "set -eu; test \"$(id -u)\" = 1000; test \"$(id -g)\" = 1000; awk '/^Cap(Eff|Bnd):/ { if ($2 !~ /^0+$/) exit 1; seen++ } /^NoNewPrivs:/ { if ($2 != \"1\") exit 1; seen++ } END { if (seen != 3) exit 1 }' /proc/self/status; id; awk '/^(Uid|Gid|CapEff|CapBnd|NoNewPrivs):/' /proc/self/status"])).stdout.trim());
         const provenance: ContainedRuntimeProvenance = { schema_version: runtimeProvenanceVersion(repo.url), runtimeId: id, role, kind: policy.kind, image: policy.image, repository: { url: repo.url, commit: repo.commit }, clonedInside: true, hostMounts: [], repositoryAccess: readonly ? "read-only" : "read-write", declared: policy, observed: JSON.parse(redact(JSON.stringify(observed))), limits: ["Platform isolation and network enforcement require the live platform release gate; configuration and inspect records are not escape-proof evidence.", "Only explicitly declared environment names cross; no host home, agent socket, login directory, or publication credential is mounted."] };
-        return { provenance, exec, run: async (argv, options) => exec([...dropPrivileges, ...agentEnvironment, "/bin/sh", "-c", `cd ${quote(REPO)}; exec "$@"`, "wringer-command", ...argv], options), connect: async (agent) => driver.connect([...connectPrefix, ...dropPrivileges, ...agentEnvironment, "/bin/sh", "-c", `cd ${quote(REPO)}; exec "$@"`, "wringer-agent", agent.command, ...(agent.args ?? [])], { env, signal: input.signal, timeoutMs: deadline - Date.now() }), importSource, close };
+        return { provenance, exec, salvage, run: async (argv, options) => exec([...dropPrivileges, ...agentEnvironment, "/bin/sh", "-c", `cd ${quote(REPO)}; exec "$@"`, "wringer-command", ...argv], options), connect: async (agent) => driver.connect([...connectPrefix, ...dropPrivileges, ...agentEnvironment, "/bin/sh", "-c", `cd ${quote(REPO)}; exec "$@"`, "wringer-agent", agent.command, ...(agent.args ?? [])], { env, signal: input.signal, timeoutMs: deadline - Date.now() }), importSource, close };
     }
     catch (error) {
         try {

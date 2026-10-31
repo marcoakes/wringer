@@ -23,6 +23,10 @@ work can be accepted but not sent. For verification only, use
 their agreement (`--apply --expected IDENTITY --actor NAME --cooperative-local`).
 Setup approves no work.
 
+Then check the agents can start: `wring job check --workspace WORKSPACE_ID` opens a
+session with each one and sends no model prompt. It shows on the approval page.
+It does not prove a sign-in still works; only the first model call can.
+
 **A new requirement needs a check that fails today.** The worker cannot change
 checks, and a check that already passes stops the approved job before any worker
 turn. So add the failing test and commit it first. A job pins the commit it is
@@ -53,6 +57,10 @@ connecting starts nothing. Reload the client.
    Wait with `wringer.wait_for_update` (at most 25 seconds a call).
 4. When the result is ready, send the person to the same page to review it.
    After they accept it, `wringer.prepare_handover`; Send stays their decision.
+
+If a worker stops unfinished, retry it with `wringer.continue`. The next session
+is told how earlier attempts ended, what they changed and which checks failed, and
+gets the edits the stopped one left, to reuse if they help.
 
 There are no approval, verdict or Send tools. Never write a decision for the
 person, edit `wringer.judgements.yaml`, or replace their keys. A refusal is an

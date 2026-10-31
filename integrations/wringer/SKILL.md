@@ -51,6 +51,11 @@ its acknowledgment does not establish that a remote effect stopped. Keep the
 evidence for recovery. After explicit Send, report the exact recorded branch or
 PR and audit instructions. A pushed branch is not a merge or deployment.
 
+If a worker stops unfinished, retry it with `wringer.continue`: its edits are kept
+and offered to the next session, which is told how earlier attempts ended. They
+are not a candidate. `wring job check --workspace ID` starts each coding agent with
+no model prompt, so a broken adapter shows before anyone approves.
+
 Connection setup is previewed by `wring connect --workspace ID --client CLIENT
 --scope project`. Apply only that reviewed change with its `--expected` digest.
 Keep keys and private operator links out of client configuration. Disconnecting

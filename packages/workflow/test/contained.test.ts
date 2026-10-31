@@ -834,3 +834,123 @@ describe("contained ACP production journey", () => {
         expect(calls).toBe(2);
     });
 });
+
+describe("what the next worker session is told", () => {
+    const KEPT = "diff --git a/src/a.js b/src/a.js\n--- a/src/a.js\n+++ b/src/a.js\n@@ -1 +1 @@\n-old\n+KEPT_EDIT_MARKER\n";
+    const effectsDir = (f: { options: ContainedJourneyOptions }, id: string) => join(f.options.controllerDir, ".wringer/contained/effects", id);
+    /** Workers stop `times` times, each leaving the given edits against the source it was given. */
+    function stopWorkers(f: { options: ContainedJourneyOptions }, times: number, patch = KEPT, reason = "timeout") {
+        const execute = f.options.executeRole!;
+        let left = times;
+        f.options.executeRole = async request => {
+            const result = await execute(request);
+            if (request.role !== "worker" || left-- <= 0) return result;
+            return { ...result, status: "stopped", stopReason: reason, stoppedEdits: { baseCommit: request.repo.commit, paths: ["src/a.js"], bytes: Buffer.byteLength(patch), patch, sha256: hashBytes(patch), omitted: null } };
+        };
+    }
+    test("a stopped worker's edits ride a sidecar, are named in the stop, and reach only the next worker", async () => {
+        const f = await fixture({ workerTurns: 3 });
+        stopWorkers(f, 1);
+        const first = await runContainedJourney(f.options);
+        expect(first.stop?.reason).toBe("worker-stopped");
+        expect(first.candidate).toBeNull();
+        expect(f.serviceCalls.filter(row => row.kind === "capture")).toHaveLength(0);
+        const history = await readValidatedContainedState(f.options.controllerDir), effect = history.state.effects[0]!;
+        expect(first.stop?.message).toContain(`Its unfinished edits to 1 file are kept at .wringer/contained/effects/${effect.id}/stopped-edits.json`);
+        expect(first.stop?.message).toContain("not a candidate");
+        // The result record's shape is unchanged; the edits live beside it, anchored in the journal.
+        expect(JSON.parse(await readFile(join(effectsDir(f, effect.id), "result.json"), "utf8")).stoppedEdits).toBeUndefined();
+        const receipt = JSON.parse(await readFile(join(effectsDir(f, effect.id), "stopped-edits.json"), "utf8"));
+        expect(receipt).toMatchObject({ schema_version: "wringer.stopped-worker-edits.v1", effectId: effect.id, resultSha256: effect.resultSha256, stopReason: "timeout", paths: ["src/a.js"], patch: KEPT, sha256: hashBytes(KEPT), omitted: null });
+        const anchor = history.events.find(event => event.type === "worker-edits-kept")!;
+        expect(anchor.details).toEqual({ effectId: effect.id, receiptSha256: hashValue(receipt), paths: ["src/a.js"], bytes: Buffer.byteLength(KEPT), omitted: null });
+        expect(JSON.stringify(anchor.details)).not.toContain("KEPT_EDIT_MARKER");
+        expect(f.requests[0]!.prompt).not.toContain("Earlier attempts");
+        // Observing changes nothing and repeats nothing.
+        const saved = await readFile(join(effectsDir(f, effect.id), "request.json"), "utf8");
+        expect((await runContainedJourney(f.options)).stop?.reason).toBe("worker-stopped");
+        expect(f.requests).toHaveLength(1);
+        // A retry is told what is kept, with the patch to reuse if it helps.
+        const ready = await runContainedJourney({ ...f.options, retryStopped: true });
+        expect(ready.status).toBe("review-ready");
+        const second = f.requests.filter(row => row.role === "worker")[1]!;
+        expect(second.prompt).toContain("Earlier attempts in this job");
+        expect(second.prompt).toContain('"ended":"stopped (timeout)"');
+        expect(second.prompt).toContain("KEPT_EDIT_MARKER");
+        expect(second.prompt).toContain("git apply");
+        expect(second.prompt).not.toContain("WORKER_PRIVATE_NARRATIVE");
+        expect(await readFile(join(effectsDir(f, effect.id), "request.json"), "utf8")).toBe(saved);
+        // Only the worker is told; the judge's independence does not depend on it.
+        for (const request of f.requests.filter(row => row.role !== "worker")) { expect(request.prompt).not.toContain("KEPT_EDIT_MARKER"); expect(request.prompt).not.toContain("Earlier attempts"); }
+        expect((await readValidatedContainedState(f.options.controllerDir)).state.stage).toBe("ready");
+    });
+    test("changing a sidecar breaks the journey's validation", async () => {
+        const f = await fixture({ workerTurns: 3 });
+        stopWorkers(f, 1);
+        await runContainedJourney(f.options);
+        const effect = (await readValidatedContainedState(f.options.controllerDir)).state.effects[0]!, path = join(effectsDir(f, effect.id), "stopped-edits.json");
+        const receipt = JSON.parse(await readFile(path, "utf8"));
+        await writeFile(path, JSON.stringify({ ...receipt, patch: KEPT + "+tampered\n" }));
+        await expect(readValidatedContainedState(f.options.controllerDir)).rejects.toThrow("Kept worker edits differ");
+    });
+    test("a stop that left nothing readable says so and offers nothing", async () => {
+        const f = await fixture({ workerTurns: 3 }), execute = f.options.executeRole!;
+        f.options.executeRole = async request => ({ ...await execute(request), status: "stopped", stopReason: "timeout", stoppedEdits: { baseCommit: request.repo.commit, paths: [], bytes: 0, patch: null, sha256: null, omitted: "capture-failed" } });
+        const first = await runContainedJourney(f.options);
+        expect(first.stop?.message).toContain("could not be read, so nothing was kept");
+        await runContainedJourney({ ...f.options, retryStopped: true });
+        const second = f.requests[1]!.prompt;
+        expect(second).toContain('"omitted":"capture-failed"');
+        expect(second).not.toContain('"patch"');
+    });
+    test("each later attempt sees what earlier ones changed and which checks and findings then failed", async () => {
+        const f = await fixture({ workerTurns: 3, failedVerifications: 1, judgeFails: 1, changedPaths: ["src/value.js"] });
+        expect((await runContainedJourney(f.options)).status).toBe("review-ready");
+        const workers = f.requests.filter(row => row.role === "worker");
+        expect(workers).toHaveLength(3);
+        const check = f.options.plan.acceptance.checks[0]!.id, criterion = f.options.plan.acceptance.criteria.find(row => row.kind === "check")!.id;
+        expect(workers[0]!.prompt).not.toContain("Earlier attempts");
+        expect(workers[1]!.prompt).toContain(`[{"attempt":1,"changedPaths":["src/value.js"],"ended":"candidate","failedChecks":["${check}"]}]`);
+        expect(workers[2]!.prompt).toContain(`{"attempt":2,"changedPaths":["src/value.js"],"ended":"candidate","judgeNotMet":["${criterion}"]}`);
+    });
+    test("kept edits are offered only while they can still apply", async () => {
+        const f = await fixture({ workerTurns: 3, failedVerifications: 1, changedPaths: ["src/value.js"] });
+        stopWorkers(f, 1);
+        await runContainedJourney(f.options);
+        expect((await runContainedJourney({ ...f.options, retryStopped: true })).status).toBe("review-ready");
+        const workers = f.requests.filter(row => row.role === "worker");
+        expect(workers).toHaveLength(3);
+        // Attempt 2 starts from the same source, so it gets the patch. Attempt 3 starts from a new
+        // candidate, so it only hears that attempt 1's edits existed.
+        expect(workers[1]!.prompt).toContain("KEPT_EDIT_MARKER");
+        expect(workers[2]!.prompt).not.toContain("KEPT_EDIT_MARKER");
+        expect(workers[2]!.prompt).toContain('"keptEdits":{"bytes"');
+    });
+    test("a request reserved before the attempt record existed keeps its identity on resume", async () => {
+        const f = await fixture({ workerTurns: 3 });
+        stopWorkers(f, 2);
+        await runContainedJourney(f.options);
+        await runContainedJourney({ ...f.options, retryStopped: true });
+        const history = await readValidatedContainedState(f.options.controllerDir), effect = history.state.effects.filter(row => row.role === "worker")[1]!;
+        const path = join(effectsDir(f, effect.id), "request.json"), request = JSON.parse(await readFile(path, "utf8"));
+        // Construct the historical request: guidance, but no attempt record. No production record is migrated.
+        const start = request.prompt.indexOf("Earlier attempts in this job"), end = request.prompt.indexOf("\n", request.prompt.indexOf("\n", start) + 1) + 1;
+        expect(start).toBeGreaterThan(0);
+        request.prompt = request.prompt.slice(0, start) + request.prompt.slice(end);
+        const requestSha256 = hashValue(request), requestIdentity = hashValue({ ...request, budget: { maxTurns: 1 } });
+        await writeFile(path, JSON.stringify(request));
+        let previous = "0".repeat(64);
+        for (const event of history.events) {
+            const { sha256: _sha, ...body } = event;
+            body.previous = previous;
+            for (const row of body.state.effects) if (row.id === effect.id) { row.requestSha256 = requestSha256; row.requestIdentity = requestIdentity; }
+            const sha256 = hashValue(body); previous = sha256;
+            await writeFile(join(f.options.controllerDir, ".wringer/contained/events", `${String(body.sequence).padStart(6, "0")}.json`), JSON.stringify({ ...body, sha256 }));
+        }
+        const seen = f.requests.length;
+        expect((await runContainedJourney(f.options)).stop?.reason).toBe("worker-stopped");
+        expect(f.requests).toHaveLength(seen);
+        expect((await runContainedJourney({ ...f.options, retryStopped: true })).status).toBe("review-ready");
+        expect((await readValidatedContainedState(f.options.controllerDir)).state.effects.find(row => row.id === effect.id)).toMatchObject({ requestSha256, requestIdentity });
+    });
+});

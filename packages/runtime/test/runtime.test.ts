@@ -10,7 +10,7 @@ import { openSandbox, executeAgentRole, preflightAgentRole, runContainedCommands
 const image = `registry.invalid/agent@sha256:${"a".repeat(64)}`, commit = "b".repeat(40), tree = "c".repeat(40);
 const policy: RuntimePolicy = { kind: "apple-container", image, cpus: 1, memoryMiB: 512, network: { policy: "deny" } };
 const source = { url: "https://example.invalid/repo.git", commit };
-function fakeDriver(patch = "") {
+function fakeDriver(patch = "", promptReply: string | null = "end_turn") {
     const calls: {
         argv: string[];
         options: any;
@@ -48,6 +48,8 @@ function fakeDriver(patch = "") {
                 return { code: 0, stdout: `${tree}\n`, stderr: "" };
             if (command.includes("ls-tree"))
                 return { code: 0, stdout: `100644 blob ${"d".repeat(40)}\tcheck.sh\0`, stderr: "" };
+            if (command.includes("--name-only"))
+                return { code: 0, stdout: patch ? "src/a.js\0" : "", stderr: "" };
             if (command.includes("diff --cached"))
                 return { code: 0, stdout: patch, stderr: "" };
             if (command.includes("timeout") && argv.includes("false"))
@@ -65,7 +67,8 @@ function fakeDriver(patch = "") {
                     const p = JSON.parse(buffer.slice(0, at));
                     buffer = buffer.slice(at + 1);
                     packets.push(p);
-                    const result = p.method === "initialize" ? { protocolVersion: 1, agentCapabilities: {}, authMethods: [] } : p.method === "session/new" ? { sessionId: `session-${connections.length}` } : { stopReason: "end_turn" };
+                    if (promptReply === null && (p.method === "session/prompt" || p.id === undefined)) continue;
+                    const result = p.method === "initialize" ? { protocolVersion: 1, agentCapabilities: {}, authMethods: [] } : p.method === "session/new" ? { sessionId: `session-${connections.length}` } : { stopReason: promptReply };
                     output.write(JSON.stringify({ jsonrpc: "2.0", id: p.id, result }) + "\n");
                 }
             });
@@ -80,6 +83,33 @@ test("T20 a role using the pinned model launcher refuses an adapter that cannot 
     expect(result.status).not.toBe("completed"); expect(result.stopReason).toBe("model-unavailable");
     expect(fake.packets.some(packet => packet.method === "session/prompt")).toBeFalse();
     expect(fake.calls.some(call => call.argv[1] === "delete")).toBeTrue();
+});
+const STOPPED_PATCH = "diff --git a/src/a.js b/src/a.js\n--- a/src/a.js\n+++ b/src/a.js\n@@ -1 +1 @@\n-old\n+new\n";
+test("a contained worker that stops leaves its edits, read after its descendants are stopped and before cleanup", async () => {
+    const fake = fakeDriver(STOPPED_PATCH, "max_tokens"), result = await executeAgentRole(request, { driver: fake.driver });
+    expect(result.status).toBe("stopped"); expect(result.change).toBeUndefined();
+    expect(result.stoppedEdits).toMatchObject({ baseCommit: commit, paths: ["src/a.js"], patch: STOPPED_PATCH, bytes: Buffer.byteLength(STOPPED_PATCH), omitted: null });
+    const at = (needle: string) => fake.calls.findIndex(row => row.argv.join(" ").includes(needle));
+    expect(at("pkill -KILL -u 1000")).toBeGreaterThan(0);
+    expect(at("diff --cached")).toBeGreaterThan(at("pkill -KILL -u 1000"));
+    expect(fake.calls.findIndex(row => row.argv[1] === "delete")).toBeGreaterThan(at("diff --cached"));
+});
+test("a contained worker cut off by its deadline is still read: the salvage ignores the expired deadline and signal", async () => {
+    const fake = fakeDriver(STOPPED_PATCH, null), controller = new AbortController();
+    setTimeout(() => controller.abort(), 200);
+    const result = await executeAgentRole({ ...request, budget: { maxTurns: 1, timeoutMs: 400 }, signal: controller.signal }, { driver: fake.driver });
+    expect(["cancelled", "timeout"]).toContain(result.stopReason); expect(result.change).toBeUndefined();
+    expect(result.stoppedEdits).toMatchObject({ patch: STOPPED_PATCH, omitted: null });
+    const read = fake.calls.find(row => row.argv.join(" ").includes("diff --cached"))!;
+    expect(read.options.signal).toBeUndefined();
+    expect(read.options.timeoutMs).toBeLessThanOrEqual(30000);
+}, 15000);
+test("a failed read of a stopped worker never replaces the stop it is reporting", async () => {
+    const fake = fakeDriver(STOPPED_PATCH, "max_tokens"), original = fake.driver.command;
+    fake.driver.command = async (argv, options) => argv.join(" ").includes("diff --cached") ? { code: 1, stdout: "", stderr: "fixture read failure" } : original(argv, options);
+    const result = await executeAgentRole(request, { driver: fake.driver });
+    expect(result.status).toBe("stopped"); expect(result.stopReason).toBe("max_tokens");
+    expect(result.stoppedEdits).toMatchObject({ patch: null, sha256: null, omitted: "capture-failed", paths: [] });
 });
 test("declared visual outputs are captured after success before cleanup with no verifier credentials", async () => {
     const fake = fakeDriver(), original = fake.driver.command, png = unitPng();

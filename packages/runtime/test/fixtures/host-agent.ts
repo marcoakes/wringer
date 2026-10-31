@@ -1,6 +1,8 @@
 /** TEST FIXTURE ONLY: an ACP agent run as an ordinary host process. On a prompt it
  * reports its working directory and the environment names it received, and, unless
- * --read-only, edits the clone it was started in. */
+ * --read-only, edits the clone it was started in. --stop-after-edit ends the turn
+ * without completing it, --hang-after-edit never answers, and --secret-edit writes
+ * something that looks like a credential. */
 import { writeFileSync } from "node:fs";
 const reply = (id: number, result: unknown) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n");
 const say = (text: string) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: { sessionId: "host-session", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } } } }) + "\n");
@@ -17,7 +19,10 @@ process.stdin.on("data", data => {
             if (!process.argv.includes("--read-only")) {
                 writeFileSync("src/value.js", "export const expected = true;\n");
                 writeFileSync("NEW_FILE.md", "Created by the host fixture agent.\n");
+                if (process.argv.includes("--secret-edit")) writeFileSync("SECRET.md", `sk-${"fixture".repeat(4)}\n`);
             }
+            if (process.argv.includes("--hang-after-edit")) continue;
+            if (process.argv.includes("--stop-after-edit")) { reply(packet.id, { stopReason: "max_tokens" }); continue; }
             say(JSON.stringify({ cwd: process.cwd(), env: Object.keys(process.env).sort() }));
             reply(packet.id, { stopReason: "end_turn" });
         }

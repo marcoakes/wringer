@@ -41,6 +41,9 @@ Use `.ts` instead of `.yaml` only for the constrained plan form, not a general p
 `wringer-drive status --state CONTROLLER_STATE` validates and reads that journey's
 authoritative journal without starting another agent session. A printed
 `--retry-stopped` route retries a known stopped role within the remaining budget.
+When a stopped role is the worker, what it left in its clone is kept beside its result
+(`stopped-edits.json`) and offered to the next attempt. It is not a candidate, is not
+checked and is not carried in a delivery.
 `--retry-uncertain` is a separate acknowledgement that an interrupted agent
 request may already have spent; it is not an automatic retry policy.
 

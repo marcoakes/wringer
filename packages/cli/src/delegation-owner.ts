@@ -10,6 +10,7 @@ import { createOperatorBrowserSessions } from "./operator-browser-session";
 import { createAssistantJobFlow } from "./assistant-job";
 import { withImprovementCard } from "../../board/src/improvements-render";
 import { inspectJobImprovements, decideImprovement } from "@wringer/application";
+import { agentCheckCommand, latestAgentCheck } from "@wringer/application";
 import { improvementCollections } from "./improvement-collections";
 type Context = Awaited<ReturnType<typeof readDelegationContext>>;
 /** One operator origin and scoped connection; each source context retains its
@@ -174,7 +175,12 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
             const authentication = sessions.authenticate(request, origin); if (authentication instanceof Response) return authentication;
             try {
                 if (request.method === "GET" && url.pathname === "/api/jobs") return json({ jobs: await pickable(), ownerStops: [...activationErrors].map(([contextId, code]) => ({ contextId, code })) });
-                if (request.method === "GET" && url.pathname === "/api/job") { const jobId = assistantId(url.searchParams.get("jobId")); return json(await (await selected(jobId)).flow.read(jobId)); }
+                if (request.method === "GET" && url.pathname === "/api/job") {
+                    const jobId = assistantId(url.searchParams.get("jobId")), view = await (await selected(jobId)).flow.read(jobId);
+                    if (view.execution !== "trusted-local") return json(view);
+                    const latest = await latestAgentCheck(root, workspaceId);
+                    return json({ ...view, agentCheck: { command: agentCheckCommand(workspaceId), latest: latest && { at: latest.at, ready: latest.ready, roles: latest.roles.map(({ role, ready, detail }) => ({ role, ready, detail })), limit: latest.limit } } });
+                }
                 if (request.method === "GET" && url.pathname === "/api/improvements") {
                     if ([...url.searchParams.keys()].join(",") !== "jobId") throw new Error("Select exactly one job for improvement evidence");
                     const jobId = assistantId(url.searchParams.get("jobId")), current = await selected(jobId), proposal = await current.controller.inspectProposal(jobId);

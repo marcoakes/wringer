@@ -13,6 +13,15 @@ fails today. `wring mcp`, setup, the job page, MCP shape refusals and role stops
 each name what to do next. `wring start`, `verify`, `deliver`, `explain` and `demo`
 lead with the answer and a next step that fits it. No schema changed.
 
+Three ideas from reading [Agensh](https://github.com/microsoft/Agensh), built from
+Wringer's own records. `wring job check` starts each trusted-local coding agent and
+opens a session with no model prompt, and the approval page shows the latest result.
+A worker that stops unfinished leaves its edits beside its result and offered to the
+next attempt; they are not a candidate, are not checked and are not carried in a
+delivery. Each later attempt is told how earlier ones ended, what they changed and
+which checks and findings failed. Measured with scripted workers and, for the check
+alone, the real adapters. Whether this saves a live model any turns is unmeasured.
+
 ## 1.0.0-alpha.39 — learn and show, published
 
 Publishes 1.0.0-alpha.37 and 1.0.0-alpha.38 below, unchanged. The one change is to

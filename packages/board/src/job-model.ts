@@ -28,6 +28,8 @@ export interface PmJob {
     mode?: "verification" | "delegation";
     /** Present only for a delegation that runs on this computer; nothing is contained. */
     execution?: "trusted-local";
+    /** The latest no-prompt check of the coding agents this job would start on this computer. */
+    agentCheck?: { command: string; latest: { at: string; ready: boolean; roles: { role: string; ready: boolean; detail: string }[]; limit: string } | null };
     /** What the candidate changed against the approved source, shown before review and Send. */
     change?: { baseCommit: string; candidateCommit: string; files: { path: string; added: number | null; removed: number | null }[]; patch: string; truncated: boolean };
     verification?: { repetitions: number; remaining: number; runSeconds: number; checks: { id: string; command: string }[] };
@@ -91,6 +93,7 @@ export function validatePmJob(value: unknown): PmJob {
         && (x.engineering === null ? v.engineering === undefined : engineering(x.engineering) && JSON.stringify(x.engineering) === JSON.stringify(v.engineering));
     if (!v || !["wringer.pm-job.v1", "wringer.pm-job.v2", "wringer.pm-job.v3", "wringer.pm-job.v4"].includes(v.schema_version) || (v.schema_version === "wringer.pm-job.v4" ? !loop(v.loop) : v.loop !== undefined || (v.schema_version === "wringer.pm-job.v2" ? !engineering(v.engineering) : v.engineering !== undefined)) || (v.schema_version === "wringer.pm-job.v3" ? v.mode !== "verification" || !v.verification || !count(v.verification.repetitions) || !count(v.verification.remaining) || !count(v.verification.runSeconds) || !list(v.verification.checks, 256, c => id(c.id) && text(c.command, 16384)) : v.mode !== undefined || v.verification !== undefined) || !uuid(v.jobId) || !hash(v.revision) || !hash(v.readyRevision) || !(v.candidateTree === null || tree(v.candidateTree))
         || !(v.execution === undefined || v.execution === "trusted-local" && v.mode !== "verification")
+        || !(v.agentCheck === undefined || v.execution === "trusted-local" && text(v.agentCheck.command, 400) && (v.agentCheck.latest === null || v.agentCheck.latest && typeof v.agentCheck.latest.at === "string" && Number.isFinite(Date.parse(v.agentCheck.latest.at)) && typeof v.agentCheck.latest.ready === "boolean" && text(v.agentCheck.latest.limit, 4000) && list(v.agentCheck.latest.roles, 3, (r: any) => r && id(r.role) && typeof r.ready === "boolean" && text(r.detail, 16000)) && v.agentCheck.latest.roles.length > 0))
         || !(v.change === undefined || exact(v.change, ["baseCommit", "candidateCommit", "files", "patch", "truncated"]) && tree(v.change.baseCommit) && tree(v.change.candidateCommit) && text(v.change.patch, 65536) && typeof v.change.truncated === "boolean"
             && list(v.change.files, 200, (f: any) => exact(f, ["path", "added", "removed"]) && text(f.path, 4096) && f.path.length > 0 && (f.added === null || count(f.added)) && (f.removed === null || count(f.removed))))
         || !["approval", "working", "review", "preparing", "send", "sent", "blocked", "correction"].includes(v.phase)

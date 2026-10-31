@@ -73,6 +73,7 @@ function fakeSandbox(snapshot: DesignSnapshot, options: { readCode?:number; read
     const sandbox: Sandbox = {
         provenance: { schema_version:"wringer.runtime.v1",runtimeId:"fixture-runtime",role:"planner",kind:"apple-container",image:`fixture.invalid/agent@sha256:${"a".repeat(64)}`,repository:{url:"https://example.invalid/source.git",commit:"b".repeat(40)},clonedInside:true,hostMounts:[],repositoryAccess:"read-only",declared:{kind:"apple-container",image:`fixture.invalid/agent@sha256:${"a".repeat(64)}`,cpus:1,memoryMiB:512,network:{policy:"deny"}},observed:{},limits:["Mock sandbox; no real containment observation"] },
         async exec(argv, requestOptions) { calls.push({argv,options:requestOptions}); return calls.length===1 ? {code:options.readCode ?? 0,stdout:options.readText ?? JSON.stringify(snapshot),stderr:""} : {code:options.installCode ?? 0,stdout:"",stderr:""}; },
+        async salvage() { throw new Error("No stopped worker in this fixture"); },
         async run() { throw new Error("No arbitrary source command is authorized by this fixture"); },
         async connect() { throw new Error("Preparing design must not open an agent session"); },
         async importSource() { throw new Error("No source import in this preparation fixture"); }, async close() {},

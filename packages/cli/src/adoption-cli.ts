@@ -7,7 +7,7 @@ import { allowed, flag, number, required, string, values, positionals, quote, ty
 import type { Answer, DispatchContext } from "./app";
 import { createVerificationOwner } from "./verification-owner";
 import { readAssistantConnection } from "./assistant-transport";
-import { applyDelegationProfile, inspectDelegationProfile, type DelegationSelection } from "@wringer/application";
+import { applyDelegationProfile, checkDelegationAgents, inspectDelegationProfile, type DelegationSelection } from "@wringer/application";
 import { assistantExists, createDelegationJob, readDelegationJob, delegationJobStatus, inspectDelegationLoop, inspectDelegationTrajectories } from "@wringer/application";
 import { renderLoopTrajectory } from "@wringer/workflow";
 import { createDelegationOwner } from "./delegation-owner";
@@ -52,6 +52,7 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
   wring job loop --job ID [--json]
   wring job loop --job ID --trajectory [--effect ID] [--json]
   wring job improvements --job ID [--json]
+  wring job check --workspace ID      Start each coding agent and open a session; no model prompt
   wring job open --workspace ID [--job ID]
   wring job serve --workspace ID
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
@@ -156,7 +157,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
             const remote = string(a, "remote"), base = string(a, "base"); if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
             const profile = await applyDelegationProfile(root, reviewed, { expectedIdentity: required(a, "expected"), actor: required(a, "actor"), cooperativeLocal: flag(a, "cooperative-local") });
             const workspace = await registerWorkspace(root, { repo, mode, client, execution: "trusted-local", applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(remote && base ? { destination: { remote, base } } : {}) });
-            return { value: { workspace, profile }, text: `Registered trusted-local workspace ${workspace.id} and reviewed profile ${profile.id}.\nIts roles and checks will run on this computer under your account; nothing is contained.\nNo work or Send was approved. Next: wring job new --workspace ${workspace.id} --intent 'YOUR REQUEST'` };
+            return { value: { workspace, profile }, text: `Registered trusted-local workspace ${workspace.id} and reviewed profile ${profile.id}.\nIts roles and checks will run on this computer under your account; nothing is contained.\nNo work or Send was approved. Next: wring job check --workspace ${workspace.id}, then wring job new --workspace ${workspace.id} --intent 'YOUR REQUEST'` };
         }
         if (mode === "delegation") {
             if (string(a, "runtime") !== undefined && string(a, "runtime") !== "contained") throw new Error("Choose --runtime contained (the default, by provision) or --runtime trusted-local");
@@ -237,6 +238,11 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         return { value: await inspectDelegationLoop(root, assistantId(required(a, "job"))) };
     }
     if (verb === "status") { allowed(a, ["app-dir", "job"]); const id = assistantId(required(a, "job")); return { value: (await assistantExists(root, `verification-jobs/${id}/job.json`) || await assistantExists(root, `verification-jobs/${id}/creation.json`)) ? compactVerificationStatus(await verificationStatus(root, id)) : await delegationJobStatus(root, id) }; }
+    if (verb === "check") {
+        allowed(a, ["app-dir", "workspace"]);
+        const workspace = required(a, "workspace"), value = await checkDelegationAgents(root, workspace, { signal: context.signal });
+        return { value, exit: value.ready ? 0 : 3, text: `${value.roles.map(row => `${row.role}: ${row.detail}`).join("\n")}\n${value.limit}\nNext: ${value.ready ? `wring job new --workspace ${workspace} --intent 'YOUR REQUEST'` : `fix what stopped it, then run wring job check --workspace ${workspace} again`}` };
+    }
     if (verb === "serve") {
         allowed(a, ["app-dir", "workspace"]); const workspace = await readWorkspace(root, required(a, "workspace"));
         const owner = workspace.mode === "verification" ? await createVerificationOwner(root, workspace.id) : await createDelegationOwner(root, workspace.id);

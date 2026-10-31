@@ -1,9 +1,11 @@
 /** TEST FIXTURE ONLY: an ACP agent that runs as an ordinary process on this computer,
  * for trusted-local journeys. Never imported by product code.
  *   bun host-acp-agent.ts worker   sets src/value.js to the expected value in its clone
+ *   bun host-acp-agent.ts worker-stops-once MARKER   the first session leaves an edit and
+ *                                  stops unfinished; a later one saves its prompt beside MARKER
  *   bun host-acp-agent.ts judge    replies with every check criterion met, as JSON
  * It reads its prompt for the criterion ids it must answer; it measures nothing. */
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 const role = process.argv[2], session = `host-fixture-${crypto.randomUUID()}`;
 const reply = (id: number, result: unknown) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n");
 const say = (text: string) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: { sessionId: session, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } } } }) + "\n");
@@ -18,7 +20,17 @@ process.stdin.on("data", data => {
         else if (packet.method === "session/new") reply(packet.id, { sessionId: session });
         else if (packet.method === "session/prompt") {
             const prompt = (packet.params?.prompt ?? []).map((part: any) => part?.text ?? "").join("\n");
-            if (role === "worker") {
+            if (role === "worker-stops-once") {
+                const marker = process.argv[3]!;
+                if (!existsSync(marker)) {
+                    writeFileSync(marker, "");
+                    writeFileSync("src/value.js", "export const expected = 'KEPT_EDIT_MARKER';\n");
+                    reply(packet.id, { stopReason: "max_tokens" });
+                    continue;
+                }
+                writeFileSync(`${marker}.prompt`, prompt);
+            }
+            if (role?.startsWith("worker")) {
                 writeFileSync("src/value.js", "export const expected = true;\n");
                 say("Set the value. Fixture worker; no model was used.");
             } else {

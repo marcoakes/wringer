@@ -28,9 +28,32 @@ after that point are covered only by the scripted rehearsals, which passed.
 | 12 | `wring verify` buried the result, named no failed check, printed empty sections and sent both red and green runs to `wringer-drive plan --help`. | The answer comes first, red points at `wring explain`, green at `wring setup --help`. |
 | 13 | `wring deliver` refused a green record with no reason. `wring explain` printed its next step twice. `wring demo` printed an evidence path relative to a folder the reader was not in. | Each is fixed. |
 
-Every repair went red first and is guarded by
-[isolated reversions](../rebuild/evidence/door-guards/reversions.json), 27 of 27
-caught, run by `bun scripts/door-guards.ts`.
+Every repair below is guarded by
+[isolated reversions](../rebuild/evidence/door-guards/reversions.json), run by
+`bun scripts/door-guards.ts`: 55 of 55 caught. The first run with the Agensh repairs
+caught 54: hiding the agent check on the page stayed green, because the test read the
+text without checking it was visible. That
+[failed record](../rebuild/evidence/door-guards/reversions-first-attempt.json) is
+kept, and the test now checks.
+
+## Taken from microsoft/Agensh
+
+Three ideas from [Agensh](https://github.com/microsoft/Agensh), read the same day,
+built here from Wringer's own records. No code was taken. Its multi-agent design
+was not adopted.
+
+| Idea | Agensh | Here |
+|---|---|---|
+| Check the agent before running | `check_harness.py` rejects a bad harness at launch | `wring job check` starts each trusted-local adapter and opens a session with no model prompt; the approval page shows the latest result. Finding 8 no longer has to wait for approval. |
+| Keep what a stopped worker did | `archive.py` saves and verifies worker state before cleanup | A worker that stops leaves its diff in `stopped-edits.json`, anchored in the journal, offered to the next attempt, never a candidate, never in a delivery. |
+| Say what already failed | a `FAIL` note stops peers repeating a dead end | Each later attempt gets how earlier ones ended, the paths they changed and the checks and findings that failed, rebuilt from the journal. |
+
+**Measured:** `wring job check` against the real adapters, Codex 1.10.0 and Claude
+0.65.0, opened a session with each in 7 s and sent no prompt. The journey test runs a
+real worker process that stops, a retry that is offered the patch, Send and a
+fresh-clone audit. The stop-and-keep route on Apple
+Container and gVisor is covered only with a scripted driver. Whether the kept patch
+and the attempt record save a live model any turns is **unmeasured**.
 
 ## Still open
 

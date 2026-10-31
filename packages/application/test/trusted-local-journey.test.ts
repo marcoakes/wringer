@@ -25,7 +25,7 @@ function git(cwd: string, ...args: string[]) {
     if (result.exitCode) throw new Error(result.stderr.toString());
     return result.stdout.toString().trim();
 }
-async function fixture() {
+async function fixture(workerArgs: (scratch: string) => string[] = () => ["worker"]) {
     const scratch = await realpath(await mkdtemp(join(tmpdir(), "wringer-tl-journey-"))); roots.push(scratch);
     const repo = join(scratch, "source"); await mkdir(join(repo, "src"), { recursive: true });
     git(scratch, "init", "--initial-branch=main", repo);
@@ -37,7 +37,7 @@ async function fixture() {
     const source = await createLocalSourceBundle(repo, commit, bundle);
     const plan = compileDeclaration({ version: 5, name: "Make the value true", intent: "Set expected to true.", repository: { url: source.url, commit },
         runtime: { kind: "trusted-local", network: { policy: "unenforced" }, env: [] },
-        agents: { worker: { protocol: "acp", command: process.execPath, args: [agent, "worker"] }, judge: { protocol: "acp", command: process.execPath, args: [agent, "judge"] } },
+        agents: { worker: { protocol: "acp", command: process.execPath, args: [agent, ...workerArgs(scratch)] }, judge: { protocol: "acp", command: process.execPath, args: [agent, "judge"] } },
         environment: { context: ["README.md"], tools: [{ name: "fixture-shell", version: "fixture-1.0", probe: ["sh", "-c", "echo fixture-1.0"] }], setup: [], baseline: [], writable_directories: [] },
         scope: { writable: ["src"] },
         acceptance: { criteria: [{ id: "value", title: "The value is true", quote: "Set expected to true.", kind: "check", required: true }], checks: [{ id: "value-check", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 30, criteria: ["value"], files: ["check.sh"] }], protected_paths: ["check.sh"] },
@@ -121,6 +121,49 @@ test("a trusted-local job runs on this computer from proposal to review, stamped
     expect(hashBytes(JSON.stringify(history.result))).toMatch(/^[a-f0-9]{64}$/);
     // Falsification needs an isolated verifier; a trusted-local delivery is refused, not reproduced.
     await expect(falsifyContained({ bundleDir: bundle, outputDir: join(f.scratch, "falsify") })).rejects.toThrow("Falsification needs an isolated verifier");
+}, 120000);
+
+test("a worker that stops leaves its edits for the retry, and none of them reach the delivery", async () => {
+    const f = await fixture(scratch => ["worker-stops-once", join(scratch, "stopped-once")]);
+    const proposed = await f.call("propose", { workspaceId: f.workspace.id, idempotencyKey: crypto.randomUUID(), intent: f.plan.intent, plan: f.plan });
+    const approval = await f.call("get_approval_request", { jobId: proposed.jobId });
+    await approveAssistantProposal(f.root, { jobId: proposed.jobId, expectedRevision: approval.revision, actor: "Scripted engineering fixture (not a human verdict)", expiresAt: new Date(Date.now() + 600000).toISOString(), confirmExecution: true });
+    const settled = async (id: string) => { let operation: any; for (let n = 0; n < 1200; n++) { operation = await f.service.runner.read(id); if (["completed", "failed", "uncertain"].includes(operation.status)) return operation; await Bun.sleep(50); } throw new Error("Operation did not settle"); };
+    const guard = (view: any) => ({ jobId: proposed.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: view.revision, expectedCandidateTree: view.candidateTree });
+    const start = guard(await f.call("get_status", { jobId: proposed.jobId }));
+    expect((await f.call("start", start)).outcome).toBe("accepted");
+    await f.service.runner.start();
+    await settled(start.idempotencyKey);
+    const state = assistantControllerState(f.root, proposed.jobId);
+    const stopped = await f.call("get_status", { jobId: proposed.jobId });
+    expect(stopped.outcome).toBe("stopped");
+    expect(JSON.stringify(stopped.stop ?? stopped.nextAction)).toContain("Its unfinished edits to 1 file are kept");
+    expect(stopped.candidateTree).toBeNull();
+    // The operator's own checkout was never touched, and nothing was captured as a candidate.
+    expect(await readFile(join(f.repo, "src/value.js"), "utf8")).toBe("export const expected = false;\n");
+    const first = (await readValidatedContainedState(state)).state.effects[0]!;
+    const receipt = JSON.parse(await readFile(join(state, ".wringer/contained/effects", first.id, "stopped-edits.json"), "utf8"));
+    expect(receipt.paths).toEqual(["src/value.js"]); expect(receipt.patch).toContain("KEPT_EDIT_MARKER");
+    // The next session, a real process in a fresh clone, is offered the patch.
+    const retry = { ...guard(stopped), action: "retry-stopped" };
+    expect((await f.call("continue", retry)).outcome).toBe("accepted");
+    expect((await settled(retry.idempotencyKey)).status).toBe("completed");
+    const prompt = await readFile(join(f.scratch, "stopped-once.prompt"), "utf8");
+    expect(prompt).toContain('"ended":"stopped (max_tokens)"'); expect(prompt).toContain("KEPT_EDIT_MARKER"); expect(prompt).toContain("git apply");
+    const ready = await f.call("get_status", { jobId: proposed.jobId });
+    expect(ready.outcome).toBe("review-ready");
+    // Sent and audited from a fresh clone: the journal mentions the kept edits, their bytes go nowhere.
+    const origin = join(f.scratch, "origin.git"); git(f.scratch, "init", "--bare", "--initial-branch=main", origin); git(f.repo, "push", origin, "main");
+    const publication = { remote: origin, sourceBranch: "wringer/kept-edits", targetBranch: "main" };
+    await deliverContained({ stateDir: state, publication });
+    const sent = await deliverContained({ stateDir: state, publication, send: true });
+    const clone = join(f.scratch, "review"); git(f.scratch, "clone", "--no-local", "--branch", "wringer/kept-edits", origin, clone);
+    const bundle = join(clone, sent.auditCommand.split("--bundle ")[1]!.trim());
+    expect((await auditContained(bundle)).status).toBe("passed");
+    expect(await readFile(join(clone, "src/value.js"), "utf8")).toBe("export const expected = true;\n");
+    const carried = Bun.spawnSync(["grep", "-r", "-l", "KEPT_EDIT_MARKER", clone, "--exclude-dir=.git"]);
+    expect(carried.stdout.toString()).toBe("");
+    expect(git(clone, "log", "--all", "-S", "KEPT_EDIT_MARKER", "--oneline")).toBe("");
 }, 120000);
 
 test("protected mode refuses a trusted-local plan; only the labelled cooperative-local lane admits it", async () => {

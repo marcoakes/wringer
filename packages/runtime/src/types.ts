@@ -110,6 +110,16 @@ export interface TrustedLocalRuntimeProvenance {
     limits: string[];
 }
 export type RuntimeProvenance = ContainedRuntimeProvenance | TrustedLocalRuntimeProvenance;
+/** What a worker left in its clone when its session ended without completing. Evidence
+ * for a person and for the next attempt: never a candidate, never checked. */
+export interface StoppedWorkerEdits {
+    baseCommit: string;
+    paths: string[];
+    bytes: number;
+    patch: string | null;
+    sha256: string | null;
+    omitted: "too-large" | "credential-detected" | "capture-failed" | null;
+}
 export interface RoleExecutionResult extends AcpTurnResult {
     provenance: RuntimeProvenance;
     change?: {
@@ -117,6 +127,7 @@ export interface RoleExecutionResult extends AcpTurnResult {
         patch: string;
         sha256: string;
     };
+    stoppedEdits?: StoppedWorkerEdits;
 }
 export interface AgentPreflightResult extends RoleExecutionResult {
     promptSent: false;

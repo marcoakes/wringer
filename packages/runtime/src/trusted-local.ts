@@ -17,6 +17,7 @@ import { inspectPng } from "@wringer/design";
 import { processDriver } from "./driver";
 import { parseWritableDirectories, TRUSTED_LOCAL_PROVENANCE, TRUSTED_LOCAL_SENTENCE, validateRepository } from "./policy";
 import { runtimeDeepRedact } from "./redact";
+import { keepStoppedEdits, namesFromGit } from "./stopped-edits";
 import { RuntimeError, type ContainedCommandRequest, type ContainedCommandResult, type RepositorySource, type RoleExecutionRequest, type RoleExecutionResult, type RuntimeDriver, type TrustedLocalPolicy, type TrustedLocalRuntimeProvenance } from "./types";
 import { createHash } from "node:crypto";
 
@@ -120,14 +121,19 @@ export async function executeTrustedLocalRole(request: RoleExecutionRequest, pol
         const acpOptions = { ...(input.model ? { model: input.model } : {}), role: request.role, cwd: workspace.repo, timeoutMs: remaining(), signal: request.signal, authMethod: request.agent.authMethod, mode: request.agent.mode, credentialNames: request.agent.env ?? [], redact: input.redact, onEvent };
         const turn = runtimeDeepRedact(await (input.probeOnly ? probeAcpSession(transport, acpOptions) : runAcpTurn(transport, { ...acpOptions, prompt: request.prompt, allowedToolKinds: request.allowedToolKinds })), input.redact);
         const result: RoleExecutionResult = { ...turn, provenance: record };
-        if (!input.probeOnly && request.role === "worker" && turn.status === "completed" && turn.authentication.sessionOpened) {
-            // The turn has ended the agent's process group. Capture exactly what the worker
-            // left in its clone: tracked edits, deletions and new untracked files.
+        // The turn has ended the agent's process group. Capture exactly what the worker
+        // left in its clone: tracked edits, deletions and new untracked files.
+        const snapshot = async () => {
             const excluded = (request.scope?.writableDirectories ?? []).map(path => `:(exclude,literal)${path}`);
             await git(workspace.repo, ["add", "-u", "--", ".", ...excluded]);
             const paths = await git(workspace.repo, ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ".", ...excluded]);
             if (paths) await git(workspace.repo, ["--literal-pathspecs", "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"], 120000, paths);
-            const patch = await git(workspace.repo, ["diff", "--cached", "--no-ext-diff", "--no-textconv", "--binary", "--full-index", request.repo.commit, "--"]);
+            return git(workspace.repo, ["diff", "--cached", "--no-ext-diff", "--no-textconv", "--binary", "--full-index", request.repo.commit, "--"]);
+        };
+        if (!input.probeOnly && request.role === "worker" && turn.status !== "completed" && turn.authentication.sessionOpened)
+            result.stoppedEdits = await keepStoppedEdits(request.repo.commit, async () => ({ patch: await snapshot(), paths: namesFromGit(await git(workspace.repo, ["diff", "--cached", "--name-only", "-z", request.repo.commit, "--"])) }), input.redact);
+        if (!input.probeOnly && request.role === "worker" && turn.status === "completed" && turn.authentication.sessionOpened) {
+            const patch = await snapshot();
             if (input.redact(patch) !== patch) throw new RuntimeError("Worker patch contains a credential; publication refused instead of silently changing product bytes", "secret-in-change");
             result.change = { baseCommit: request.repo.commit, patch, sha256: digest(patch) };
         }

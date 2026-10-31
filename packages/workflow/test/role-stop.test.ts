@@ -29,6 +29,8 @@ test("an adapter that never answered the protocol names what its launcher printe
     expect(message).toContain("npm error network request");
     expect(message).toContain("retry the stopped step");
     expect(message).not.toContain("secret");
+    // A slow first download reads as what it is, and another caller can name its own next step.
+    expect(describeRoleStop("worker", { stopReason: "timeout", protocolVersion: null, agentInfo: null, stderr: "" } as any, "run this check again")).toBe("The worker's coding agent did not start in time. Check that Node, npx and the network can reach its adapter on this computer, then run this check again. No change was made.");
     // Once the agent has answered, its console is private: only the stop reason remains.
     const answered = describeRoleStop("worker", { stopReason: "transport-closed", protocolVersion: 1, agentInfo: { name: "agent" }, stderr: "PRIVATE_CONSOLE" } as any);
     expect(answered).toBe("The worker stopped (transport-closed).");

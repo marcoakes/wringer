@@ -51,18 +51,18 @@ function diagnostic(text: string): string {
  * structured error (redacted), and for a sign-in failure, how to sign in. A bare stop
  * reason such as "agent-error" says neither what happened nor what to do. The agent's
  * own reply text is never used: it is private narrative and is not recorded. */
-export function describeRoleStop(role: "planner" | "worker" | "judge", result: Pick<RoleExecutionResult, "stopReason" | "agentInfo"> & { events?: unknown[]; protocolVersion?: unknown; stderr?: unknown }): string {
+export function describeRoleStop(role: "planner" | "worker" | "judge", result: Pick<RoleExecutionResult, "stopReason" | "agentInfo"> & { events?: unknown[]; protocolVersion?: unknown; stderr?: unknown }, retry = "retry the stopped step"): string {
     const reason = typeof result.stopReason === "string" && result.stopReason ? result.stopReason : "stopped";
     // Nothing answered the protocol, so what was printed is its launcher's, never an agent's narrative.
-    if (reason === "transport-closed" && result.protocolVersion === null) {
+    if ((reason === "transport-closed" || reason === "timeout") && result.protocolVersion === null) {
         const printed = diagnostic(typeof result.stderr === "string" ? result.stderr : "").slice(-400);
-        return `The ${role}'s coding agent could not start${printed ? `: ${printed}` : ""}. Check that Node, npx and the network can reach its adapter on this computer, then ask your coding app to retry the stopped step. No change was made.`;
+        return `The ${role}'s coding agent ${reason === "timeout" ? "did not start in time" : "could not start"}${printed ? `: ${printed}` : ""}. Check that Node, npx and the network can reach its adapter on this computer, then ${retry}. No change was made.`;
     }
     const failure = [...(result.events ?? [])].reverse().find((event): event is Record<string, any> => object(event) && event.type === "acp.response.error") as Record<string, any> | undefined;
     const reported = diagnostic(typeof failure?.error?.message === "string" ? failure.error.message : "").replace(/^Internal error: /, "").slice(0, 600);
     const agent = typeof result.agentInfo?.name === "string" ? ` (${diagnostic(result.agentInfo.name).slice(0, 120)})` : "";
     if (failure?.error?.data?.errorKind === "authentication_failed" || /\b(?:failed to authenticate|not (?:logged|signed) in|login required|please (?:log|sign) in|oauth (?:session|token) (?:expired|invalid))/i.test(reported))
-        return `The ${role}'s coding agent${agent} could not sign in: ${reported || reason}. Sign in with that agent's own login on this computer (Claude Code: run claude and use /login; Codex: run codex login), then retry the stopped step. No change was made.`;
+        return `The ${role}'s coding agent${agent} could not sign in: ${reported || reason}. Sign in with that agent's own login on this computer (Claude Code: run claude and use /login; Codex: run codex login), then ${retry}. No change was made.`;
     return reported && reported !== reason ? `The ${role} stopped (${reason}): ${reported}` : `The ${role} stopped (${reason}).`;
 }
 function providerOf(text: string): WorkerOutcomeStop["details"]["provider"] {

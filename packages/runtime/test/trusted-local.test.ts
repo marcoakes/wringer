@@ -118,3 +118,40 @@ test("a candidate that changed a pinned check input is refused before any check 
     git(fixture.repo, "bundle", "create", bundlePath, "cheat");
     await expect(runContainedCommands({ repo: { url: fixture.source.url, commit: cheat, bundlePath }, runtime: policy as any, acceptanceSource: fixture.source, protectedFiles: ["check.sh"], commands: [{ id: "acceptance/pass", argv: ["sh", "check.sh"], timeoutMs: 5000 }], timeoutMs: 20000 })).rejects.toThrow("Candidate changed the pinned acceptance inputs");
 });
+
+const stoppingWorker = (flags: string[], extra: Partial<RoleExecutionRequest> = {}) => ({ agent: { protocol: "acp" as const, command: process.execPath, args: [agentScript, ...flags] }, ...extra });
+test("a worker that stops unfinished leaves its edits as evidence, not as a change", async () => {
+    const fixture = await repository();
+    const result = await executeAgentRole(request(fixture.source, "worker", stoppingWorker(["--stop-after-edit"])));
+    expect(result.status).toBe("stopped"); expect(result.stopReason).toBe("max_tokens");
+    expect(result.change).toBeUndefined();
+    const edits = result.stoppedEdits!;
+    expect(edits.baseCommit).toBe(fixture.commit);
+    expect(edits.paths.sort()).toEqual(["NEW_FILE.md", "src/value.js"]);
+    expect(edits.patch).toContain("+export const expected = true;");
+    expect(edits.patch).toContain("NEW_FILE.md");
+    expect(edits.bytes).toBe(Buffer.byteLength(edits.patch!));
+    expect(edits.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(edits.omitted).toBeNull();
+    // Nothing reached the operator's own checkout.
+    expect(await readFile(join(fixture.repo, "src/value.js"), "utf8")).toBe("export const expected = false;\n");
+}, 30000);
+test("a worker cut off by its deadline still leaves its edits", async () => {
+    const fixture = await repository();
+    const result = await executeAgentRole(request(fixture.source, "worker", stoppingWorker(["--hang-after-edit"], { budget: { maxTurns: 1, timeoutMs: 8000 } })));
+    expect(result.stopReason).toBe("timeout");
+    expect(result.stoppedEdits!.patch).toContain("+export const expected = true;");
+}, 30000);
+test("stopped edits that look like a credential keep their paths but not their bytes", async () => {
+    const fixture = await repository();
+    const edits = (await executeAgentRole(request(fixture.source, "worker", stoppingWorker(["--stop-after-edit", "--secret-edit"])))).stoppedEdits!;
+    expect(edits.patch).toBeNull(); expect(edits.sha256).toBeNull();
+    expect(edits.omitted).toBe("credential-detected");
+    expect(edits.paths).toContain("SECRET.md");
+}, 30000);
+test("no stopped edits are recorded when nothing changed, for a judge, or for a completed worker", async () => {
+    const fixture = await repository();
+    expect((await executeAgentRole(request(fixture.source, "worker", stoppingWorker(["--stop-after-edit", "--read-only"])))).stoppedEdits).toBeUndefined();
+    expect((await executeAgentRole(request(fixture.source, "judge", stoppingWorker(["--stop-after-edit"])))).stoppedEdits).toBeUndefined();
+    expect((await executeAgentRole(request(fixture.source))).stoppedEdits).toBeUndefined();
+}, 30000);

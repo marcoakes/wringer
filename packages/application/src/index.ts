@@ -29,6 +29,7 @@ export * from "./runtime-readiness";
 export * from "./proposal-composition";
 export * from "./delegation-protocol";
 export * from "./delegation-jobs";
+export * from "./delegation-agent-check";
 export * from "./acceptance-preparation";
 export * from "./workspace-recovery";
 export * from "./diagnostics";

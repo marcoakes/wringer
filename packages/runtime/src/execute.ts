@@ -9,6 +9,7 @@ import { parseRuntimePolicy, parseWritableDirectories, quote, validateRepository
 import { runtimeRedactor, runtimeDeepRedact } from "./redact";
 import { parseWorkerScope, repositoryPermissionsScript } from "./filesystem";
 import { executeTrustedLocalRole, runTrustedLocalCommands } from "./trusted-local";
+import { keepStoppedEdits, namesFromGit } from "./stopped-edits";
 import { RuntimeError, type RuntimeDriver, type RoleExecutionRequest, type RoleExecutionResult, type RoleExecutor, type ContainedCommandRequest, type ContainedCommandResult, type AgentPreflightResult } from "./types";
 export const digest = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex");
 function validateAgent(agent: AgentDeclaration) {
@@ -67,12 +68,13 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
         const acpOptions = { ...(explicitModel ? { model: explicitModel } : {}), role: request.role, cwd: REPO, timeoutMs: Math.max(1, request.budget.timeoutMs - (Date.now() - started)), signal: request.signal, authMethod: request.agent.authMethod, mode: request.agent.mode, credentialNames: request.agent.env ?? [], redact, onEvent, ...(mcpServers.length ? { mcpServers, maxMessageBytes: 16 * 1024 * 1024, maxOutputBytes: 32 * 1024 * 1024 } : {}) };
         const turn = runtimeDeepRedact(await (probeOnly ? probeAcpSession(transport, acpOptions) : runAcpTurn(transport, { ...acpOptions, prompt: request.prompt, allowedToolKinds: request.allowedToolKinds })), redact);
         const result: RoleExecutionResult = { ...turn, provenance: sandbox.provenance };
-        if (!probeOnly && request.role === "worker" && turn.status === "completed" && turn.authentication.sessionOpened) {
-            // This transports agent-authored bytes. The controller never turns prose into a patch.
+        const git = "git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false";
+        // This transports agent-authored bytes. The controller never turns prose into a patch.
+        const snapshot = async (run: typeof sandbox.exec) => {
             // Stop all agent descendants before snapshotting. Open write descriptors survive chmod.
-            const stopped = await sandbox.exec(["/bin/sh", "-c", "set -eu; for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pkill -KILL -u 1000 || test $? = 1; live=0; agent_pids=$(pgrep -u 1000) || { test $? = 1; agent_pids=; }; for agent_pid in $agent_pids; do state=$(awk '/^State:/ { print $2 }' /proc/$agent_pid/status 2>/dev/null) || { test ! -d /proc/$agent_pid || exit 74; continue; }; case $state in Z|X) ;; *) live=1 ;; esac; done; test $live = 0 && exit 0; sleep 0.05; done; exit 74"]);
+            const stopped = await run(["/bin/sh", "-c", "set -eu; for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pkill -KILL -u 1000 || test $? = 1; live=0; agent_pids=$(pgrep -u 1000) || { test $? = 1; agent_pids=; }; for agent_pid in $agent_pids; do state=$(awk '/^State:/ { print $2 }' /proc/$agent_pid/status 2>/dev/null) || { test ! -d /proc/$agent_pid || exit 74; continue; }; case $state in Z|X) ;; *) live=1 ;; esac; done; test $live = 0 && exit 0; sleep 0.05; done; exit 74"]);
             if (stopped.code !== 0) throw new RuntimeError("Worker descendants could not be confirmed stopped before capture", "change-capture-failed");
-            const locked = await sandbox.exec(["/bin/sh", "-c", repositoryPermissionsScript(REPO)]);
+            const locked = await run(["/bin/sh", "-c", repositoryPermissionsScript(REPO)]);
             if (locked.code !== 0) throw new RuntimeError("Worker source could not be locked before capture", "change-capture-failed");
             const excludeOutputs = (scope?.writableDirectories ?? []).map(path => quote(`:(exclude,literal)${path}`)).join(" ");
             // git add -A rejects an explicitly named ignored directory even in an exclusion
@@ -81,8 +83,7 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
             // to the controller. NUL records and literal staging preserve exact filenames.
             // Update tracked paths before enumeration: a directory replaced by a file or
             // symlink must lose its cached descendants before those paths reach literal add.
-            const git = "git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false";
-            const exported = await sandbox.exec(["env", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "/bin/sh", "-c", [
+            const exported = await run(["env", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "/bin/sh", "-c", [
                 "set -eu", `cd ${quote(REPO)}`, `${git} fsck --no-reflogs >/dev/null`,
                 `${git} add -u -- . ${excludeOutputs}`,
                 "capture_paths=$(mktemp)", "trap 'rm -f -- \"$capture_paths\"' EXIT",
@@ -92,9 +93,19 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
             ].join("; ")]);
             if (exported.code !== 0)
                 throw new RuntimeError(`Worker change capture failed: ${redact(exported.stderr)}`, "change-capture-failed");
-            if (redact(exported.stdout) !== exported.stdout)
+            return exported.stdout;
+        };
+        if (!probeOnly && request.role === "worker" && turn.status !== "completed" && turn.authentication.sessionOpened)
+            result.stoppedEdits = await keepStoppedEdits(request.repo.commit, async () => {
+                const patch = await snapshot(sandbox.salvage), names = await sandbox.salvage(["env", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "/bin/sh", "-c", `cd ${quote(REPO)}; ${git} diff --cached --name-only -z ${quote(request.repo.commit)} --`]);
+                if (names.code !== 0) throw new RuntimeError("Worker edit names could not be read", "change-capture-failed");
+                return { patch, paths: namesFromGit(names.stdout) };
+            }, redact);
+        if (!probeOnly && request.role === "worker" && turn.status === "completed" && turn.authentication.sessionOpened) {
+            const patch = await snapshot(sandbox.exec);
+            if (redact(patch) !== patch)
                 throw new RuntimeError("Worker patch contains a credential; publication refused instead of silently changing product bytes", "secret-in-change");
-            result.change = { baseCommit: request.repo.commit, patch: exported.stdout, sha256: digest(exported.stdout) };
+            result.change = { baseCommit: request.repo.commit, patch, sha256: digest(patch) };
         }
         return result;
     }
