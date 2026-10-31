@@ -4,6 +4,15 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## Unreleased
+
+The dead ends a newcomer meets at both doors, found by walking them; see
+[the review](docs/adoption/DOOR_REVIEW_2026-10-31.md). The agent door now starts
+the owner, chooses a destination and says a new requirement needs a check that
+fails today. `wring mcp`, setup, the job page, MCP shape refusals and role stops
+each name what to do next. `wring start`, `verify`, `deliver`, `explain` and `demo`
+lead with the answer and a next step that fits it. No schema changed.
+
 ## 1.0.0-alpha.39 — learn and show, published
 
 Publishes 1.0.0-alpha.37 and 1.0.0-alpha.38 below, unchanged. The one change is to

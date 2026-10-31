@@ -35,7 +35,7 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
   wring setup --repo PATH --client CLIENT --mode delegation --runtime trusted-local
       --worker-adapter claude-agent-acp|codex-acp --judge-adapter claude-agent-acp|codex-acp
       --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
-      [--writable PATH] [--output-dir PATH] [--acceptance UUID] --dry-run --json
+      [--writable PATH] [--output-dir PATH] [--acceptance UUID] [--remote NAME --base BRANCH] --dry-run --json
       Trusted-local runs your coding agents on this computer under your account,
       each role in a fresh clone; nothing is contained and protected mode refuses it.
   wring setup --repo PATH --client CLIENT --mode delegation --provision UUID
@@ -43,7 +43,7 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
       --judge-provider openai|anthropic --judge-model MODEL
       --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
       --network deny|allowlist [--egress CIDR@PORT,PORT] [--dns IPV4]
-      [--writable PATH] [--output-dir PATH] [--readiness UUID] [--acceptance UUID] --dry-run --json
+      [--writable PATH] [--output-dir PATH] [--readiness UUID] [--acceptance UUID] [--remote NAME --base BRANCH] --dry-run --json
   Repeat the same contained selections with --apply --expected IDENTITY
       --actor NAME --cooperative-local to keep the reviewed profile and source.
   wring job new --workspace ID --intent 'Original request' [--gate ID] [--repetitions 3] [--run-seconds 300] [--elapsed-seconds 3600]
@@ -89,6 +89,10 @@ async function ownerLocation(root: string, workspace: string) {
     if (owner.schema_version !== "wringer.operator-location.v1" || !Number.isInteger(owner.pid) || typeof owner.url !== "string" || !/^http:\/\/127\.0\.0\.1:[0-9]+\/#token=[a-f0-9]{64}$/.test(owner.url)) throw new Error("Owner location is invalid; inspect retained state");
     try { process.kill(owner.pid, 0); } catch { throw new Error("The recorded owner is not running. Explicit recovery must preserve uncertain operations before restart."); }
     return owner as { pid: number; url: string };
+}
+/** A destination is chosen beside the reviewed profile, not inside it: its absence is only felt at Send, after the work is done. */
+function withDestinationLimit<T extends { limits: string[] }>(preview: T, a: Args): T {
+    return string(a, "remote") && string(a, "base") ? preview : { ...preview, limits: [...preview.limits, "No handover destination is selected, so a finished job could not be sent. Repeat with --remote NAME --base BRANCH to keep one."] };
 }
 export async function adoptionCommand(a: Args, context: DispatchContext): Promise<Answer> {
     if (flag(a, "help")) return { text: ADOPTION_HELP };
@@ -147,10 +151,10 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
             if (["provision", "readiness", "network", "egress", "dns", "worker-provider", "worker-model", "judge-provider", "judge-model"].some(key => string(a, key) !== undefined || values(a, key) !== undefined)) throw new Error("A trusted-local profile names ACP adapters, not providers, models, a provision or a network policy: it runs on this computer under your account, where none of those is enforced");
             const source = required(a, "source"); if (!["local", "remote"].includes(source)) throw new Error("Choose --source local or remote explicitly");
             const selection: DelegationSelection = { runtime: "trusted-local", ...(string(a, "acceptance") ? { acceptanceId: string(a, "acceptance") } : {}), worker: { adapter: required(a, "worker-adapter") as any }, judge: { adapter: required(a, "judge-adapter") as any }, source: source === "local" ? { kind: "local" } : { kind: "remote", remote: required(a, "source-remote") }, dependencies: required(a, "dependencies") as any, ...(values(a, "writable") ? { writable: values(a, "writable") } : {}), ...(values(a, "output-dir") ? { outputDirectories: values(a, "output-dir") } : {}), ...(values(a, "gate") ? { gates: values(a, "gate") } : {}) };
-            const trusted = await inspectDelegationProfile(root, repo, selection);
+            const reviewed = await inspectDelegationProfile(root, repo, selection), trusted = withDestinationLimit(reviewed, a);
             if (!flag(a, "apply")) return { value: trusted, text: `${JSON.stringify(trusted, null, 2)}\nIts roles and checks will run on this computer under your account; nothing is contained. Repeat with --apply --expected ${trusted.identity} --actor NAME --cooperative-local to keep this profile.` };
             const remote = string(a, "remote"), base = string(a, "base"); if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
-            const profile = await applyDelegationProfile(root, trusted, { expectedIdentity: required(a, "expected"), actor: required(a, "actor"), cooperativeLocal: flag(a, "cooperative-local") });
+            const profile = await applyDelegationProfile(root, reviewed, { expectedIdentity: required(a, "expected"), actor: required(a, "actor"), cooperativeLocal: flag(a, "cooperative-local") });
             const workspace = await registerWorkspace(root, { repo, mode, client, execution: "trusted-local", applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(remote && base ? { destination: { remote, base } } : {}) });
             return { value: { workspace, profile }, text: `Registered trusted-local workspace ${workspace.id} and reviewed profile ${profile.id}.\nIts roles and checks will run on this computer under your account; nothing is contained.\nNo work or Send was approved. Next: wring job new --workspace ${workspace.id} --intent 'YOUR REQUEST'` };
         }
@@ -165,7 +169,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
             const allow = (values(a, "egress") ?? []).map(value => { const [cidr, ports, extra] = value.split("@"); if (!cidr || !ports || extra !== undefined || !/^\d+(,\d+)*$/.test(ports)) throw new Error("Use --egress IPv4_CIDR@PORT,PORT with explicit ports"); return { cidr, ports: ports.split(",").map(Number) }; });
             const selection: DelegationSelection = { provisionId: required(a, "provision"), ...(string(a, "acceptance") ? { acceptanceId: string(a, "acceptance") } : {}), ...(string(a, "readiness") ? { readinessId: string(a, "readiness") } : {}), worker: { provider: required(a, "worker-provider") as any, model: required(a, "worker-model") }, judge: { provider: required(a, "judge-provider") as any, model: required(a, "judge-model") }, source: source === "local" ? { kind: "local" } : { kind: "remote", remote: required(a, "source-remote") }, dependencies: required(a, "dependencies") as any, network: { policy: network as any, allow, dns: values(a, "dns") ?? [] }, ...(values(a, "writable") ? { writable: values(a, "writable") } : {}), ...(values(a, "output-dir") ? { outputDirectories: values(a, "output-dir") } : {}), ...(values(a, "gate") ? { gates: values(a, "gate") } : {}) };
             const contained = await inspectDelegationProfile(root, repo, selection);
-            if (!flag(a, "apply")) return { value: contained };
+            if (!flag(a, "apply")) return { value: withDestinationLimit(contained, a) };
             const remote = string(a, "remote"), base = string(a, "base"); if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
             const profile = await applyDelegationProfile(root, contained, { expectedIdentity: required(a, "expected"), actor: required(a, "actor"), cooperativeLocal: flag(a, "cooperative-local") });
             const workspace = await registerWorkspace(root, { repo, mode, client, applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(remote && base ? { destination: { remote, base } } : {}) });

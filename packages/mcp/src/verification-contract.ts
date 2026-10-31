@@ -3,7 +3,7 @@ import response from "../../../schema/job-response-v2.schema.json";
 import setup from "../../../schema/setup-observation-v1.schema.json";
 import evidence from "../../../schema/evidence-page-v2.schema.json";
 import jobs from "../../../schema/job-list-v2.schema.json";
-import { AssistantToolValidationError } from "./contract";
+import { AssistantToolValidationError, invalidField } from "./contract";
 const uuid = { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" };
 const hash = { type: "string", pattern: "^[a-f0-9]{64}$" };
 const object = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({ type: "object", properties, required, additionalProperties: false });
@@ -23,7 +23,7 @@ export function parseVerificationCall(name: unknown, args: unknown) {
     if (typeof name !== "string") throw new AssistantToolValidationError("unknown-tool", "Use a declared verification tool name");
     const validate = validators.get(name);
     if (!validate) throw new AssistantToolValidationError("unknown-tool", "This workspace offers only the declared verification tools; human decisions and sending are unavailable through MCP.");
-    if (!validate(args)) throw new AssistantToolValidationError("invalid-arguments", "Use the declared bounded fields and current service-issued guards.");
+    if (!validate(args)) throw new AssistantToolValidationError("invalid-arguments", `${invalidField(validate.errors as any)}Use the declared bounded fields and current service-issued guards.`);
     return { name, args: args as Record<string, unknown> };
 }
 const outputSchema = (name: string) => { const { $schema, $id, ...value } = name === "wringer.list_jobs" ? jobs : name === "wringer.inspect_setup" ? setup : name === "wringer.get_evidence" ? evidence : response; return value; };

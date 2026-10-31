@@ -228,11 +228,11 @@ export function deriveNextAction(model: BoardModel): NextAction {
     if (model.facts.readyToDeliver)
         return { title: "Review the delivery", description: "The evidence is ready for a delivery preview.", command: "wring deliver", owner: "operator", spends: false };
     if (model.run && model.facts.checksPassing === true && model.facts.requirements === null)
-        return { title: "Review the recorded checks", description: `${model.facts.checks?.passed ?? 0} recorded check(s) passed. Requirements have not been assessed, so this record does not establish readiness for handover. Declare a contained plan to connect requirements to the next bounded piece of work.`, command: "wringer-drive plan --help", owner: "operator", spends: false };
+        return { title: "Review the recorded checks", description: `${model.facts.checks?.passed ?? 0} recorded check(s) passed. Requirements have not been assessed, so this record does not establish readiness for handover. To hand a bounded request to a coding agent, set up delegation.`, command: "wring setup --help", owner: "operator", spends: false };
     // A green subset has no failure to repair; its next move is the rest of the verification, never a coding agent.
     if (model.run && model.facts.selection?.complete === false && !model.facts.checks?.failed)
         return { title: "Run the checks this record does not cover", description: `${model.facts.selection.reason} Run them, then combine the bundles into one result with wring audit --set.`, command: `wring verify --gate ${model.facts.selection.missingRequired.map(id => shellQuote(id)).join(" --gate ")}`, owner: "operator", spends: false };
     if (model.run && !model.facts.checksPassing)
-        return { title: "Bring the checks to green", description: "The failed checks contain the next concrete build work. This standalone record cannot start a coding agent; declare a bounded contained plan to delegate the repair.", command: "wringer-drive plan --help", owner: "operator", spends: false };
+        return { title: "Bring the checks to green", description: `Failed: ${model.gates.filter(g => g.status === "failed").map(g => g.id).join(", ") || "not recorded"}. Read its output, then fix it here or set up delegation with wring setup --help. This standalone record cannot start a coding agent.`, command: "wring explain", owner: "operator", spends: false };
     return model.nextAction;
 }

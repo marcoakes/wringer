@@ -31,14 +31,17 @@ export function requirementLines(model: BoardModel): string[] {
     });
 }
 export function renderMarkdown(model: BoardModel): string {
-    const r = model.facts.requirements, g = model.facts.checks;
-    return [`# ${md(model.title)}`, "", `Run: ${md(model.run?.id ?? "not recorded")}`, `Verification base commit: ${md(model.run?.head ?? "not recorded")}`, ...(model.delivery ? [`Delivery: ${md(model.delivery.id)}`, `Source change commit: ${md(model.delivery.commit ?? "not committed (preview)")}`, "Evidence publication commit: the enclosing Git commit carries this bundle; its own hash is not self-embedded here.", "The verification base is HEAD before the measured working-tree changes. Audit and falsify target the source change commit; the later evidence publication commit is a separate commit."] : []), "",
+    const r = model.facts.requirements, g = model.facts.checks, failed = model.gates.filter(gate => gate.status === "failed").map(gate => md(gate.id));
+    // The answer first. A record with nothing to say about requirements keeps its unknowns below but not empty headings.
+    const answer = failed.length ? `Failed: ${failed.join(", ")}.` : g?.total && model.facts.checksPassing === true && !r ? `All ${g.total} recorded check${g.total === 1 ? "" : "s"} passed. This does not prove a product requirement.` : null;
+    const requirements = requirementLines(model), usage = model.usage.some(u => u.tokens !== null || u.calls !== null || u.cost);
+    return [`# ${md(model.title)}`, "", ...(answer ? [answer, ""] : []), `Run: ${md(model.run?.id ?? "not recorded")}`, `Verification base commit: ${md(model.run?.head ?? "not recorded")}`, ...(model.delivery ? [`Delivery: ${md(model.delivery.id)}`, `Source change commit: ${md(model.delivery.commit ?? "not committed (preview)")}`, "Evidence publication commit: the enclosing Git commit carries this bundle; its own hash is not self-embedded here.", "The verification base is HEAD before the measured working-tree changes. Audit and falsify target the source change commit; the later evidence publication commit is a separate commit."] : []), "",
         ...model.rail.map(s => `- ${s.label}: ${s.status}. ${s.detail}`), "",
         r ? `Requirements: ${r.proved} proved, ${r.unproved} unproved, ${r.human} for a person (${r.humanComplete} judgements recorded), ${r.total} total.` : "Requirements: not assessed.",
         g ? `Checks: ${g.passed} passed, ${g.failed} failed, ${g.total} recorded.` : "Checks: not recorded.", "",
         "## Next action", "", md(model.nextAction.title), md(model.nextAction.description), ...(model.nextAction.command ? ["", `\`\`\`sh\n${model.nextAction.command}\n\`\`\``] : []), "",
-        "## Every requirement", "", ...requirementLines(model), "",
-        "## Usage", "", ...model.usage.map(u => `- ${u.lane}: ${number(u.tokens)} tokens; ${number(u.calls)} recorded call(s); cost ${u.cost ? `${u.cost.amount} ${u.cost.currency}` : "not reported"}. ${u.basis}.`), "",
+        ...(requirements.length ? ["## Every requirement", "", ...requirements, ""] : []),
+        ...(usage ? ["## Usage", "", ...model.usage.map(u => `- ${u.lane}: ${number(u.tokens)} tokens; ${number(u.calls)} recorded call(s); cost ${u.cost ? `${u.cost.amount} ${u.cost.currency}` : "not reported"}. ${u.basis}.`), ""] : ["Usage: not reported for this run.", ""]),
         ...(model.issues.length ? ["## Record issues", "", ...model.issues.map(i => `- ${md(i.path)}: ${md(i.message)}`), ""] : []),
         "## Limits", "", "A check proves a requirement as written. If the wording misses what you meant, a passing check inherits that gap.", "", ...model.limits.map(l => `- ${md(l)}`), ""].join("\n");
 }

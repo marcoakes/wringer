@@ -962,7 +962,7 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                 if (state.baseline.status === "unavailable")
                     refuse("baseline-unavailable", "The pinned acceptance commands could not execute. Environment failure is not a red receipt. A new attempt requires explicit bounded retry.", `${resumeCommand} --retry-verification`);
                 if (state.baseline.checks.some(c => c.status !== "failed"))
-                    refuse("acceptance-born-green", `These acceptance checks already pass before implementation: ${state.baseline.checks.filter(c => c.status !== "failed").map(c => c.id).join(", ")}. Retained receipts: ${state.baseline.evidenceRef}. An existing regression belongs in the baseline; a new requirement needs a check that fails for its missing behaviour. Revise and approve the contract; no worker turn has started.`, newGrantCommand);
+                    refuse("acceptance-born-green", `These acceptance checks already pass before implementation: ${state.baseline.checks.filter(c => c.status !== "failed").map(c => c.id).join(", ")}. Retained receipts: ${state.baseline.evidenceRef}. An existing regression belongs in the baseline; a new requirement needs a check that fails for its missing behaviour. Commit a check that fails today and approve a new job or plan; this one cannot be revised. No worker turn has started.`, newGrantCommand);
                 if (measuredLoopPlan(plan)) {
                     try { assertAssertionRed(plan, state.baseline); }
                     catch (error) { refuse("assertion-red-not-established", String(error), newGrantCommand); }

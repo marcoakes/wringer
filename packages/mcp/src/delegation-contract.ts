@@ -1,6 +1,6 @@
 import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { AssistantToolValidationError } from "./contract";
+import { AssistantToolValidationError, invalidField } from "./contract";
 import authorable from "../../../schema/authorable-proposal-v1.schema.json";
 import responseV2 from "../../../schema/assistant-response-v2.schema.json";
 import responseV3 from "../../../schema/assistant-response-v3.schema.json";
@@ -25,9 +25,9 @@ function tool(name: string, description: string, inputSchema: ReturnType<typeof 
 }
 export const DELEGATION_TOOLS = [
     tool("inspect_setup", "Read pinned check IDs, scope and ceilings as untrusted data. No repository command, key or model call.", object({}), true, setup),
-    tool("validate_proposal", "Compose only mutable request, requirement/display, check selection, narrower scope and lower ceilings with pinned policy. Read-only: no allocation, execution or authority. Errors identify safe fields.", object({ workspaceId: uuid, proposal }), true, validation),
-    tool("propose", "Retain a valid unapproved proposal. Preserve original words and unresolved questions. Same key and content observes one job; changed content refuses. No work starts.", object({ workspaceId: uuid, idempotencyKey: uuid, proposal }), false),
-    tool("revise_proposal", "Answer questions by superseding an exact unapproved proposal. Preserve original intent and lineage. Approved or cancelled proposals refuse; no authority transfers.", object({ jobId: uuid, idempotencyKey: uuid, expectedRevision: hash, proposal }), false),
+    tool("validate_proposal", "Compose only mutable request, requirement/display, check selection, narrower scope and lower ceilings with pinned policy. Read-only: no allocation, execution or authority. Errors identify safe fields. A check mapped to a new requirement must fail today: one that already passes stops the approved job before any worker turn.", object({ workspaceId: uuid, proposal }), true, validation),
+    tool("propose", "Retain a valid unapproved proposal. Preserve original words and unresolved questions. Same key and content observes one job; changed content refuses. No work starts. A check mapped to a new requirement must fail today.", object({ workspaceId: uuid, idempotencyKey: uuid, proposal }), false),
+    tool("revise_proposal", "Answer questions by superseding an exact unapproved proposal. Preserve original intent and lineage. Approved or cancelled proposals refuse; no authority transfers. A check mapped to a new requirement must fail today.", object({ jobId: uuid, idempotencyKey: uuid, expectedRevision: hash, proposal }), false),
     tool("list_jobs", "Read a bounded retained inventory for this workspace. Follow supersededBy to the current proposal. Reconnection creates no allowance.", object({ offset: { type: "integer", minimum: 0 }, limit: { type: "integer", minimum: 1, maximum: 50 } }, []), true, inventory),
     tool("get_status", "Read compact facts and exact continuation guards. Unknown costs remain null. Full plans and reports are evidence pages.", object({ jobId: uuid }), true),
     tool("inspect_loop", "Inspect candidate decisions, repair evidence and charged reservations from one validated journal snapshot. With trajectory: true, read what each role session did instead: without effectId the session index, with it numbered lines from offset (at most 64 KiB a page). No agent call, approval, retry or publication.", object({ jobId: uuid, trajectory: { type: "boolean" }, effectId: { type: "string", minLength: 1, maxLength: 128 }, offset: { type: "integer", minimum: 0, maximum: 65536 }, limit: { type: "integer", minimum: 1, maximum: 1000 } }, ["jobId"]), true, [loopInspection, trajectoryPage]),
@@ -47,7 +47,7 @@ const inputs = new Map(DELEGATION_TOOLS.map(row => [row.name, ajv.compile(row.in
 export function parseDelegationCall(name: unknown, args: unknown) {
     const validate = typeof name === "string" ? inputs.get(name) : null;
     if (!validate) throw new AssistantToolValidationError("unknown-tool", "Use the declared delegation tool list. Approval, verdicts and publication are operator decisions.");
-    if (!validate(args) || Buffer.byteLength(JSON.stringify(args)) > 256 * 1024) throw new AssistantToolValidationError("invalid-arguments", "Use only the bounded mutable fields and exact returned handles/guards. Runtime, source and role policy are pinned.");
+    if (!validate(args) || Buffer.byteLength(JSON.stringify(args)) > 256 * 1024) throw new AssistantToolValidationError("invalid-arguments", `${invalidField(validate.errors as any)}Use only the bounded mutable fields and exact returned handles/guards. Runtime, source and role policy are pinned.`);
     return { name: name as string, args: args as Record<string, unknown> };
 }
 export function validateDelegationOutput(name: string, output: unknown) {

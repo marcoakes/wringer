@@ -22,3 +22,14 @@ test("any other stop gives its reason and the adapter's structured error, redact
     // The reply text is private narrative: a stop message never carries it, even when it is all there is.
     expect(describeRoleStop("worker", { stopReason: "agent-error", text: "PRIVATE_NARRATIVE Failed to authenticate" } as any)).toBe("The worker stopped (agent-error).");
 });
+
+test("an adapter that never answered the protocol names what its launcher printed and the way forward", () => {
+    const message = describeRoleStop("worker", { stopReason: "transport-closed", protocolVersion: null, agentInfo: null, stderr: "npm error network request to https://user:secret@registry.example/x failed\n" } as any);
+    expect(message).toContain("coding agent could not start");
+    expect(message).toContain("npm error network request");
+    expect(message).toContain("retry the stopped step");
+    expect(message).not.toContain("secret");
+    // Once the agent has answered, its console is private: only the stop reason remains.
+    const answered = describeRoleStop("worker", { stopReason: "transport-closed", protocolVersion: 1, agentInfo: { name: "agent" }, stderr: "PRIVATE_CONSOLE" } as any);
+    expect(answered).toBe("The worker stopped (transport-closed).");
+});

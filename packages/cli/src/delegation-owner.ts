@@ -21,8 +21,8 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
     const lockPath = join(ownerRoot, "owner.lock"), lock = await open(lockPath, "wx", 0o600).catch(() => { throw new Error("An owner is active or needs explicit recovery; opening does not replace it"); });
     const token = randomBytes(32).toString("hex"), operatorToken = randomBytes(32).toString("hex"), nonce = randomBytes(16).toString("hex"), redactor = new Redactor();
     const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self'; img-src blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` };
-    const sessions = createOperatorBrowserSessions(operatorToken, headers), json = (value: unknown, status = 200) => Response.json(value, { status, headers });
-    let origin = "", closed = false, stopped = false, refreshTimer: ReturnType<typeof setInterval> | undefined, refreshing = false;
+    const sessions = createOperatorBrowserSessions(operatorToken, headers, { openCommand: `wring job open --workspace ${workspaceId}` }), json = (value: unknown, status = 200) => Response.json(value, { status, headers });
+    let origin = "", closed = false, stopped = false, refreshTimer: ReturnType<typeof setInterval> | undefined, sweeping: Promise<void> | null = null;
     let server: ReturnType<typeof Bun.serve> | undefined, transport: ReturnType<typeof createAssistantTransport> | undefined;
     const created: string[] = [], active = new Map<string, Promise<Loaded>>(), observations = new Map<string, Promise<Loaded>>();
     const capabilities = new Map<string, Awaited<ReturnType<typeof issueAssistantCapability>>>(), activationErrors = new Map<string, string>();
@@ -31,11 +31,18 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
     async function observeContext(context: Context) {
         if (closed) throw new Error("Owner is stopping");
         const capability = capabilities.get(context.id);
-        if (!capability) throw new Error("This prepared context is still connecting. Retry observation shortly; reads never start a runner");
+        if (!capability) throw new Error("This prepared context could not be connected. Inspect its retained records; reads never start a runner");
         const controller = await createAssistantService(await delegationControllerRoot(root, workspaceId, context.id));
         const flow = createAssistantJobFlow(controller, { isStopping: () => closed, autoAdvance: false });
         controller.setPresentation(async jobId => { const shown = await flow.read(jobId); return { phase: shown.phase, nextAction: shown.nextAction, eventId: shown.readyRevision, observedRevision: shown.revision, observedCandidateTree: shown.candidateTree, pageUrl: `${origin}/?jobId=${jobId}` }; });
         return { context, controller, flow, capability, protocol: createDelegationProtocol(controller) };
+    }
+    /** `wring job new` in another process prepares a context between sweeps. A sweep
+     * already under way may have listed before it, so one more covers it. */
+    async function connected(context: Context) {
+        if (!capabilities.has(context.id)) await activatePreparedContexts();
+        if (!capabilities.has(context.id)) await activatePreparedContexts();
+        return load(context);
     }
     function load(context: Context) {
         const running = active.get(context.id); if (running) return running;
@@ -61,50 +68,64 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
         try { return await value; }
         catch (error) { active.delete(context.id); activationErrors.set(context.id, "runner-admission-refused-inspect-recovery"); throw error; }
     }
-    async function activatePreparedContexts() {
-        if (refreshing || closed) return;
-        refreshing = true;
-        try {
-            for (const name of await assistantInventory(root, `delegation-contexts/${workspaceId}`)) {
-                if (closed) break;
-                if (!/^[a-f0-9-]{36}\.json$/.test(name) || capabilities.has(name.slice(0, -5))) continue;
-                try {
-                const context = await readDelegationContext(root, workspaceId, name.slice(0, -5));
-                const controllerRoot = await delegationControllerRoot(root, workspaceId, context.id);
-                capabilities.set(context.id, await issueAssistantCapability(controllerRoot, new Date(Date.now() + 7 * 86400000).toISOString()));
-                const current = await load(context);
-                // Only an existing unexpired grant can enter the convenience
-                // scheduler. Uncertain operations remain visible for reconciliation.
-                for (const job of await current.controller.list()) {
-                    const approval = await current.controller.inspectApproval(job.jobId);
-                    if (approval && Date.parse(approval.authority.expires_at) > Date.now() && !job.uncertainty && !["cancelled", "superseded", "branch-pushed", "published", "merged", "closed"].includes(job.outcome)) {
-                        try { await activate(context); } catch { /* Retained in activationErrors; reads remain available. */ }
-                        break;
-                    }
+    function activatePreparedContexts() {
+        if (closed) return Promise.resolve();
+        return sweeping ??= sweepPreparedContexts().finally(() => { sweeping = null; });
+    }
+    async function sweepPreparedContexts() {
+        for (const name of await assistantInventory(root, `delegation-contexts/${workspaceId}`)) {
+            if (closed) break;
+            if (!/^[a-f0-9-]{36}\.json$/.test(name) || capabilities.has(name.slice(0, -5))) continue;
+            try {
+            const context = await readDelegationContext(root, workspaceId, name.slice(0, -5));
+            const controllerRoot = await delegationControllerRoot(root, workspaceId, context.id);
+            capabilities.set(context.id, await issueAssistantCapability(controllerRoot, new Date(Date.now() + 7 * 86400000).toISOString()));
+            const current = await load(context);
+            // Only an existing unexpired grant can enter the convenience
+            // scheduler. Uncertain operations remain visible for reconciliation.
+            for (const job of await current.controller.list()) {
+                const approval = await current.controller.inspectApproval(job.jobId);
+                if (approval && Date.parse(approval.authority.expires_at) > Date.now() && !job.uncertainty && !["cancelled", "superseded", "branch-pushed", "published", "merged", "closed"].includes(job.outcome)) {
+                    try { await activate(context); } catch { /* Retained in activationErrors; reads remain available. */ }
+                    break;
                 }
-                } catch { activationErrors.set(name.slice(0, -5), "context-preparation-incomplete-inspect-retained-records"); }
             }
-        } finally { refreshing = false; }
+            } catch { activationErrors.set(name.slice(0, -5), "context-preparation-incomplete-inspect-retained-records"); }
+        }
     }
     async function selected(jobId: string) {
         const job = await readDelegationJob(root, assistantId(jobId));
         if (job.workspaceId !== workspaceId) throw new Error("Job belongs to another workspace");
-        return load(await readDelegationContext(root, workspaceId, job.contextId));
+        return connected(await readDelegationContext(root, workspaceId, job.contextId));
     }
     async function latest() {
         const all: Context[] = [];
         for (const name of await assistantInventory(root, `delegation-contexts/${workspaceId}`)) if (/^[a-f0-9-]{36}\.json$/.test(name)) all.push(await readDelegationContext(root, workspaceId, name.slice(0, -5)));
         all.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
         if (!all.length) throw new Error("Prepare a delegation job with wring job new before connecting; setup alone grants no job");
-        return load(all.at(-1)!);
+        return connected(all.at(-1)!);
     }
     async function list() {
         const jobs = [];
         for (const id of await assistantInventory(root, "delegation-jobs")) {
             if (!/^[a-f0-9-]{36}\.json$/.test(id)) continue;
-            const job = await readDelegationJob(root, id.slice(0, -5)); if (job.workspaceId === workspaceId) jobs.push({ jobId: job.id, name: job.intent.slice(0, 200), contextId: job.contextId });
+            const job = await readDelegationJob(root, id.slice(0, -5)); if (job.workspaceId === workspaceId) jobs.push({ jobId: job.id, name: job.intent.slice(0, 200), contextId: job.contextId, createdAt: job.createdAt });
         }
         return jobs;
+    }
+    /** The picker's rows. A revised proposal replaces its job; only a repeated request costs the status read that shows it. */
+    async function pickable() {
+        const rows = await list(), seen = new Map<string, number>();
+        for (const row of rows) seen.set(row.name, (seen.get(row.name) ?? 0) + 1);
+        const kept = [];
+        for (const row of rows) {
+            if (seen.get(row.name)! > 1) {
+                const superseded = await selected(row.jobId).then(current => current.controller.status(row.jobId)).then(status => status.outcome === "superseded", () => false);
+                if (superseded) continue;
+            }
+            kept.push(row);
+        }
+        return kept;
     }
     const service = { async call(credential: string, name: string, raw: unknown, signal?: AbortSignal): Promise<Record<string, any>> {
         if (typeof credential !== "string" || credential.length !== token.length || !timingSafeEqual(Buffer.from(credential), Buffer.from(token))) throw new Error("Connection revoked");
@@ -152,7 +173,7 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
             const session = await sessions.handle(request, origin); if (session) return session;
             const authentication = sessions.authenticate(request, origin); if (authentication instanceof Response) return authentication;
             try {
-                if (request.method === "GET" && url.pathname === "/api/jobs") return json({ jobs: await list(), ownerStops: [...activationErrors].map(([contextId, code]) => ({ contextId, code })) });
+                if (request.method === "GET" && url.pathname === "/api/jobs") return json({ jobs: await pickable(), ownerStops: [...activationErrors].map(([contextId, code]) => ({ contextId, code })) });
                 if (request.method === "GET" && url.pathname === "/api/job") { const jobId = assistantId(url.searchParams.get("jobId")); return json(await (await selected(jobId)).flow.read(jobId)); }
                 if (request.method === "GET" && url.pathname === "/api/improvements") {
                     if ([...url.searchParams.keys()].join(",") !== "jobId") throw new Error("Select exactly one job for improvement evidence");

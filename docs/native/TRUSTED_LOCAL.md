@@ -56,17 +56,24 @@ and `@agentclientprotocol/codex-acp@1.10.0`.
 ```sh
 wring setup --repo /absolute/project --client claude-code --mode delegation \
   --runtime trusted-local --worker-adapter claude-agent-acp --judge-adapter claude-agent-acp \
-  --source local --dependencies none --dry-run --json
+  --source local --dependencies none --writable src --remote origin --base main --dry-run --json
 ```
 
-Review the profile it prints: the adapters, the checks, the writable paths and
-the limits. Keep it by repeating the same command with
-`--apply --expected IDENTITY --actor NAME --cooperative-local`. Then create a
-job and connect your client:
+`--writable` names what the worker may change; repeat it for each path. `--remote`
+and `--base` name where a finished job can be sent; without them the work can be
+accepted but not sent. Review the profile it prints: the adapters, the checks, the
+writable paths and the limits. Keep it by repeating the same command with
+`--apply --expected IDENTITY --actor NAME --cooperative-local`.
+
+A new requirement needs a check that fails today: the worker cannot change checks,
+and a check that already passes stops the approved job before any worker turn. Add
+the failing test and commit it first. Then create a job, connect your client and
+start the owner it connects to, which also opens your private page:
 
 ```sh
 wring job new --workspace WORKSPACE_ID --intent 'The original request'
 wring connect --workspace WORKSPACE_ID --client claude-code --scope project --dry-run --json
+wring job open --workspace WORKSPACE_ID
 ```
 
 If a coding agent's login has expired, the job stops before any change and says

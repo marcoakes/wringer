@@ -74,7 +74,7 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
         case "demo": {
             allowed(a, []); positionals(a, 0);
             const value = await (await import("./demo")).runDemo(context.signal);
-            return { value, text: `${value.note}\nExpected failure: ${value.red.exit}; corrected check: ${value.corrected.exit}.\nEvidence: ${value.corrected.evidence}` };
+            return { value, text: `${value.note}\nExpected failure: ${value.red.exit}; corrected check: ${value.corrected.exit}.\nEvidence: ${join(value.repo, value.corrected.evidence)}\nNext: wring start, in your own repository` };
         }
         case "init": {
             allowed(a, ["dry-run"]);
@@ -83,10 +83,10 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
         }
         case "start": {
             allowed(a, []);
-            if (!await Bun.file(join(repo, ".wringer.yaml")).exists())
-                await engine.init(repo);
-            const value = await engine.doctor(repo, { signal: context.signal });
-            return { value, text: `${value.status === "ready" ? "Ready" : value.status === "blocked" ? "Needs attention" : "Not fully measured"}.\n${renderReadiness(value.checks)}\n\nNext: wringer-drive authority --help\nGuide: ${await documentationHint()}\nWorker recipes: ${await documentationHint("HEADLESS.md")}`, exit: value.exit_code };
+            const created = await Bun.file(join(repo, ".wringer.yaml")).exists() ? [] : (await engine.init(repo)).writes.map(write => write.path);
+            const value = await engine.doctor(repo, { signal: context.signal }), next = startNext(value.checks);
+            const wrote = created.length ? `Created ${created.join(" and ")}. Review the commands it declares: wring verify runs them on this computer.\n` : "";
+            return { value, text: `${wrote}${value.status === "ready" ? "Ready to run" : value.status === "blocked" ? "Needs attention" : "Not fully measured"}.\n${renderReadiness(value.checks)}\n\nNext: ${next}\nGuide: ${await documentationHint()}${next === "wring setup --help" ? "" : "\nDelegate a job to a coding agent: wring setup --help"}`, exit: value.exit_code };
         }
         case "verify": {
             if (flag(a, "falsify")) {
@@ -119,7 +119,7 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
             if (a.words.length && a.flags.has("run"))
                 throw new Error("Name the run only once");
             const value = await engine.explain(repo, string(a, "run", a.words[0]));
-            return { value, text: `${value.summary}\n${value.stdout}\n${value.stderr}\nNext: ${value.rerun}` };
+            return { value, text: `${value.summary.replace(/\n*Next: .*\s*$/, "")}\n${value.stdout}\n${value.stderr}\nNext: ${value.rerun}` };
         }
         case "spec": {
             throw new engine.EngineError("Direct-HTTP drafting is retired. Put the original intent and planning role in a contained execution plan.", 2, "wringer-drive plan --help");
@@ -173,10 +173,15 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
         }
     }
 }
+/** The one next step: what blocks first, else what the last verification asks for, else the move beyond checking. */
+function startNext(rows: engine.ReadinessRow[]) {
+    return rows.find(r => r.blocking && r.next)?.next ?? rows.find(r => r.name === "last verify")?.next ?? "wring setup --help";
+}
 /** One rung, one measurement, one bounded next step. A rung is never printed without its measurement. */
 export function renderReadiness(rows: engine.ReadinessRow[]): string {
     const mark: Record<engine.Rung, string> = { measured: "✓", executable: "◐", installed: "◔", unavailable: "✗", not_measured: "—" };
-    return rows.map(r => `${mark[r.rung]} ${r.name} [${engine.RUNG_WORDS[r.rung]}]: ${r.measurement}${r.next ? `\n    Next: ${r.next}` : ""}`).join("\n");
+    // A failed run is a measured record, but a tick beside it reads as a pass.
+    return rows.map(r => `${r.name === "last verify" && r.next === "wring explain" ? "✗" : mark[r.rung]} ${r.name} [${engine.RUNG_WORDS[r.rung]}]: ${r.measurement}${r.next ? `\n    Next: ${r.next}` : ""}`).join("\n");
 }
 /** One combined result over several sealed bundles of one revision, on `verify` and `audit` alike. */
 async function combineBundles(a: Args, repo: string): Promise<Answer> {

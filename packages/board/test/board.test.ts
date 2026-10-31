@@ -58,7 +58,7 @@ describe("honest shared evidence", () => {
         expect(b.facts.readyToDeliver).toBeNull();
         expect(b.nextAction.title).toBe("Review the recorded checks");
         expect(b.nextAction.spends).toBe(false);
-        expect(b.nextAction.command).toBe("wringer-drive plan --help");
+        expect(b.nextAction.command).toBe("wring setup --help");
         for (const rendered of [renderHtml(b), renderMarkdown(b)]) {
             expect(rendered).toContain("1 recorded check(s) passed");
             expect(rendered).not.toContain("Record the first check");

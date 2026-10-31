@@ -115,7 +115,7 @@ export async function doctor(repo: string, options: {
     if (latest) {
         const manifest = await maybeJson(join(latest, "manifest.json"));
         const selection = await maybeJson(join(latest, "selection.json"));
-        checks.push({ name: "last verify", requirement: null, rung: "measured", measurement: `${manifest.run_id}: ${manifest.result.status}; ${posix(relative(repo, latest))}${selection?.schema_version === "wringer.selection.v1" ? `. ${selection.reason}` : ""}`, next: selection?.complete === false ? "wring verify for the checks that record does not cover" : null, blocking: false });
+        checks.push({ name: "last verify", requirement: null, rung: "measured", measurement: `${manifest.run_id}: ${manifest.result.status}; ${posix(relative(repo, latest))}${selection?.schema_version === "wringer.selection.v1" ? `. ${selection.reason}` : ""}`, next: manifest.result.status === "failed" ? "wring explain" : selection?.complete === false ? "wring verify for the checks that record does not cover" : null, blocking: false });
     }
     else
         checks.push({ name: "last verify", requirement: null, rung: "not_measured", measurement: "No completed verification record exists.", next: "wring verify", blocking: false });

@@ -16,8 +16,11 @@ allows it. A changed check definition needs a fresh approval.
 In delegation mode, call `wringer.validate_proposal` with mutable requirements,
 measured check mappings, supported result displays, narrower scope, finite
 ceilings, assumptions and questions. Use the returned field errors to repair the
-proposal. Record it with `wringer.propose`; use `wringer.revise_proposal` to answer
-questions on the same lineage. Do not rewrite the original request or echo and
+proposal. A check mapped to a new requirement must fail today, so commit the
+failing test before `wring job new`: one that already passes stops the approved
+job before any worker turn. Record the proposal with `wringer.revise_proposal` on
+the job `wring job new` returned, or `wringer.propose` when there is none; use
+`wringer.revise_proposal` to answer questions on the same lineage. Do not rewrite the original request or echo and
 edit private runtime policy. New acceptance files need the reviewed preparation
 route before execution approval. A missing contained runtime is a provisioning
 decision, never permission to run managed roles on the host.

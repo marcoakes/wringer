@@ -153,7 +153,7 @@ function jobClientRuntime() {
         const value = job;
         el("job-workspace").hidden = false; el("job-empty").hidden = true;
         document.title = `${value.name} · Wringer`;
-        el("job-name").textContent = value.name; el("phase-title").textContent = pmJobHeading(value); el("job-next-action").textContent = value.nextAction;
+        el("job-name").textContent = value.name; el("phase-title").textContent = pmJobHeading(value); el("job-next-action").textContent = value.nextAction; el("job-next-action").hidden = value.nextAction === value.error;
         el("job-mode").textContent = value.mode === "verification" ? "Verification · trusted-local checks" : value.execution === "trusted-local" ? "Delegation · on this computer, nothing contained" : "Delegation · contained roles";
         el("job-error").textContent = value.error ?? ""; el("job-error").hidden = !value.error;
         el("approval-panel").hidden = value.phase !== "approval";
@@ -169,7 +169,7 @@ function jobClientRuntime() {
         el("approval-intent").textContent = value.intent;
         const approvalRequirements = el("approval-requirements"); approvalRequirements.replaceChildren();
         for (const requirement of value.requirements.filter(r => r.required)) approvalRequirements.append(node("li", requirement.title));
-        const scope = el("approval-source"); scope.replaceChildren(); addFact(scope, "Source repository", value.scope.repository); addFact(scope, "Pinned source", value.scope.sourceCommit);
+        const scope = el("approval-source"); scope.replaceChildren(); addFact(scope, "Source repository", value.scope.repository.startsWith("local://") ? "The local repository on this computer" : value.scope.repository); addFact(scope, "Pinned source", value.scope.sourceCommit);
         el("approval-scope").textContent = `Allowed to change:\n${value.scope.writable.join("\n") || "No writable paths"}\n\nMust preserve:\n${value.scope.protected.join("\n") || "No separate protected paths declared"}`;
         for (const [id, rows] of [["job-questions", value.questions ?? []], ["job-assumptions", value.assumptions ?? []]] as const) { const list = el(id); list.replaceChildren(); for (const text of rows) list.append(node("li", text)); el(`${id}-panel`).hidden = rows.length === 0; }
         (el("job-assumptions-panel") as HTMLDetailsElement).open = value.phase === "approval";
@@ -257,7 +257,7 @@ function jobClientRuntime() {
         const length = Number(response.headers.get("content-length") ?? "0"); if (length > 2 * 1024 * 1024) throw new Error("The controller response exceeds the bounded review size.");
         const text = await response.text(); if (text.length > 2 * 1024 * 1024) throw new Error("The controller response exceeds the bounded review size.");
         let value: any; try { value = JSON.parse(text); } catch { throw new Error("The controller returned an unreadable response. No decision was inferred."); }
-        if (!response.ok) throw new Error(typeof value.error === "string" ? value.error : "The controller refused this request. No decision was inferred.");
+        if (!response.ok) throw Object.assign(new Error(typeof value.error === "string" ? value.error : "The controller refused this request. No decision was inferred."), { status: response.status });
         return value;
     };
     const establish = async () => {
@@ -275,7 +275,9 @@ function jobClientRuntime() {
         if (!Array.isArray(value.jobs) || value.jobs.length > 1000 || !value.jobs.every((r: any) => r && uuid(r.jobId) && typeof r.name === "string" && r.name.length <= 1000) || new Set(value.jobs.map((r: any) => r.jobId)).size !== value.jobs.length) throw new Error("The controller returned an unreadable job list.");
         const picker = field("job-picker"); picker.replaceChildren();
         const prompt = node("option", "Choose your work") as HTMLOptionElement; prompt.value = ""; picker.append(prompt);
-        for (const row of value.jobs) { const option = node("option", row.name) as HTMLOptionElement; option.value = row.jobId; picker.append(option); }
+        // One request can hold several jobs, and a long request's end is cut off in the control: the time goes first.
+        const rows = [...value.jobs].sort((a: any, b: any) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
+        for (const row of rows) { const repeated = rows.filter((other: any) => other.name === row.name).length > 1, option = node("option", repeated && row.createdAt ? `${new Date(row.createdAt).toLocaleString()} · ${row.name}` : row.name) as HTMLOptionElement; option.value = row.jobId; picker.append(option); }
         if (!selected && value.jobs.length === 1) selected = value.jobs[0].jobId;
         picker.value = selected; el("job-selection").hidden = value.jobs.length < 2 && !!selected;
         el("job-empty").textContent = value.jobs.length ? "Choose the work you want to inspect. No job will start by opening it." : "Start with your coding app. Ask it to put your request through Wringer; your proposed work will appear here.";
@@ -309,7 +311,12 @@ function jobClientRuntime() {
                     if (decisionChanged) el("job-workspace").focus();
                     notify(next);
                 } else { connected = true; lastRead = Date.now(); render(); }
-            } catch (error) { connected = false; if (!locked) say(error instanceof Error ? error.message : "The controller could not be read. Decisions are paused.", true); controls(); }
+            } catch (error) {
+                connected = false;
+                if (!locked) say(error instanceof Error ? error.message : "The controller could not be read. Decisions are paused.", true);
+                if ((error as { status?: number }).status === 401) el("job-empty").textContent = "Your recorded work appears here once this browser is unlocked. Nothing was lost or approved.";
+                controls();
+            }
         })().finally(() => { refreshing = null; });
         return refreshing;
     };
@@ -320,8 +327,10 @@ function jobClientRuntime() {
         try {
             await api(path, body);
             if (locked) return;
-            say("The controller received your decision. Checking the recorded outcome…");
+            const received = "The controller received your decision. Checking the recorded outcome…";
+            say(received);
             await refresh();
+            if (el("job-message").textContent === received) say("");
         } catch (error) {
             if (locked) return;
             unresolvedRevision = before;
@@ -356,6 +365,13 @@ function jobClientRuntime() {
         if (busy || !uuid(field("job-picker").value)) return;
         selected = field("job-picker").value; job = null; clearDraft(); unresolvedRevision = null; connected = false;
         history.replaceState(null, "", `${location.pathname}?jobId=${encodeURIComponent(selected)}`); render(); void refresh();
+    });
+    // Reopening the private link in a tab already on this page changes only the fragment, which reloads nothing.
+    addEventListener("hashchange", () => {
+        const opened = new URLSearchParams(location.hash.slice(1)).get("token");
+        if (!opened) return;
+        token = opened; locked = false; history.replaceState(null, "", location.pathname + location.search);
+        void refresh();
     });
     el("lock-job-page").addEventListener("click", () => {
         if (locked) return; locked = true; notifications = false; connected = false; job = null; clearDraft(); render();

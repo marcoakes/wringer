@@ -1,0 +1,205 @@
+{
+  "baseline": "19380e0b8fc5cb8dde242f75665ebd72b492ac28",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "mcp-raw-enoent",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "connect-note-silent",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "no-connect-on-demand",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "writable-next-move",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "writable-no-candidates",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "destination-limit-absent",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "approval-silent-on-destination",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "locked-without-command",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "superseded-stays-in-picker",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "fragment-does-not-unlock",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "stale-notice-kept",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "stop-shown-twice",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "picker-repeats-names",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "born-green-raw",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "adapter-stderr-dropped",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "adapter-console-leaks",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "missing-field-unnamed",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "hostile-field-repeated",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "start-writes-silently",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "start-static-next",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "failed-run-ticked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "failed-next-is-a-plan",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "explain-next-twice",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "answer-not-first",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "empty-usage-kept",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "deliver-gives-no-reason",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "demo-relative-evidence",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

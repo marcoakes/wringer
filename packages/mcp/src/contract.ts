@@ -123,6 +123,14 @@ export const assistantTools = (options: { design: boolean }): readonly Assistant
 const ajv = new Ajv({ strict: true, allErrors: false });
 const validators = new Map(ASSISTANT_TOOLS.map(tool => [tool.name, ajv.compile(tool.inputSchema)]));
 
+/** Names the field a schema refused so a caller can repair it. Schema words only: a supplied value is never repeated, and a supplied field name only when it is a plain identifier. */
+export function invalidField(errors: readonly { keyword: string; instancePath: string; params: Record<string, unknown>; message?: string }[] | null | undefined) {
+    const error = errors?.[0]; if (!error) return "";
+    const at = error.instancePath.split("/").filter(Boolean), plain = (value: unknown) => /^[A-Za-z0-9_-]{1,64}$/.test(String(value)) ? String(value) : null;
+    if (error.keyword === "required") return `Missing field: ${[...at, plain(error.params.missingProperty) ?? "(unnamed)"].join(".")}. `;
+    if (error.keyword === "additionalProperties") { const name = plain(error.params.additionalProperty); return `Unknown field: ${name ? [...at, name].join(".") : "(unnamed)"}. `; }
+    return `Invalid field: ${at.join(".") || "arguments"} (${error.message ?? "out of bounds"}). `;
+}
 export class AssistantToolValidationError extends Error {
     constructor(readonly code: "unknown-tool" | "invalid-arguments" | "strict-cash-unavailable", message: string) { super(message); this.name = "AssistantToolValidationError"; }
 }
@@ -131,7 +139,7 @@ export class AssistantToolValidationError extends Error {
 export function parseAssistantToolCall(name: unknown, args: unknown): AssistantToolCall {
     const validate = typeof name === "string" ? validators.get(name as AssistantToolName) : undefined;
     if (!validate) throw new AssistantToolValidationError("unknown-tool", "This assistant tool is not available. Read tools/list for the allowed operations.");
-    if (!validate(args)) throw new AssistantToolValidationError("invalid-arguments", "The tool arguments do not match its declared shape or bounds. Read tools/list and use only service-issued handles with the exact current guards.");
+    if (!validate(args)) throw new AssistantToolValidationError("invalid-arguments", `${invalidField(validate.errors as any)}The tool arguments do not match its declared shape or bounds. Read tools/list and use only service-issued handles with the exact current guards.`);
     const input = args as Record<string, unknown>;
     const byteBounded = (value: unknown, max: number) => typeof value !== "string" || Buffer.byteLength(value, "utf8") <= max;
     if (!byteBounded(input.intent, 16384) || !byteBounded(input.note, 16384) || [input.assumptions, input.questions].some(rows => Array.isArray(rows) && rows.some(value => !byteBounded(value, 4096)))) throw new AssistantToolValidationError("invalid-arguments", "The request or note exceeds its UTF-8 byte bound. Keep the original words in a bounded request; do not truncate a person's observation silently.");

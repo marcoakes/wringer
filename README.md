@@ -29,7 +29,7 @@ npm or Homebrew package yet. Try the labelled simulation first; it uses no model
 and no account:
 
 ```sh
-wring demo --json
+wring demo
 ```
 
 ## Where the work runs

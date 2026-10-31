@@ -11,7 +11,7 @@ type Authentication = { mode: "bearer" | "session"; session?: string };
  * Cookie-authenticated requests additionally need the same-origin custom header
  * and origin/fetch metadata. Browser cross-origin scripts cannot send these
  * without a preflight, which the servers do not authorize. */
-export function createOperatorBrowserSessions(bearer: string, headers: Record<string, string>, options: { now?: () => number; ttlSeconds?: number; maxSessions?: number } = {}) {
+export function createOperatorBrowserSessions(bearer: string, headers: Record<string, string>, options: { now?: () => number; ttlSeconds?: number; maxSessions?: number; openCommand?: string } = {}) {
     const now = options.now ?? Date.now, ttl = options.ttlSeconds ?? OPERATOR_BROWSER_SESSION_SECONDS, maximum = options.maxSessions ?? 32;
     if (!/^[a-f0-9]{64}$/.test(bearer) || !Number.isInteger(ttl) || ttl < 1 || ttl > OPERATOR_BROWSER_SESSION_SECONDS || !Number.isInteger(maximum) || maximum < 1 || maximum > 32) throw new Error("Invalid bounded operator browser session policy");
     const cookieName = `wringer_operator_${randomBytes(16).toString("hex")}`, expected = Buffer.from(`Bearer ${bearer}`), sessions = new Map<string, number>();
@@ -37,7 +37,7 @@ export function createOperatorBrowserSessions(bearer: string, headers: Record<st
             auth = { mode: "bearer" };
         } else {
             const session = sessionKey(request);
-            if (!session) return json({ error: "This page is locked or its browser access expired. Open the current private operator link once; refresh and reopen will then work while this owner is running." }, 401);
+            if (!session) return json({ error: options.openCommand ? `This page is locked or its browser access expired. Nothing was approved. On this computer, run ${options.openCommand}: it opens a private link that unlocks this browser while this owner is running.` : "This page is locked or its browser access expired. Open the current private operator link once; refresh and reopen will then work while this owner is running." }, 401);
             if (request.headers.get("x-wringer-console") !== "1" || request.headers.get("origin") !== origin && request.headers.get("sec-fetch-site") !== "same-origin") return json({ error: "Browser session access needs a same-origin request from this page" }, 403);
             auth = { mode: "session", session };
         }

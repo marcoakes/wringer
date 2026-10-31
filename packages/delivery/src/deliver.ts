@@ -53,7 +53,7 @@ export async function deliver(repo: string, options: DeliveryOptions = {}): Prom
     const put = (path: string, value: unknown) => writeRecord(path, value, redactor);
     const nextVerify = `wring verify --repo ${quote(repo)}`;
     if (!model.run || model.facts.readyToDeliver !== true)
-        throw new Refusal(`Delivery requires a finished passing run with every required proof and human judgement. ${model.issues.map(v => v.message).join(" ")}`, model.nextAction.command || nextVerify, "not-ready");
+        throw new Refusal(`Delivery requires a finished passing run with every required proof and human judgement. ${model.run && !model.facts.requirements ? "This record has no requirements on record, so nothing says what its checks prove. Add a wringer.spec.yaml with gates that prove it (see SETUP.md), or delegate a job, which records them for you. " : ""}${model.issues.map(v => v.message).join(" ")}`, model.nextAction.command || nextVerify, "not-ready");
     if (!config.deliver)
         throw new Refusal("No delivery policy is declared in .wringer.yaml.", `wring deliver --help`, "no-delivery-policy");
     const runPath = await inside(repo, model.run.path);

@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { open, rename, unlink } from "node:fs/promises";
-import { basename, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { loadExecutionPlan } from "@wringer/plan";
@@ -249,7 +249,13 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
         return { value, text: value.text };
     }
     if (a.command === "mcp") {
-        allowed(a, ["connection"]); const path = absolute(a, "connection"); await readAssistantConnection(path);
+        allowed(a, ["connection"]); const path = absolute(a, "connection");
+        // Connecting starts no owner, and an owner's directory only exists once one has run.
+        await readAssistantConnection(path).catch((error: NodeJS.ErrnoException) => {
+            if (error.code !== "ENOENT") throw error;
+            const workspace = basename(dirname(path));
+            throw new Error(`No Wringer owner is running for this workspace, so this connection has nothing to reach. On this computer, run wring job open --workspace ${workspace}, then reload your client. Connecting starts nothing for you.`);
+        });
         // The advertised surface belongs to the workspace, not to this bridge: ask
         // the owner whether its own specification declares design. An unreadable
         // answer leaves the plain surface rather than advertising design anyway.

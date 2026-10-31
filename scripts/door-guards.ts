@@ -1,0 +1,32 @@
+/** Isolated reversions of the newcomer-door repairs found by walking both doors at alpha.39. */
+import { runReversions } from "./rebuild-reversions";
+const door = "packages/cli/test/delegation-door.test.ts", verification = "packages/cli/test/verification-door.test.ts", mcp = "packages/mcp/test/server.test.ts", role = "packages/workflow/test/role-stop.test.ts";
+await runReversions("door-guards", [door, verification, mcp, role], [
+    { name: "mcp-raw-enoent", file: "packages/cli/src/assistant-cli.ts", before: 'if (error.code !== "ENOENT") throw error;', after: "throw error;", test: door, pattern: "told exactly" },
+    { name: "connect-note-silent", file: "packages/cli/src/client-adapters.ts", before: "Start its owner with wring job open --workspace ${selected.workspaceId}: connecting starts nothing. ", after: "", test: door, pattern: "connection preview" },
+    { name: "no-connect-on-demand", file: "packages/cli/src/delegation-owner.ts", before: "        if (!capabilities.has(context.id)) await activatePreparedContexts();\n        if (!capabilities.has(context.id)) await activatePreparedContexts();\n", after: "", test: door, pattern: "proposed on at once" },
+    { name: "writable-next-move", file: "packages/application/src/delegation-profile.ts", before: ', 2, "wring setup --help");', after: ", 2);", test: door, pattern: "conventional source" },
+    { name: "writable-no-candidates", file: "packages/application/src/delegation-profile.ts", before: '${candidates.length ? ` Tracked here: ${candidates.join(", ")}.` : ""}', after: "", test: door, pattern: "conventional source" },
+    { name: "destination-limit-absent", file: "packages/cli/src/adoption-cli.ts", before: 'return string(a, "remote") && string(a, "base") ? preview :', after: "return true ? preview :", test: door, pattern: "no destination" },
+    { name: "approval-silent-on-destination", file: "packages/cli/src/assistant-job.ts", before: 'automatically.${destination ? "" :', after: 'automatically.${true ? "" :', test: door, pattern: "approval page" },
+    { name: "locked-without-command", file: "packages/cli/src/operator-browser-session.ts", before: "error: options.openCommand ? ", after: "error: false ? ", test: door, pattern: "approval page" },
+    { name: "superseded-stays-in-picker", file: "packages/cli/src/delegation-owner.ts", before: "if (superseded) continue;", after: "", test: door, pattern: "approval page" },
+    { name: "fragment-does-not-unlock", file: "packages/board/src/job-render.ts", before: 'addEventListener("hashchange", () => {', after: 'addEventListener("hashchange-removed", () => {', test: door, pattern: "private page" },
+    { name: "stale-notice-kept", file: "packages/board/src/job-render.ts", before: 'if (el("job-message").textContent === received) say("");', after: "", test: door, pattern: "private page" },
+    { name: "stop-shown-twice", file: "packages/board/src/job-render.ts", before: 'el("job-next-action").hidden = value.nextAction === value.error;', after: "", test: door, pattern: "private page" },
+    { name: "picker-repeats-names", file: "packages/board/src/job-render.ts", before: "repeated && row.createdAt ?", after: "false ?", test: door, pattern: "private page" },
+    { name: "born-green-raw", file: "packages/cli/src/assistant-job.ts", before: 'return reason === "acceptance-born-green" ?', after: 'return reason === "removed" ?', test: door, pattern: "only a new check" },
+    { name: "adapter-stderr-dropped", file: "packages/workflow/src/worker-outcome.ts", before: 'if (reason === "transport-closed" && result.protocolVersion === null) {', after: "if (false) {", test: role, pattern: "never answered" },
+    { name: "adapter-console-leaks", file: "packages/workflow/src/worker-outcome.ts", before: 'reason === "transport-closed" && result.protocolVersion === null', after: 'reason === "transport-closed"', test: role, pattern: "never answered" },
+    { name: "missing-field-unnamed", file: "packages/mcp/src/contract.ts", before: 'if (error.keyword === "required") return', after: "if (false) return", test: mcp, pattern: "shape refusal" },
+    { name: "hostile-field-repeated", file: "packages/mcp/src/contract.ts", before: '/^[A-Za-z0-9_-]{1,64}$/.test(String(value)) ? String(value) : null', after: "String(value)", test: mcp, pattern: "shape refusal" },
+    { name: "start-writes-silently", file: "packages/cli/src/app.ts", before: "const wrote = created.length ?", after: "const wrote = false ?", test: verification, pattern: "start says" },
+    { name: "start-static-next", file: "packages/cli/src/app.ts", before: "\\n\\nNext: ${next}\\n", after: "\\n\\nNext: wringer-drive authority --help\\n", test: verification, pattern: "start says" },
+    { name: "failed-run-ticked", file: "packages/cli/src/app.ts", before: 'r.name === "last verify" && r.next === "wring explain" ? "✗" : mark[r.rung]', after: "mark[r.rung]", test: verification, pattern: "failed verify" },
+    { name: "failed-next-is-a-plan", file: "packages/board/src/model.ts", before: 'command: "wring explain", owner', after: 'command: "wringer-drive plan --help", owner', test: verification, pattern: "failed verify" },
+    { name: "explain-next-twice", file: "packages/cli/src/app.ts", before: '${value.summary.replace(/\\n*Next: .*\\s*$/, "")}', after: "${value.summary}", test: verification, pattern: "failed verify" },
+    { name: "answer-not-first", file: "packages/board/src/render.ts", before: '...(answer ? [answer, ""] : []), ', after: "", test: verification, pattern: "green verify" },
+    { name: "empty-usage-kept", file: "packages/board/src/render.ts", before: "...(usage ? [", after: "...(true ? [", test: verification, pattern: "green verify" },
+    { name: "deliver-gives-no-reason", file: "packages/delivery/src/deliver.ts", before: 'model.run && !model.facts.requirements ? "This record', after: 'false ? "This record', test: verification, pattern: "green verify" },
+    { name: "demo-relative-evidence", file: "packages/cli/src/app.ts", before: "Evidence: ${join(value.repo, value.corrected.evidence)}", after: "Evidence: ${value.corrected.evidence}", test: verification, pattern: "demo points" },
+], { baseline: "19380e0b8fc5cb8dde242f75665ebd72b492ac28" });

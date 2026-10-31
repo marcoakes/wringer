@@ -210,7 +210,7 @@ Wringer workspace setup and retained jobs
   wring setup --repo PATH --client CLIENT --mode delegation --runtime trusted-local
       --worker-adapter claude-agent-acp|codex-acp --judge-adapter claude-agent-acp|codex-acp
       --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
-      [--writable PATH] [--output-dir PATH] [--acceptance UUID] --dry-run --json
+      [--writable PATH] [--output-dir PATH] [--acceptance UUID] [--remote NAME --base BRANCH] --dry-run --json
       Trusted-local runs your coding agents on this computer under your account,
       each role in a fresh clone; nothing is contained and protected mode refuses it.
   wring setup --repo PATH --client CLIENT --mode delegation --provision UUID
@@ -218,7 +218,7 @@ Wringer workspace setup and retained jobs
       --judge-provider openai|anthropic --judge-model MODEL
       --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
       --network deny|allowlist [--egress CIDR@PORT,PORT] [--dns IPV4]
-      [--writable PATH] [--output-dir PATH] [--readiness UUID] [--acceptance UUID] --dry-run --json
+      [--writable PATH] [--output-dir PATH] [--readiness UUID] [--acceptance UUID] [--remote NAME --base BRANCH] --dry-run --json
   Repeat the same contained selections with --apply --expected IDENTITY
       --actor NAME --cooperative-local to keep the reviewed profile and source.
   wring job new --workspace ID --intent 'Original request' [--gate ID] [--repetitions 3] [--run-seconds 300] [--elapsed-seconds 3600]

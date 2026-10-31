@@ -15,6 +15,10 @@ const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const redactor = new Redactor();
+/** What a person can do about a stop, where the recorded message is written for the record. */
+export function stopForPerson(reason: string | undefined) {
+    return reason === "acceptance-born-green" ? "The checks chosen for this request already pass, so they cannot show that the change worked. Nothing was changed and no agent ran. Ask your coding app to add a test that fails today, commit it, and propose the work again." : null;
+}
 
 /** A deterministic convenience layer, never a second workflow or model loop.
  * Only automatic start, declared showing and PREPARATION are scheduled. A
@@ -167,7 +171,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         if (status.publication && ["branch-pushed", "published", "recovered", "closed", "merged"].includes(status.publication.status)) { phase = "sent"; nextAction = "The reviewed change was sent. Share its handover record and fresh-clone audit route."; }
         else if (send && ["uncertain", "failed"].includes(send.status)) { phase = "blocked"; error = `Sending did not establish a completed handover. ${send.error ?? "Inspect the recorded publication outcome."} No send was repeated; reconcile the retained operation before continuing.`; }
         else if (send?.status === "running") { phase = "working"; nextAction = "Sending the accepted handover. This exact command is recorded; do not send it again."; }
-        else if (status.outcome === "awaiting-approval" && !p.questions.length) { phase = "approval"; nextAction = "Approve this request and its finite limits once. Work will start automatically."; }
+        else if (status.outcome === "awaiting-approval" && !p.questions.length) { phase = "approval"; nextAction = `Approve this request and its finite limits once. Work will start automatically.${destination ? "" : " No handover destination is registered, so the finished result cannot be sent from here. To keep one, repeat wring setup with --remote NAME --base BRANCH before approving a new job."}`; }
         else if (status.uncertainty || status.outcome === "cancelled" || approval && Date.parse(approval.authority.expires_at) <= Date.now()) { phase = "blocked"; error = status.nextAction; }
         else if (failed || failedDisplay || observedTransient !== null) { phase = "blocked"; error = failed?.error ?? displays.find(d => !d.success)?.error ?? observedTransient ?? "This step did not complete."; }
         else if (needCorrection) { phase = "correction"; nextAction = "Your No is recorded. Say what should change; correction uses only the remaining approved allowance."; }
@@ -175,11 +179,11 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
             // With no requirement for a person to review, nobody accepted it: the checks and the independent review agreed.
             const settled = human.length ? "Your result is accepted." : "Every requirement was checked: its checks passed and the independent review agreed. No one has reviewed it for you; look at what changed.";
             if (preparation?.status === "completed") { phase = "send"; nextAction = `${settled} Send this exact prepared change to the destination below?`; }
-            else if (!destination) { phase = "blocked"; error = "No handover destination was selected during setup. Nothing can be sent."; }
+            else if (!destination) { phase = "blocked"; error = "No handover destination was selected during setup, so nothing can be sent. The result and its evidence are retained. To send a later job, repeat wring setup with --remote NAME --base BRANCH."; }
             else { phase = "preparing"; nextAction = `${settled} Preparing its handover proof; nothing is being sent.`; }
         } else if (status.outcome === "human-hold" && human.length && displays.length === human.length && displays.every(d => d.success) && board?.actions.some(a => a.id === "review" && a.enabled)) { phase = "review"; nextAction = "Your result is ready. Does it meet the requirements shown below?"; }
         else if (status.outcome === "human-hold") { phase = "preparing"; nextAction = "Opening the actual result for your review. No decision has been recorded."; }
-        else if (!["approved", "running"].includes(status.outcome)) { phase = "blocked"; error = status.nextAction; }
+        else if (!["approved", "running"].includes(status.outcome)) { phase = "blocked"; error = stopForPerson(status.stop?.reason) ?? status.nextAction; }
         if (board?.status === "running" || active.has(jobId)) { if (!["approval", "sent"].includes(phase)) { phase = "working"; nextAction = "Recording this step. No extra approval or repeated action is needed."; error = null; } }
         if (revisionAdvanced && phase !== "sent") { phase = "working"; nextAction = ASSISTANT_REVISION_ADVANCED; error = null; }
         // --no-local streams a pack; a plain local clone copies loose objects that a detached gc may remove mid-copy.
