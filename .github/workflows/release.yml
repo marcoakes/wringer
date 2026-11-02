@@ -101,7 +101,9 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux-x64
-          - os: macos-15
+          # The archives are built on macos-15 above. On macos-15 at 29f3a58 the local design
+          # rehearsal's Send admission ran past its 40 s bound, so rehearsals run where tests.yml runs them.
+          - os: macos-latest
             platform: darwin-arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40

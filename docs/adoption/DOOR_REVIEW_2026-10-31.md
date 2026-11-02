@@ -57,6 +57,15 @@ and the attempt record save a live model any turns is **unmeasured**.
 
 ## Still open
 
+- **Send is slow on a slow machine.** Found on 2 November 2026, on the first
+  rehearsals ever run on a macOS 15 runner (tests run
+  [41528409272](https://github.com/marcoakes/wringer/actions/runs/41528409272)).
+  Send on a design job took 28 s there, and with a local source passed the
+  rehearsal's 40 s bound. On macOS 26 the same steps took 14–15 s. Admission audits
+  the prepared bundle while the page reads the job every 2 s, and the page gives up
+  on a decision after 45 s. So a person on a slow enough machine could see an error
+  while the Send is still being accepted. Not caused by these repairs. Alpha.40
+  rehearses on macOS 26 meanwhile.
 - **No live run.** The beta gate and live measurements still wait on a signed-in
   Claude Code and Codex. This review does not move them.
 - **Other stops read like records.** Only the already-passing-check stop has

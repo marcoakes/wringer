@@ -25,9 +25,12 @@ alone, the real adapters. Whether this saves a live model any turns is unmeasure
 - New records: `wringer.agent-check.v1` and `wringer.stopped-worker-edits.v1`, and a
   `worker-edits-kept` event in the contained journal. No published schema changed.
 - CI and the release build moved from macOS 14, which GitHub retired on 2 November
-  2026, to macOS 15. Its system Git is still Apple Git 2.39, and the tests now
-  rehearse there as the release does. A test keeps every release image under test
-  and refuses a retired one. The archives' minimum macOS is Bun's and did not change.
+  2026, to macOS 15. Its system Git is still Apple Git 2.39. A test keeps every
+  release image under test and refuses a retired one. The archives' minimum macOS is
+  Bun's and did not change.
+- Known issue, not fixed: on macOS 15 runners Send on a design job took 24–28 s, and
+  over 40 s with a local source (14–15 s on macOS 26), while the job page gives up on
+  a decision after 45 s. The release's rehearsals run on macOS 26 for now.
 - Each step of a rehearsal's design capture is bounded, and the step that stopped is
   recorded.
 

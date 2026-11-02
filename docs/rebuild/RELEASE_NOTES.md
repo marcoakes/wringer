@@ -35,9 +35,15 @@ the paths they changed and which checks and judge findings failed. This is rebui
 from the journal, not from the agent's own account.
 
 **Off macOS 14.** GitHub retired its macOS 14 runners on 2 November 2026. The macOS
-archive is now built and rehearsed on macOS 15, whose system Git is still Apple Git
-2.39, and the tests run there on every push. The archives' minimum macOS is set by
-Bun and did not change.
+archive is now built on macOS 15, whose system Git is still Apple Git 2.39, and the
+tests run there on every push. The archives' minimum macOS is set by Bun and did not
+change.
+
+**Known issue: Send can be slow on a slow Mac.** On GitHub's macOS 15 runners, Send
+on a design job took 24–28 s, and over 40 s with a local source. On macOS 26 it took
+14–15 s. The job page gives up on a decision after 45 s, so on a slow enough machine
+it can show an error while the Send is still being accepted. That is why this
+release's rehearsals ran on macOS 26. It is not fixed in this release.
 
 **How it was tested.** Scripted agents and checks on real Git; a journey with a real
 worker process that stops, a retry, Send and a fresh-clone audit; and the job page in
