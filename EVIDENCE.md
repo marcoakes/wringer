@@ -1,9 +1,37 @@
-# Current product evidence — 27 October 2026
+# Current product evidence — 2 November 2026
 
 The current verified public release is
-[1.0.0-alpha.39](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.39),
-commit `504543dff57cc924b1602d1f27f17123087c6d02`. It carries releases 2 and 3 of the
-improvement build:
+[1.0.0-alpha.40](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.40),
+commit `edb69879aa66ea27191311ea814d68d9ca40fac7`. It carries:
+
+- 13 repairs to the dead ends a newcomer met at both doors ([the review](docs/adoption/DOOR_REVIEW_2026-10-31.md));
+- `wring job check`, which starts each trusted-local agent with no prompt before approval;
+- a stopped worker's edits, kept for the next attempt and never a candidate or delivered;
+- a record of earlier attempts in each later attempt's prompt.
+
+All 14 public assets matched the clean source, both archives' signed provenance
+verified, and public macOS extraction/installation passed 17/13 checks. The published
+macOS binary still needs only macOS 13.0. All seven test jobs, the Linux DAC job and
+all six release jobs passed on the first attempt. It is the first release built on
+macOS 15, after GitHub retired macOS 14.
+
+The first candidate, `29f3a58`, was not tagged. The first rehearsals ever run on macOS
+15 stopped when Send took longer than the rehearsal's 40 s bound. That is an older,
+real defect on slow machines, recorded in [the review](docs/adoption/DOOR_REVIEW_2026-10-31.md)
+and the release record's `ciHistory`, and not fixed. The release rehearses on macOS 26.
+
+Local validation passed 43/43 stages ([record](docs/adoption/evidence/alpha40/local-validation.json)).
+55 guards were each removed alone, and every one turned its tests red: 54 on the first
+run, one after its test was tightened ([record](docs/rebuild/evidence/door-guards/reversions.json),
+[first run](docs/rebuild/evidence/door-guards/reversions-first-attempt.json)). See the
+[release record](docs/adoption/evidence/alpha40/release.json).
+
+The agent check was measured once on the real codex-acp 1.10.0 and claude-agent-acp
+0.65.0 adapters. Everything else is fixture-tested only: no live model has run, and
+no benefit is claimed.
+
+[1.0.0-alpha.39](docs/improvement/evidence/phase-3/release.json) (commit `504543d`)
+carried releases 2 and 3 of the improvement build:
 
 - playbook trees that only the worker sees;
 - a proposer that cites the trajectory line behind each change;
@@ -11,37 +39,13 @@ improvement build:
 - the job's research view;
 - pilot amendment 1, registered and not run.
 
-All 14 public assets matched the clean source, both archives' signed provenance
-verified, and public macOS extraction/installation passed 17/13 checks. The Linux DAC
-job and all six release jobs passed on the first attempt.
-
-The test run's first attempt failed on two jobs, neither caused by the commit:
-
-- a macOS 14 runner GitHub never supplied;
-- a headless-Chromium hang inside the rehearsal's own capture helper.
-
-Both passed when re-run unchanged. The diagnosis is in the release record's `ciHistory`.
-
-Local validation passed 43/43 stages in a fresh clone of each release's candidate
-([release 2](docs/improvement/evidence/phase-2/local-validation.json),
-[release 3](docs/improvement/evidence/phase-3/local-validation.json)). 44 guards were
-each removed alone, and every one turned its tests red: 43 on the first run, one after
-its test was tightened ([release 2](docs/improvement/evidence/phase-2/reversions/reversions.json),
+It was published in place of the never-published alpha.37 and the tagged, unpublished
+alpha.38 (`984c29c`), whose macOS release build ran past a 40-minute limit. 44 guards
+each turned their tests red ([release 2](docs/improvement/evidence/phase-2/reversions/reversions.json),
 [its follow-up](docs/improvement/evidence/phase-2/reversions-followup/reversions.json),
-[release 3](docs/improvement/evidence/phase-3/reversions/reversions.json)). See the
-[release record](docs/improvement/evidence/phase-3/release.json).
-
-Neither release was published under its own number:
-
-- Alpha.37's CI stopped on time limits and then on a stale budget test.
-- `v1.0.0-alpha.38` (`984c29c`) is tagged and unpublished. Its macOS release build ran
-  past the release workflow's 40-minute limit.
-
-Alpha.39 differs from that tag only in version strings, a 60-minute limit for the
-release build, and a test that keeps release limits in step with the test workflow's.
-
-All of it is fixture-tested only. No live proposer has run, no live agent has worked
-on a tree, no live comparison or lesson exists, and no benefit is claimed.
+[release 3](docs/improvement/evidence/phase-3/reversions/reversions.json)). All of it
+is fixture-tested only: no live proposer has run, no live agent has worked on a tree,
+no live comparison or lesson exists, and no benefit is claimed.
 
 [1.0.0-alpha.36](docs/improvement/evidence/phase-1/release.json) (commit `ade95ae`)
 added loop trajectories and replicate sets. Trajectories read the fields each pinned

@@ -1,0 +1,294 @@
+{
+  "release_name": "adoption alpha.40",
+  "release": {
+    "tag": "v1.0.0-alpha.40",
+    "url": "https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.40",
+    "publishedAt": "2026-11-02T23:53:43Z",
+    "isDraft": false
+  },
+  "source": {
+    "commit": "edb69879aa66ea27191311ea814d68d9ca40fac7",
+    "dirty": false,
+    "contentSha256": "1697cc35e76ccd80f9410f01b16828b953d983a99dfcfff82c8c3d36017db77d"
+  },
+  "assets": [
+    {
+      "name": "wringer-1.0.0-alpha.40-darwin-arm64.tar.gz",
+      "sha256": "ddcfbcb76e823df996de056b1843fe9471f0343154881e01440ad9cfd8aebc58",
+      "bytes": 29938576
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-darwin-arm64.tar.gz.sha256",
+      "sha256": "1600eb1c45cea045a17b7ecedc3351efd51b3eaf94255f51aefc18f4b2dcd315",
+      "bytes": 109
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-darwin-arm64.tar.gz.manifest.json",
+      "sha256": "d167ef71efbedc66f3b83a1b3cd9df6c1a3f8caacc814226e43cd69399427272",
+      "bytes": 146936
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-darwin-arm64.tar.gz.inventory.json",
+      "sha256": "0cfd41ba2d570f675ccf885fe419dbb102709d53390bf852a9a8dbb9b2407e78",
+      "bytes": 64725
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-darwin-arm64.tar.gz.claims.json",
+      "sha256": "6e46269ce6665762d2e117b146da846b5ac35c947347fe3289371fdb0f99d3d0",
+      "bytes": 1185
+    },
+    {
+      "name": "wring-1.0.0-alpha.40-darwin-arm64",
+      "sha256": "d648e0aa9ebd52a81ec397a62ee6506a49bbc97f3639aec21df42ad26604bd05",
+      "bytes": 76476786
+    },
+    {
+      "name": "wring-1.0.0-alpha.40-darwin-arm64.sha256",
+      "sha256": "4c684e4c7ccf8b025a4f76487fe2b9082b363145db1d711a9889cc4ded45964f",
+      "bytes": 100
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-linux-x64.tar.gz",
+      "sha256": "54a22c9593d19b8340291e267ac8feb3ae954f5dd87baf80262a4af592899543",
+      "bytes": 40707303
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-linux-x64.tar.gz.sha256",
+      "sha256": "4bfc9526dd6cbad1633f7704900a14f45a3a083ef030c043e6aee2b349b03a49",
+      "bytes": 106
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-linux-x64.tar.gz.manifest.json",
+      "sha256": "afa3d609994f15b8a10b67a27014628f2ea0d7e2a3cea4df5d6403df1890fda4",
+      "bytes": 146933
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-linux-x64.tar.gz.inventory.json",
+      "sha256": "7cd578a951104764366e30961d81cffde350aa73235a69e16721d8c80646ad56",
+      "bytes": 64719
+    },
+    {
+      "name": "wringer-1.0.0-alpha.40-linux-x64.tar.gz.claims.json",
+      "sha256": "fd4c0863840f89152ef74c315f1ce5fabbe79f95c0382da31ba342dedea01763",
+      "bytes": 1179
+    },
+    {
+      "name": "wring-1.0.0-alpha.40-linux-x64",
+      "sha256": "f2f14b25be80e1de7244c152e1450f0cab4f31b488f4b5648ca6f53e610ad700",
+      "bytes": 95458784
+    },
+    {
+      "name": "wring-1.0.0-alpha.40-linux-x64.sha256",
+      "sha256": "b8efe627f6880c42345fe7be3689c023f75fbe16c6c6e7eb72b5485585284308",
+      "bytes": 97
+    }
+  ],
+  "runs": [
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/41536607471",
+      "source": "edb69879aa66ea27191311ea814d68d9ca40fac7",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Temporal / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41536607471/job/125589930695",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "action",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41536607471/job/125589931097",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41536607471/job/125589931204",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-15",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41536607471/job/125589931274",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41536607471/job/125589931317",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41536607471/job/125589931366",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41536607471/job/125589931496",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/41536607467",
+      "source": "edb69879aa66ea27191311ea814d68d9ca40fac7",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41536607467/job/125589930571",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/41542857442",
+      "source": "edb69879aa66ea27191311ea814d68d9ca40fac7",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "rehearsals (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41542857442/job/125611078273",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (macos-latest, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41542857442/job/125611078678",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (macos-15, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41542857442/job/125611078732",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41542857442/job/125611078918",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "permission-adversary / permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41542857442/job/125611078998",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "publish-draft",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/41542857442/job/125630665260",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "ciHistory": {
+    "schema_version": "wringer.release-ci-history.v1",
+    "note": "The first candidate, 29f3a5814100ad6e6c477f949fcf4455a419181d, was not tagged. Its tests run failed one job, on the first rehearsal run ever made on a macos-15 image.",
+    "attempts": [
+      {
+        "commit": "29f3a5814100ad6e6c477f949fcf4455a419181d",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/41528409272",
+        "conclusion": "failure",
+        "failedJob": "Rehearsals / macos-15",
+        "failedStage": "local-design-rehearsal",
+        "failure": "waitForResponse: Timeout 40000ms exceeded while waiting for the POST /api/job/send response after the Send click (scripts/guided-pm-rehearsal.ts:191).",
+        "passedJobs": [
+          "Bun / ubuntu-latest",
+          "Bun / macos-latest",
+          "Bun / macos-15",
+          "Rehearsals / ubuntu-latest",
+          "Rehearsals / macos-latest",
+          "Temporal / ubuntu-latest",
+          "action"
+        ]
+      }
+    ],
+    "diagnosis": {
+      "sendAdmissionMs": {
+        "macos-15 (run 41528409272)": {
+          "design-pm-rehearsal": 28199,
+          "figma-api-pm-rehearsal": 24039,
+          "guided-pm-rehearsal": 10146,
+          "local-design-rehearsal": "over 40000, not observed"
+        },
+        "macos-latest = macos-26 (run 41528409272)": {
+          "design-pm-rehearsal": 13679,
+          "figma-api-pm-rehearsal": 15139,
+          "guided-pm-rehearsal": 9709,
+          "local-design-rehearsal": 15038
+        }
+      },
+      "stageSeconds": {
+        "macos-15 (run 41528409272)": {
+          "design-pm-rehearsal": 246,
+          "figma-api-pm-rehearsal": 260,
+          "local-design-rehearsal": "184, failed"
+        },
+        "macos-latest = macos-26 (run 41528409272)": {
+          "design-pm-rehearsal": 148,
+          "figma-api-pm-rehearsal": 146,
+          "local-design-rehearsal": 142
+        },
+        "macos-14 (alpha.39 release run, passed)": {
+          "design-pm-rehearsal": 160,
+          "figma-api-pm-rehearsal": 188,
+          "local-design-rehearsal": 180
+        }
+      },
+      "reading": "Design rehearsals run about 1.7 times slower on macos-15 than on macos-26, and about 1.4 times slower than on macos-14 at alpha.39; the rehearsal without design is about the same everywhere. Send admission audits the prepared bundle while the page reads the job every 2 s. The job page abandons a decision request after 45 s (packages/board/src/job-render.ts), so on a machine this slow a person could see an error while the Send is still being admitted. Not caused by this release's changes and not fixed in it.",
+      "decision": "The release builds and runs core validation on macos-15, as tested on every push, and runs its rehearsals on macos-latest, where they passed. The slow admission is recorded as an open defect."
+    }
+  },
+  "attestations": [
+    {
+      "platform": "darwin-arm64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "edb69879aa66ea27191311ea814d68d9ca40fac7",
+        "sourceRef": "refs/tags/v1.0.0-alpha.40"
+      }
+    },
+    {
+      "platform": "linux-x64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "edb69879aa66ea27191311ea814d68d9ca40fac7",
+        "sourceRef": "refs/tags/v1.0.0-alpha.40"
+      }
+    }
+  ],
+  "publicVerification": {
+    "download": "Authenticated GitHub release download after publication; anonymous installation not measured",
+    "darwinArm64": {
+      "extractedChecks": 17,
+      "installerChecks": 13,
+      "minimumMacOS": "13.0"
+    },
+    "linuxX64": "Native Linux CI; archive bytes, manifests and signed provenance verified locally"
+  },
+  "limits": [
+    "Engineering fixtures establish mechanisms, not live benefit, live containment or independent human acceptance.",
+    "The agent check was measured once on the real codex-acp 1.10.0 and claude-agent-acp 0.65.0 adapters, with no prompt sent. Kept edits and the attempt record are fixture-tested with scripted workers, and on Apple Container and gVisor only with a scripted driver. This release adds no live or benefit claim.",
+    "The first release built on macos-15: GitHub retired macos-14, where alpha.39 was built, on 2 November 2026. Its rehearsals ran on macos-latest because on macos-15 the local design rehearsal's Send admission ran past its 40 s observation bound (tests run 41528409272); the job page abandons a decision request after 45 s, so that slowness is a known, unfixed defect.",
+    "Successful native CI artifacts were not downloaded; job records and local measurements were used."
+  ]
+}
