@@ -4,14 +4,14 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## Unreleased
+## 1.0.0-alpha.40 — doors that lead somewhere: checked agents, kept edits, retries that remember
 
 The dead ends a newcomer meets at both doors, found by walking them; see
-[the review](docs/adoption/DOOR_REVIEW_2026-10-31.md). The agent door now starts
-the owner, chooses a destination and says a new requirement needs a check that
+[the review](docs/adoption/DOOR_REVIEW_2026-10-31.md). The agent door's steps now
+start the owner, choose a destination and say a new requirement needs a check that
 fails today. `wring mcp`, setup, the job page, MCP shape refusals and role stops
 each name what to do next. `wring start`, `verify`, `deliver`, `explain` and `demo`
-lead with the answer and a next step that fits it. No schema changed.
+lead with the answer and a next step that fits it.
 
 Three ideas from reading [Agensh](https://github.com/microsoft/Agensh), built from
 Wringer's own records. `wring job check` starts each trusted-local coding agent and
@@ -21,6 +21,15 @@ next attempt; they are not a candidate, are not checked and are not carried in a
 delivery. Each later attempt is told how earlier ones ended, what they changed and
 which checks and findings failed. Measured with scripted workers and, for the check
 alone, the real adapters. Whether this saves a live model any turns is unmeasured.
+
+- New records: `wringer.agent-check.v1` and `wringer.stopped-worker-edits.v1`, and a
+  `worker-edits-kept` event in the contained journal. No published schema changed.
+- CI and the release build moved from macOS 14, which GitHub retired on 2 November
+  2026, to macOS 15. Its system Git is still Apple Git 2.39, and the tests now
+  rehearse there as the release does. A test keeps every release image under test
+  and refuses a retired one. The archives' minimum macOS is Bun's and did not change.
+- Each step of a rehearsal's design capture is bounded, and the step that stopped is
+  recorded.
 
 ## 1.0.0-alpha.39 — learn and show, published
 

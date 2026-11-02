@@ -11,8 +11,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-14 is the release build platform; its Apple Git is 2.39.
-        os: [ubuntu-latest, macos-latest, macos-14]
+        # macos-15 is the release build platform; its system Git (Xcode 16.4) is Apple Git 2.39.
+        # It replaced macos-14, which GitHub retired on 2 November 2026.
+        os: [ubuntu-latest, macos-latest, macos-15]
     runs-on: ${{ matrix.os }}
     # Ratified at 703de14, where the whole envelope took 1,727 s on macOS; its core stages were 892 s of that.
     # At ff63e0d (alpha.37) macos-14 took 2,169 s and ubuntu/macos-latest passed 40 minutes: real-Git
@@ -31,6 +32,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Install the pinned engineering-test browser (not a product runtime)
         run: bun node_modules/playwright/cli.js install --with-deps chromium
+      - name: Name the system Git the compiled walkthroughs use
+        run: /usr/bin/git --version
       # Groups are derived from stage names in scripts/validate.ts; this job runs every stage not named *-rehearsal.
       - run: bun run validate --group core
       - name: Preserve successful and failed measurements
@@ -60,7 +63,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # macos-15 is where the release runs its rehearsals.
+        os: [ubuntu-latest, macos-latest, macos-15]
     runs-on: ${{ matrix.os }}
     # The rehearsal stages took 804 s (macOS) and 661 s (Linux) inside the 703de14 jobs; same hang guard.
     timeout-minutes: 40

@@ -19,7 +19,8 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux-x64
-          - os: macos-14
+          # GitHub retired macos-14 on 2 November 2026. The archives' minimum macOS is Bun's, not the image's.
+          - os: macos-15
             platform: darwin-arm64
     runs-on: ${{ matrix.os }}
     # The same split and hang guard as tests.yml; the rehearsal group runs in parallel below.
@@ -100,7 +101,7 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux-x64
-          - os: macos-14
+          - os: macos-15
             platform: darwin-arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
