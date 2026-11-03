@@ -84,6 +84,11 @@ export async function seal(root: string): Promise<void> {
     await put(join(root, "digests.json"), { schema_version: "wringer.digests.v1", algorithm: "sha256", files: hashes });
 }
 export async function checkSeal(root: string): Promise<number> {
+    return (await checkSealIdentity(root)).files;
+}
+/** The seal check, also naming the digest index the bytes matched. When the check
+ * passes, the same index means the same bytes in every other file. */
+export async function checkSealIdentity(root: string): Promise<{ files: number; index: string }> {
     const record = await json(join(root, "digests.json"));
     if (record.schema_version !== "wringer.digests.v1" || record.algorithm !== "sha256" || !record.files || typeof record.files !== "object" || Array.isArray(record.files))
         throw new Error(`Invalid digest index in ${root}`);
@@ -127,7 +132,7 @@ export async function checkSeal(root: string): Promise<number> {
                 throw new Error(`Portable projection changed a non-omitted file: ${path}`);
         }
     }
-    return actual.length;
+    return { files: actual.length, index: digest(JSON.stringify(record)) };
 }
 export async function copyBundle(source: string, target: string): Promise<void> {
     await checkSeal(source);

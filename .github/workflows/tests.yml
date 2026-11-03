@@ -63,9 +63,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The release rehearses on these images too. On macos-15 at 29f3a58 the local design
-        # rehearsal's Send admission ran past its 40 s bound (docs/adoption/DOOR_REVIEW_2026-10-31.md).
-        os: [ubuntu-latest, macos-latest]
+        # The release rehearses on macos-15, its build image. At 29f3a58 Send admission there
+        # passed 40 s because every read re-ran the bundle audit; alpha.41 re-checks the seal instead.
+        os: [ubuntu-latest, macos-latest, macos-15]
     runs-on: ${{ matrix.os }}
     # The rehearsal stages took 804 s (macOS) and 661 s (Linux) inside the 703de14 jobs; same hang guard.
     timeout-minutes: 40

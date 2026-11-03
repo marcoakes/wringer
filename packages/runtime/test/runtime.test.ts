@@ -610,3 +610,20 @@ test("real ACP subprocess cancellation terminates its descendant process group",
     }
     expect(alive).toBe(false);
 });
+test("a command that finished alone returns at once, and a descendant it left running is still stopped", async () => {
+    // Every Git call in a delivery audit runs through here. A grace period after
+    // every exit cost about 100 ms a call; it is needed only while the group remains.
+    const began = performance.now();
+    for (let i = 0; i < 5; i++) expect((await processDriver.command(["/bin/sh", "-c", "exit 0"])).code).toBe(0);
+    expect(performance.now() - began).toBeLessThan(500);
+    // The descendant ignores SIGTERM, so only the forced stop after the grace ends it.
+    const left = await processDriver.command(["/bin/sh", "-c", "trap '' TERM; sleep 30 >/dev/null 2>&1 & echo $!"]);
+    const pid = Number(left.stdout.trim());
+    expect(pid).toBeGreaterThan(1);
+    let alive = true;
+    for (let i = 0; i < 20 && alive; i++) {
+        try { process.kill(pid, 0); await new Promise(resolve => setTimeout(resolve, 25)); }
+        catch { alive = false; }
+    }
+    expect(alive).toBe(false);
+});

@@ -8,7 +8,7 @@ import { readValidatedContainedState, withContainedJourneyLock, validContainedHu
 import { assertContainedDisplayVisuals, readPinnedDesignSnapshot } from "@wringer/workflow";
 import { observeAssertionReport, validateCheckEvidence, assertAssertionRed, assertAssertionPair, buildRepairPacket, validateRepairPacket } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
-import { inside, files, seal, checkSeal, quote } from "./io";
+import { inside, files, seal, checkSealIdentity, quote } from "./io";
 import { publishMergeRequest, assertForgeRepositoryBinding, type ForgeConfiguration, type MergeRequestPublication } from "./forge";
 import { containedViewContracts, containedViewContractsV3, containedViewContractsV4, deriveContainedDeliveryProjection, containedProjectionDigest, renderContainedCertificate, renderContainedBoard, renderContainedBoardV2, renderContainedBoardV3, renderContainedDocuments, renderContainedDocumentsV3, renderContainedDocumentsV4, type ContainedDeliveryProjection } from "./projection";
 import { engineeringEvidence, summarizeEngineering } from "./engineering";
@@ -481,17 +481,28 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
 }
 /** Independent offline reader: all claimed source objects, receipts and projected events must travel. */
 export async function auditContained(bundleDir: string): Promise<ContainedAudit> { return (await inspectContainedDelivery(bundleDir)).report; }
-/** Facts returned only after one complete audit of the same captured records. */
+// Views that passed one complete audit in this process, by bundle location and the
+// digest index that audit checked. The job page reads a prepared handover on every
+// refresh and Send reads it again; each full audit runs Git in a scratch store.
+const auditedViews = new Map<string, ContainedDeliveryProjection>(), auditedKey = (bundleDir: string, index: string) => `${resolve(bundleDir)}\n${index}`;
+/** Facts returned only after one complete audit of the same captured records. A
+ * repeated read re-checks every byte against the sealed index and reuses the audit
+ * only for an identical bundle; anything else is audited again. */
 export async function readContainedDeliveryProjection(bundleDir: string): Promise<ContainedDeliveryProjection> {
-    const { report, view } = await inspectContainedDelivery(bundleDir);
-    if (report.status !== "passed" || !view) throw new Error(`Contained delivery projection is not auditable: ${report.claims.map(c => c.reason).join("; ")}`);
+    const checked = await checkSealIdentity(bundleDir).then(sealed => auditedKey(bundleDir, sealed.index), () => null);
+    const known = checked === null ? undefined : auditedViews.get(checked);
+    if (known) return structuredClone(known);
+    const { report, view, sealed } = await inspectContainedDelivery(bundleDir);
+    if (report.status !== "passed" || !view || !sealed) throw new Error(`Contained delivery projection is not auditable: ${report.claims.map(c => c.reason).join("; ")}`);
+    if (auditedViews.size >= 8) auditedViews.delete(auditedViews.keys().next().value!);
+    auditedViews.set(auditedKey(bundleDir, sealed), structuredClone(view));
     return view;
 }
-async function inspectContainedDelivery(bundleDir: string): Promise<{ report: ContainedAudit; view: ContainedDeliveryProjection | null }> {
+async function inspectContainedDelivery(bundleDir: string): Promise<{ report: ContainedAudit; view: ContainedDeliveryProjection | null; sealed: string | null }> {
     const report: ContainedAudit = { schema_version: "wringer.contained-audit.v1", status: "failed", deliveryId: null, codeCommit: null, checks: 0, human: 0, claims: [], limits: limitations };
-    let view: ContainedDeliveryProjection | null = null;
+    let view: ContainedDeliveryProjection | null = null, sealed: string | null = null;
     try {
-        await checkSeal(bundleDir);
+        sealed = (await checkSealIdentity(bundleDir)).index;
         const manifest = await read(bundleDir, "manifest.json"), plan = validateExecutionPlan(await read(bundleDir, "plan.json")), authority = await read(bundleDir, "authority.json"), environment = await read(bundleDir, "environment.json");
         if (plan.runtime.kind === "trusted-local") report.limits = [...trustedLocalLimitations];
         const v4 = manifest.schema_version === "wringer.contained-delivery.v4", v3 = v4 || manifest.schema_version === "wringer.contained-delivery.v3", v2 = v3 || manifest.schema_version === "wringer.contained-delivery.v2", contractReader = await openReader(schemaDirectory());
@@ -779,5 +790,5 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
     catch (error) {
         report.claims.push({ id: "delivery-integrity", status: "failed", reason: new Redactor().scrub(String(error)) });
     }
-    return { report, view: report.status === "passed" ? view : null };
+    return { report, view: report.status === "passed" ? view : null, sealed };
 }

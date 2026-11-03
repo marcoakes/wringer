@@ -44,10 +44,10 @@ test("Send admission observation stops at its finite bound without retrying", as
         const observed = waitForSendAdmission(f.page).then(() => null, error => error);
         await f.page.evaluate(() => { void fetch("/api/job/send", { method: "POST" }); });
         let deadline!: ReturnType<typeof setTimeout>;
-        const watchdog = new Promise<Error>(resolve => { deadline = setTimeout(() => resolve(new Error("Observation remained unbounded")), 45000); });
+        const watchdog = new Promise<Error>(resolve => { deadline = setTimeout(() => resolve(new Error("Observation remained unbounded")), 25000); });
         const error = await Promise.race([observed, watchdog]); clearTimeout(deadline);
-        expect(error?.message).toContain("Timeout 40000ms");
-        expect(Date.now() - began).toBeLessThan(45000);
+        expect(error?.message).toContain("Timeout 20000ms");
+        expect(Date.now() - began).toBeLessThan(25000);
         expect(f.requests()).toBe(1);
     } finally { await f.close(); }
-}, 48000);
+}, 28000);

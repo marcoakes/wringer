@@ -17,11 +17,23 @@ export function connectProcess(argv: string[], options: RuntimeCommandOptions = 
             if (child.pid)
                 process.kill(-child.pid, "SIGTERM");
         }
-        catch { } await new Promise(resolve => setTimeout(resolve, 100)); try {
-            if (child.pid)
+        catch { } // The grace and the forced stop are for what remains in the group; a command that exited alone leaves none.
+        if (child.pid && groupRemains(child.pid)) {
+            await new Promise(resolve => setTimeout(resolve, 100)); try {
                 process.kill(-child.pid, "SIGKILL");
-        }
-        catch { } child.stdin.destroy(); child.stdout.destroy(); child.stderr.destroy(); } };
+            }
+            catch { }
+        } child.stdin.destroy(); child.stdout.destroy(); child.stderr.destroy(); } };
+}
+/** Signal 0 reports whether any process is still in the group; only "no such process" means it is gone. */
+function groupRemains(group: number): boolean {
+    try {
+        process.kill(-group, 0);
+        return true;
+    }
+    catch (error: any) {
+        return error?.code !== "ESRCH";
+    }
 }
 export const processDriver: RuntimeDriver = {
     async connect(argv, options) { return connectProcess(argv, options); },

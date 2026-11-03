@@ -253,6 +253,32 @@ test("offline audit rejects missing red receipt, changed candidate bundle and re
     await seal(delivered.bundleDir);
     expect((await auditContained(delivered.bundleDir)).status).toBe("failed");
 }, 45000);
+test("a repeated read of an unchanged prepared bundle re-checks its bytes without re-running its audit; any change is audited again", async () => {
+    // The job page reads a prepared handover on every refresh and Send reads it
+    // again before admission. Each full audit runs Git in a scratch store.
+    const f = await fixture(), prepared = await deliverContained({ stateDir: f.stateDir, publication: f.publication });
+    const original = processDriver.command;
+    let git = 0;
+    processDriver.command = (argv, options) => { if (argv[0] === "git") git++; return original(argv, options); };
+    try {
+        const first = await readContainedDeliveryProjection(prepared.bundleDir), audited = git;
+        expect(audited).toBeGreaterThan(0);
+        const again = await readContainedDeliveryProjection(prepared.bundleDir);
+        expect(git).toBe(audited);
+        expect(again).toEqual(first);
+        again.deliveryId = "changed by its reader";
+        expect((await readContainedDeliveryProjection(prepared.bundleDir)).deliveryId).toBe(first.deliveryId);
+        const path = join(prepared.bundleDir, "mr.md"), bytes = await readFile(path);
+        await writeFile(path, Buffer.concat([bytes, Buffer.from("\n")]));
+        await expect(readContainedDeliveryProjection(prepared.bundleDir)).rejects.toThrow("not auditable");
+        await seal(prepared.bundleDir);
+        const resealed = git;
+        await expect(readContainedDeliveryProjection(prepared.bundleDir)).rejects.toThrow("not auditable");
+        expect(git).toBeGreaterThan(resealed);
+        await writeFile(path, bytes); await seal(prepared.bundleDir);
+        expect(await readContainedDeliveryProjection(prepared.bundleDir)).toEqual(first);
+    } finally { processDriver.command = original; }
+}, 60000);
 test("publication refuses a default branch or a review branch with other content", async () => {
     const f = await fixture();
     await expect(deliverContained({ stateDir: f.stateDir, publication: f.publication, expectedRevision: "0".repeat(64) })).rejects.toThrow("stale");
