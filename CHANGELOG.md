@@ -4,6 +4,25 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.41 — Send answers in seconds
+
+Fixes alpha.40's known issue. Send on the job page now answers in 2.4 s for a local
+design job on an M1 Mac, down from 15.8 s on the same machine. On macOS 15 runners it
+had passed 40 s, close to the 45 s at which the page gives up on a decision.
+
+- Every page refresh, and Send itself, re-ran the full audit of the same prepared
+  bundle, about 3 s each, four times per Send. A read now re-checks every byte
+  against the bundle's sealed digest index, and reuses a passed audit only for an
+  identical bundle. Anything else is audited in full, and `wringer-drive audit` and
+  fresh-clone audits always are.
+- Every command Wringer ran waited 100 ms after it had already exited, to stop
+  anything it left behind. It now waits only when something is left. A Git call
+  takes about 9 ms instead of about 120 ms, which speeds up preparation, audits and
+  Send everywhere.
+- The release rehearses on macOS 15 again, the image it is built on, and so do the
+  tests. The rehearsal's bound on a Send answer is back to 20 s.
+- No record or schema changed.
+
 ## 1.0.0-alpha.40 — doors that lead somewhere: checked agents, kept edits, retries that remember
 
 The dead ends a newcomer meets at both doors, found by walking them; see
