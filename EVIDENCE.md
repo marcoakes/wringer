@@ -1,34 +1,52 @@
-# Current product evidence — 2 November 2026
+# Current product evidence — 3 November 2026
 
 The current verified public release is
-[1.0.0-alpha.40](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.40),
-commit `edb69879aa66ea27191311ea814d68d9ca40fac7`. It carries:
+[1.0.0-alpha.41](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.41),
+commit `76297968d80d226101baf66f08801bcb57633e89`. It fixes the slow Send that
+alpha.40 left open:
+
+- a repeated read of an unchanged prepared bundle re-checks its bytes against the seal
+  and reuses the audit that passed, instead of running the whole audit again;
+- a command that exits with nothing left running returns at once, instead of waiting
+  100 ms before a forced stop it does not need.
+
+Send for a local design job was answered in 2.4 s on an M1, down from 15.8 s at
+alpha.40. On GitHub's macOS 15 runners the four rehearsals' Send answers took
+0.8–5.9 s, down from 10–28 s and, for the local design job, over 40 s
+([numbers](docs/adoption/evidence/alpha41/send-admission.json)). Rehearsals run on
+macOS 15 again, with a 20 s bound on the Send answer. These are fixture rehearsals:
+how long Send takes on a person's own Mac is not measured.
+
+All 14 public assets matched the clean source, both archives' signed provenance
+verified, and public macOS extraction/installation passed 17/13 checks. The published
+macOS binary still needs only macOS 13.0. All eight test jobs, the Linux DAC job and
+all six release jobs passed on the first attempt.
+
+Local validation passed 43/43 stages. Its two groups took 741 s and 269 s, against
+2,392 s and 763 s at alpha.40
+([record](docs/adoption/evidence/alpha41/local-validation.json)). Five guards were
+each removed alone, and every one turned its tests red
+([record](docs/rebuild/evidence/send-admission/reversions.json)). See the
+[release record](docs/adoption/evidence/alpha41/release.json). No live model has run,
+and no benefit is claimed.
+
+[1.0.0-alpha.40](docs/adoption/evidence/alpha40/release.json) (commit `edb6987`)
+carried:
 
 - 13 repairs to the dead ends a newcomer met at both doors ([the review](docs/adoption/DOOR_REVIEW_2026-10-31.md));
 - `wring job check`, which starts each trusted-local agent with no prompt before approval;
 - a stopped worker's edits, kept for the next attempt and never a candidate or delivered;
 - a record of earlier attempts in each later attempt's prompt.
 
-All 14 public assets matched the clean source, both archives' signed provenance
-verified, and public macOS extraction/installation passed 17/13 checks. The published
-macOS binary still needs only macOS 13.0. All seven test jobs, the Linux DAC job and
-all six release jobs passed on the first attempt. It is the first release built on
-macOS 15, after GitHub retired macOS 14.
-
-The first candidate, `29f3a58`, was not tagged. The first rehearsals ever run on macOS
-15 stopped when Send took longer than the rehearsal's 40 s bound. That is an older,
-real defect on slow machines, recorded in [the review](docs/adoption/DOOR_REVIEW_2026-10-31.md)
-and the release record's `ciHistory`, and not fixed. The release rehearses on macOS 26.
-
-Local validation passed 43/43 stages ([record](docs/adoption/evidence/alpha40/local-validation.json)).
-55 guards were each removed alone, and every one turned its tests red: 54 on the first
-run, one after its test was tightened ([record](docs/rebuild/evidence/door-guards/reversions.json),
-[first run](docs/rebuild/evidence/door-guards/reversions-first-attempt.json)). See the
-[release record](docs/adoption/evidence/alpha40/release.json).
-
-The agent check was measured once on the real codex-acp 1.10.0 and claude-agent-acp
-0.65.0 adapters. Everything else is fixture-tested only: no live model has run, and
-no benefit is claimed.
+It was the first release built on macOS 15, after GitHub retired macOS 14. Its first
+candidate, `29f3a58`, was not tagged: the first rehearsals ever run on macOS 15
+stopped when Send took longer than the rehearsal's 40 s bound, so alpha.40 rehearsed
+on macOS 26 and shipped with the slow Send as a known defect. 55 guards were each
+removed alone and turned their tests red: 54 on the first run, one after its test was
+tightened ([record](docs/rebuild/evidence/door-guards/reversions.json),
+[first run](docs/rebuild/evidence/door-guards/reversions-first-attempt.json)). The
+agent check was measured once on the real codex-acp 1.10.0 and claude-agent-acp
+0.65.0 adapters; everything else is fixture-tested only.
 
 [1.0.0-alpha.39](docs/improvement/evidence/phase-3/release.json) (commit `504543d`)
 carried releases 2 and 3 of the improvement build:

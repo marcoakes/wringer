@@ -1,0 +1,321 @@
+{
+  "schema_version": "wringer.release-local-validation.v1",
+  "kind": "deterministic engineering fixtures; no provider calls or human acceptance",
+  "version": "1.0.0-alpha.41",
+  "source": "76297968d80d226101baf66f08801bcb57633e89",
+  "sourceState": "the main checkout at 7629796, clean when validation started, on macOS 26 with Bun 1.4.2; the released commit",
+  "command": "bun run validate --group core; bun run build; bun run validate --group rehearsals",
+  "passed": true,
+  "stages": [
+    {
+      "group": "core",
+      "name": "workspace-links",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 33
+    },
+    {
+      "group": "core",
+      "name": "standalone-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 1609
+    },
+    {
+      "group": "core",
+      "name": "native-confirmation-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3203
+    },
+    {
+      "group": "core",
+      "name": "native-confirmation-probe",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 505
+    },
+    {
+      "group": "core",
+      "name": "assistant-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 41429
+    },
+    {
+      "group": "core",
+      "name": "native-check",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 542353
+    },
+    {
+      "group": "core",
+      "name": "design-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5739
+    },
+    {
+      "group": "core",
+      "name": "figma-api-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 4992
+    },
+    {
+      "group": "core",
+      "name": "meta-loop-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 14783
+    },
+    {
+      "group": "core",
+      "name": "meta-portable-handover",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3205
+    },
+    {
+      "group": "core",
+      "name": "portable-python-corpus",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5561
+    },
+    {
+      "group": "core",
+      "name": "standalone-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5755
+    },
+    {
+      "group": "core",
+      "name": "compiled-contained-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 9583
+    },
+    {
+      "group": "core",
+      "name": "compiled-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 11778
+    },
+    {
+      "group": "core",
+      "name": "compiled-parallel-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 7828
+    },
+    {
+      "group": "core",
+      "name": "compiled-tournament-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 9366
+    },
+    {
+      "group": "core",
+      "name": "compiled-delegate-graph-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 7255
+    },
+    {
+      "group": "core",
+      "name": "capability-ledger",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 198
+    },
+    {
+      "group": "core",
+      "name": "compiled-gate-experiment-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 8530
+    },
+    {
+      "group": "core",
+      "name": "compiled-improvement-distribution",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 13629
+    },
+    {
+      "group": "core",
+      "name": "compiled-loop-inspection",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2259
+    },
+    {
+      "group": "core",
+      "name": "compiled-evidence-export",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3707
+    },
+    {
+      "group": "core",
+      "name": "compiled-job-improvements",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3217
+    },
+    {
+      "group": "core",
+      "name": "local-delivery-fixture",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 4277
+    },
+    {
+      "group": "core",
+      "name": "compiled-version",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 146
+    },
+    {
+      "group": "core",
+      "name": "compiled-cli-reference",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 4370
+    },
+    {
+      "group": "core",
+      "name": "adoption-examples",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5023
+    },
+    {
+      "group": "core",
+      "name": "compiled-board",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 135
+    },
+    {
+      "group": "core",
+      "name": "compiled-drive",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 135
+    },
+    {
+      "group": "core",
+      "name": "compiled-assistant",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 413
+    },
+    {
+      "group": "core",
+      "name": "compiled-figma-broker",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 97
+    },
+    {
+      "group": "core",
+      "name": "compiled-assistant-lifecycle",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 8031
+    },
+    {
+      "group": "core",
+      "name": "local-source-route",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 11019
+    },
+    {
+      "group": "rehearsals",
+      "name": "assistant-launch-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 25325
+    },
+    {
+      "group": "rehearsals",
+      "name": "guided-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 20496
+    },
+    {
+      "group": "rehearsals",
+      "name": "design-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 52816
+    },
+    {
+      "group": "rehearsals",
+      "name": "figma-api-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 62804
+    },
+    {
+      "group": "rehearsals",
+      "name": "local-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 26590
+    },
+    {
+      "group": "rehearsals",
+      "name": "local-design-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 54020
+    },
+    {
+      "group": "rehearsals",
+      "name": "improvements-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2844
+    },
+    {
+      "group": "rehearsals",
+      "name": "job-improvements-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 2699
+    },
+    {
+      "group": "rehearsals",
+      "name": "adoption-connections-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 4945
+    },
+    {
+      "group": "rehearsals",
+      "name": "verification-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 15524
+    }
+  ],
+  "groupSeconds": {
+    "core": 741,
+    "rehearsals": 269
+  },
+  "priorGroupSeconds": {
+    "release": "1.0.0-alpha.40",
+    "core": 2392,
+    "rehearsals": 763
+  }
+}

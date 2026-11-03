@@ -1,0 +1,21 @@
+{
+  "schema_version": "wringer.release-send-admission.v1",
+  "note": "Send acknowledgement time (the POST /api/job/send answer) from each scripted rehearsal's transcript, before and after 8227dcf. Fixture rehearsals, not a person's machine.",
+  "before": {
+    "source": "29f3a5814100ad6e6c477f949fcf4455a419181d",
+    "run": "https://github.com/marcoakes/wringer/actions/runs/41528409272",
+    "macos-15": { "guided-pm-rehearsal": 10146, "design-pm-rehearsal": 28199, "figma-api-pm-rehearsal": 24039, "local-design-rehearsal": "over 40000, not observed" },
+    "macos-latest = macos-26": { "guided-pm-rehearsal": 9709, "design-pm-rehearsal": 13679, "figma-api-pm-rehearsal": 15139, "local-design-rehearsal": 15038 },
+    "local M1, 8 cores, at e3cee87": { "local-design-rehearsal": 15815, "wholeRehearsalSeconds": 145 }
+  },
+  "after": {
+    "source": "76297968d80d226101baf66f08801bcb57633e89",
+    "run": "https://github.com/marcoakes/wringer/actions/runs/41600463807",
+    "macos-15": { "guided-pm-rehearsal": 775, "design-pm-rehearsal": 3964, "figma-api-pm-rehearsal": 5926, "local-design-rehearsal": 3563 },
+    "macos-latest = macos-26": { "guided-pm-rehearsal": 766, "design-pm-rehearsal": 5306, "figma-api-pm-rehearsal": 5918, "local-design-rehearsal": 5899 },
+    "ubuntu-latest": { "guided-pm-rehearsal": 845, "design-pm-rehearsal": 6326, "figma-api-pm-rehearsal": 5104, "local-design-rehearsal": 6067 },
+    "local M1, 8 cores, at 8227dcf": { "local-design-rehearsal": 2376, "wholeRehearsalSeconds": 62 }
+  },
+  "cause": "Every page refresh and Send itself (four times) re-ran the full audit of the same sealed prepared bundle, about 3 s each on the M1, mostly Git; every Git call also waited 100 ms after it exited.",
+  "bound": "The rehearsal waits at most 20 s for the Send answer (scripts/rehearsal-send.ts); the job page gives up on a decision after 45 s."
+}
