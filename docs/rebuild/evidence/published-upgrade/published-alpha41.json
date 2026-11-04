@@ -1,0 +1,651 @@
+{
+  "schema_version": "wringer.published-upgrade-measurement.v1",
+  "kind": "Published archives installed by their own executables, then upgraded by the candidate's, in a temporary filesystem; no account, provider, job, model call or publication",
+  "platform": "darwin-arm64",
+  "repository": "https://github.com/marcoakes/wringer",
+  "candidate": {
+    "version": "1.0.0-alpha.41",
+    "archiveSha256": "000959dcd3354cca41698fe0ee8dd72bb4f17a36604660095e91cdb0f8cf1265",
+    "source": {
+      "commit": "76297968d80d226101baf66f08801bcb57633e89",
+      "dirty": false,
+      "contentSha256": "1b70eae8c091056feb42c443bdd94431cc9a7cecd754c1616c88b1fdcf45e18b"
+    }
+  },
+  "passed": false,
+  "releases": [
+    {
+      "version": "1.0.0-alpha.23",
+      "passed": false,
+      "archiveSha256": "8f81402baa1631d8b9aecd7be47cb90d2069df88f473cbc47d9660d03f07a34f",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json",
+          "target-lacks-compatible-record:schema/README.md"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json, target-lacks-compatible-record:schema/README.md"
+    },
+    {
+      "version": "1.0.0-alpha.24",
+      "passed": false,
+      "archiveSha256": "374b8200713000e77a3133a91e79860078b2fe5034a1687a6d32200e792f9e4c",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json",
+          "target-lacks-compatible-record:schema/README.md"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json, target-lacks-compatible-record:schema/README.md"
+    },
+    {
+      "version": "1.0.0-alpha.25",
+      "passed": false,
+      "archiveSha256": "9c8b44b502bff52b0c37811709a9750ac88849ffd234e344fd57a239c815180e",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json",
+          "target-lacks-compatible-record:schema/README.md"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json, target-lacks-compatible-record:schema/README.md"
+    },
+    {
+      "version": "1.0.0-alpha.26",
+      "passed": false,
+      "archiveSha256": "94e29903bb051db5b307b7ab8133189863711ff337294908c1e2a5dcb24f3678",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json",
+          "target-lacks-compatible-record:schema/README.md"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json, target-lacks-compatible-record:schema/README.md"
+    },
+    {
+      "version": "1.0.0-alpha.28",
+      "passed": false,
+      "archiveSha256": "a1e1397f4d1d2d984917fe8083ad88783876b9e72c5ccd7a531ee1f1b5a274e6",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json",
+          "target-lacks-compatible-record:schema/README.md"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json, target-lacks-compatible-record:schema/README.md"
+    },
+    {
+      "version": "1.0.0-alpha.29",
+      "passed": false,
+      "archiveSha256": "c5d84935391602041cb835b231e09731d49b51c2c0946af34e3d648cd33b6023",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json",
+          "target-lacks-compatible-record:schema/README.md"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json, target-lacks-compatible-record:schema/README.md"
+    },
+    {
+      "version": "1.0.0-alpha.30",
+      "passed": false,
+      "archiveSha256": "6003172d99bf59bc366d1022a74d95a78a5e36d6544c517242b3131bc66a0a1d",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json",
+          "target-lacks-compatible-record:schema/README.md"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json, target-lacks-compatible-record:schema/README.md"
+    },
+    {
+      "version": "1.0.0-alpha.31",
+      "passed": false,
+      "archiveSha256": "9b358b1fe00fec3a235712fe2d269d624312b3f81175c7b3f3265695348edd55",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json",
+          "target-lacks-compatible-record:schema/README.md"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json, target-lacks-compatible-record:schema/README.md"
+    },
+    {
+      "version": "1.0.0-alpha.32",
+      "passed": false,
+      "archiveSha256": "fdc8826a9e5196e024759b1d47d5e2fc9c552bf9bacf37d8b453d543888a6b03",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json"
+    },
+    {
+      "version": "1.0.0-alpha.33",
+      "passed": false,
+      "archiveSha256": "22ee6a6cb64d33db18c319f69a1346ce2d2c6f9f646667f32f7999299a5b37c8",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json"
+    },
+    {
+      "version": "1.0.0-alpha.34",
+      "passed": false,
+      "archiveSha256": "e54b3ab39b06fefb89f00f9a900d5b876786edee05238fda593f64962b0094f4",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json"
+    },
+    {
+      "version": "1.0.0-alpha.35",
+      "passed": false,
+      "archiveSha256": "f28f22ad73940982ab1eff05ddf266cf6d4718f622238fe5607fcd545e88f638",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json"
+    },
+    {
+      "version": "1.0.0-alpha.36",
+      "passed": false,
+      "archiveSha256": "560115d8d96fe5940d907589403083f1b07b33a3651fd9c227ce4658a2d42bf3",
+      "upgrade": {
+        "eligible": false,
+        "holds": [
+          "target-lacks-compatible-record:schema/frozen.json"
+        ],
+        "nextAction": "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started."
+      },
+      "error": "Upgrade to 1.0.0-alpha.41 held: target-lacks-compatible-record:schema/frozen.json"
+    },
+    {
+      "version": "1.0.0-alpha.39",
+      "passed": true,
+      "archiveSha256": "65838b3ae5f6350a8546a066b088932c741a4a5d94595fe72a8e55cf121355a3",
+      "upgrade": {
+        "eligible": true,
+        "holds": []
+      },
+      "rollback": {
+        "eligible": true,
+        "holds": 0,
+        "expectedHolds": 0,
+        "applied": true
+      }
+    },
+    {
+      "version": "1.0.0-alpha.40",
+      "passed": true,
+      "archiveSha256": "ddcfbcb76e823df996de056b1843fe9471f0343154881e01440ad9cfd8aebc58",
+      "upgrade": {
+        "eligible": true,
+        "holds": []
+      },
+      "rollback": {
+        "eligible": true,
+        "holds": 0,
+        "expectedHolds": 0,
+        "applied": true
+      }
+    },
+    {
+      "version": "1.0.0-alpha.41",
+      "skipped": "The candidate carries this published version; the release commit that changes the version upgrades from it."
+    }
+  ],
+  "records": [
+    {
+      "release": "1.0.0-alpha.23",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1282
+    },
+    {
+      "release": "1.0.0-alpha.23",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 993
+    },
+    {
+      "release": "1.0.0-alpha.23",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 978
+    },
+    {
+      "release": "1.0.0-alpha.23",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 1448
+    },
+    {
+      "release": "1.0.0-alpha.24",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1269
+    },
+    {
+      "release": "1.0.0-alpha.24",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1048
+    },
+    {
+      "release": "1.0.0-alpha.24",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 973
+    },
+    {
+      "release": "1.0.0-alpha.24",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 486
+    },
+    {
+      "release": "1.0.0-alpha.25",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1293
+    },
+    {
+      "release": "1.0.0-alpha.25",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 999
+    },
+    {
+      "release": "1.0.0-alpha.25",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 984
+    },
+    {
+      "release": "1.0.0-alpha.25",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 497
+    },
+    {
+      "release": "1.0.0-alpha.26",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1265
+    },
+    {
+      "release": "1.0.0-alpha.26",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 982
+    },
+    {
+      "release": "1.0.0-alpha.26",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 981
+    },
+    {
+      "release": "1.0.0-alpha.26",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 604
+    },
+    {
+      "release": "1.0.0-alpha.28",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1252
+    },
+    {
+      "release": "1.0.0-alpha.28",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 995
+    },
+    {
+      "release": "1.0.0-alpha.28",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 1176
+    },
+    {
+      "release": "1.0.0-alpha.28",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 512
+    },
+    {
+      "release": "1.0.0-alpha.29",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1266
+    },
+    {
+      "release": "1.0.0-alpha.29",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1002
+    },
+    {
+      "release": "1.0.0-alpha.29",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 995
+    },
+    {
+      "release": "1.0.0-alpha.29",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 486
+    },
+    {
+      "release": "1.0.0-alpha.30",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1288
+    },
+    {
+      "release": "1.0.0-alpha.30",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1034
+    },
+    {
+      "release": "1.0.0-alpha.30",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 998
+    },
+    {
+      "release": "1.0.0-alpha.30",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 489
+    },
+    {
+      "release": "1.0.0-alpha.31",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1366
+    },
+    {
+      "release": "1.0.0-alpha.31",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1042
+    },
+    {
+      "release": "1.0.0-alpha.31",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 997
+    },
+    {
+      "release": "1.0.0-alpha.31",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 509
+    },
+    {
+      "release": "1.0.0-alpha.32",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1254
+    },
+    {
+      "release": "1.0.0-alpha.32",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1011
+    },
+    {
+      "release": "1.0.0-alpha.32",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 1009
+    },
+    {
+      "release": "1.0.0-alpha.32",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 491
+    },
+    {
+      "release": "1.0.0-alpha.33",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1255
+    },
+    {
+      "release": "1.0.0-alpha.33",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1023
+    },
+    {
+      "release": "1.0.0-alpha.33",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 983
+    },
+    {
+      "release": "1.0.0-alpha.33",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 489
+    },
+    {
+      "release": "1.0.0-alpha.34",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1371
+    },
+    {
+      "release": "1.0.0-alpha.34",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1118
+    },
+    {
+      "release": "1.0.0-alpha.34",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 1008
+    },
+    {
+      "release": "1.0.0-alpha.34",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 493
+    },
+    {
+      "release": "1.0.0-alpha.35",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1275
+    },
+    {
+      "release": "1.0.0-alpha.35",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1029
+    },
+    {
+      "release": "1.0.0-alpha.35",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 983
+    },
+    {
+      "release": "1.0.0-alpha.35",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 493
+    },
+    {
+      "release": "1.0.0-alpha.36",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1368
+    },
+    {
+      "release": "1.0.0-alpha.36",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1147
+    },
+    {
+      "release": "1.0.0-alpha.36",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 996
+    },
+    {
+      "release": "1.0.0-alpha.36",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 509
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1381
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1043
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 997
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 496
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "candidate-upgrade-apply",
+      "exit": 0,
+      "durationMs": 1154
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "candidate-version",
+      "exit": 0,
+      "durationMs": 1111
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "rollback-preview",
+      "exit": 0,
+      "durationMs": 326
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "rollback-apply",
+      "exit": 0,
+      "durationMs": 327
+    },
+    {
+      "release": "1.0.0-alpha.39",
+      "name": "rolled-back-version",
+      "exit": 0,
+      "durationMs": 156
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "published-install-preview",
+      "exit": 0,
+      "durationMs": 1439
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "published-install-apply",
+      "exit": 0,
+      "durationMs": 1045
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "published-version",
+      "exit": 0,
+      "durationMs": 999
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "candidate-upgrade-preview",
+      "exit": 0,
+      "durationMs": 509
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "candidate-upgrade-apply",
+      "exit": 0,
+      "durationMs": 1206
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "candidate-version",
+      "exit": 0,
+      "durationMs": 1006
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "rollback-preview",
+      "exit": 0,
+      "durationMs": 326
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "rollback-apply",
+      "exit": 0,
+      "durationMs": 345
+    },
+    {
+      "release": "1.0.0-alpha.40",
+      "name": "rolled-back-version",
+      "exit": 0,
+      "durationMs": 138
+    }
+  ]
+}

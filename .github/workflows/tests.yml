@@ -151,6 +151,39 @@ jobs:
             .wringer/graph-temporal-distribution-*/transcript.json
           if-no-files-found: error
           include-hidden-files: true
+  upgrade:
+    name: Upgrade from published releases / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The two published platforms: linux-x64, and darwin-arm64 on the release build image.
+        os: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    # Alpha.36 to alpha.41 each shipped unable to upgrade an older installation, and no job
+    # upgraded from a published release. On an M1 the 15 published releases took 147 s with
+    # their downloads (4 November 2026). A hang guard, not a target.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - name: Build and package the candidate as a release does
+        run: |
+          bun run build
+          WRINGER_RELEASE_OUTPUT="$RUNNER_TEMP/candidate" bun scripts/release.ts package
+      - name: Install each published release with its own executable, upgrade it to the candidate, preview the way back
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/upgrade-from-published.ts "$RUNNER_TEMP"/candidate/wringer-*.tar.gz "$RUNNER_TEMP/published-upgrade"
+      - name: Preserve the measurement
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upgrade-evidence-${{ matrix.os }}
+          path: ${{ runner.temp }}/published-upgrade/result.json
+          if-no-files-found: error
   action:
     runs-on: ubuntu-latest
     # A hang guard for the full declared suite: measured 12.7, 13.8 and 14.1 minutes for alpha.26–.28;
