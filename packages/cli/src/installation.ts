@@ -104,10 +104,25 @@ export async function inspectInstallationState(appDir: string) {
     }
     return { records, holds: [...new Set(held)].sort(), migrated: false, policy: "retain-records-and-read-original-semantics" };
 }
+// A record contract is a published schema file. The frozen index beside them grows with
+// every release that adds one, and the notes and examples change freely; comparing their
+// bytes held every upgrade across a release that added a schema.
+const contract = (path: string) => /^schema\/[^/]+\.schema\.json$/.test(path);
 function compatibility(current: ReleaseManifest | null, target: ReleaseManifest | null) {
     if (!current || !target) return [];
     const files = new Map(target.files.map(file => [file.path, file]));
-    return current.files.filter(f => f.path.startsWith("schema/") && f.kind === "file" && (files.get(f.path)?.kind !== "file" || (files.get(f.path) as any).sha256 !== f.sha256)).map(f => `target-lacks-compatible-record:${f.path}`);
+    return current.files.filter(f => contract(f.path) && f.kind === "file" && (files.get(f.path)?.kind !== "file" || (files.get(f.path) as any).sha256 !== f.sha256)).map(f => `target-lacks-compatible-record:${f.path}`);
+}
+/** Each hold names its cause; this names the way out. */
+function nextAction(holds: string[]) {
+    if (!holds.length) return "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started.";
+    const format = holds.some(h => h.startsWith("target-lacks-compatible-record:")), client = holds.some(h => h.startsWith("disconnect-client:"));
+    const steps = [
+        ...(format ? ["The selected release cannot read a record format the installed version uses: keep the installed version, or select a release that carries every listed format unchanged."] : []),
+        ...(client ? ["Remove each listed client entry through its own scoped removal (wring connect --help)."] : []),
+        ...(holds.some(h => !h.startsWith("target-lacks-compatible-record:") && !h.startsWith("disconnect-client:")) ? ["Stop running owners and reconcile the uncertain or unfinished work the holds name (wring recover --help)."] : []),
+    ];
+    return `Nothing was changed. ${steps.join(" ")} Then preview the same selection again.`;
 }
 async function archiveFor(selection: InstallSelection) {
     if (!selection.archive || !selection.sha256 || !selection.version || !releaseVersion(selection.version)) throw new Error("Select --archive PATH --sha256 HASH --release VERSION");
@@ -148,7 +163,7 @@ export async function previewInstallation(selection: InstallSelection) {
         remove.push({ path: `versions/${installed.id}/DISTRIBUTION.json`, sha256: installed.manifestSha256, target: null });
         for (const file of manifest.files) remove.push({ path: `versions/${installed.id}/${file.path}`, sha256: file.kind === "file" ? file.sha256 : null, target: file.kind === "symlink" ? file.target : null });
     }
-    const value = { schema_version: "wringer.install-preview.v1", selection: { ...selection, prefix, appDir, ...(selection.archive ? { archive: resolve(selection.archive) } : {}) }, state, target: version, source: target?.source ?? null, migration, holds, eligible: holds.length === 0, remove, stateChanges: "none", backup: state.current ? `versions/${state.current}` : null, checksumPolicy: "Exact selected SHA-256 plus repository/version/platform declaration; same-origin checksums are not independent origin proof", nextAction: "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started." };
+    const value = { schema_version: "wringer.install-preview.v1", selection: { ...selection, prefix, appDir, ...(selection.archive ? { archive: resolve(selection.archive) } : {}) }, state, target: version, source: target?.source ?? null, migration, holds, eligible: holds.length === 0, remove, stateChanges: "none", backup: state.current ? `versions/${state.current}` : null, checksumPolicy: "Exact selected SHA-256 plus repository/version/platform declaration; same-origin checksums are not independent origin proof", nextAction: nextAction(holds) };
     return { ...value, identity: digest(value) };
 }
 export type InstallationPreview = Awaited<ReturnType<typeof previewInstallation>>;
@@ -183,7 +198,7 @@ export async function applyInstallation(selection: InstallSelection, expected: s
     const pendingPath = join(prefix, "pending.json"), pendingExists = await exists(pendingPath);
     const preview: InstallationPreview = pendingExists ? JSON.parse((await ownedFile(pendingPath)).toString()).preview : await previewInstallation(selection);
     if (preview.identity !== expected || digest({ ...preview, identity: undefined }) !== expected || digest(preview.selection) !== digest({ ...selection, prefix, appDir: resolve(selection.appDir), ...(selection.archive ? { archive: resolve(selection.archive) } : {}) })) throw new Error("Installation preview changed; no selected action applied");
-    if (!preview.eligible) throw new Error(`Installation is held: ${preview.holds.join(", ")}`);
+    if (!preview.eligible) throw Object.assign(new Error(`Installation is held: ${preview.holds.join(", ")}`), { next_move: preview.nextAction });
     if (!await exists(join(prefix, "INSTALLATION.json"))) {
         await mkdir(dirname(prefix), { recursive: true, mode: 0o700 });
         const stage = await mkdtemp(join(dirname(prefix), ".wringer-install-initial-"));

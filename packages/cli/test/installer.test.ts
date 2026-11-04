@@ -87,6 +87,29 @@ test("ownership, same-version replacement, new record compatibility and in-fligh
     expect(await fs.readFile(join(f.prefix, "unrelated"), "utf8")).toBe("keep");
 });
 
+test("an upgrade across a grown frozen index, changed schema notes and examples is eligible; a changed or missing record contract still holds and says what to do", async () => {
+    // Every release that adds a schema grows the frozen index, so its bytes differ
+    // between releases. alpha.34 to alpha.41 was held on schema/frozen.json alone.
+    const f = await installerFixture(), names = (n: number) => ["retained", ...(n > 1 ? ["new"] : [])];
+    const notes = (n: number) => ({ "schema/frozen.json": JSON.stringify({ tag: "v0.2.0", schemas: Object.fromEntries(names(n).map(s => [`${s}.schema.json`, s[0]!.repeat(64)])) }, null, 1) + "\n", "schema/README.md": `notes ${n}\n`, "schema/fixtures/example.json": `{"example":${n}}\n` });
+    const one = await f.archive("1.0.0-test.1", false, notes(1)), two = await f.archive("1.0.0-test.2", true, notes(2));
+    await applyInstallation(one.selection, (await previewInstallation(one.selection)).identity);
+    const upgrade = await previewInstallation(two.selection);
+    expect(upgrade.holds).toEqual([]); expect(upgrade.eligible).toBe(true);
+    const changed = await f.archive("1.0.0-test.3", true, { ...notes(3), "schema/retained.schema.json": '{"fixture":"changed"}\n' });
+    const missing = await f.archive("1.0.0-test.4", true, { ...notes(4), "schema/retained.schema.json": null });
+    for (const held of [changed, missing]) {
+        const preview = await previewInstallation(held.selection);
+        expect(preview.holds).toEqual(["target-lacks-compatible-record:schema/retained.schema.json"]); expect(preview.eligible).toBe(false);
+        expect(preview.nextAction).toContain("cannot read a record format the installed version uses");
+        const refused = await applyInstallation(held.selection, preview.identity).then(() => null, (error: any) => error);
+        expect(refused?.message).toContain("Installation is held");
+        expect(refused?.next_move).toBe(preview.nextAction);
+    }
+    await applyInstallation(two.selection, upgrade.identity);
+    expect(await fs.readlink(join(f.prefix, "current"))).toBe(`versions/${upgrade.target!.id}`);
+});
+
 test("a lost switch response resumes the exact installation and a completed replay does not switch back", async () => {
     const f = await installerFixture(), one = await f.archive("1.0.0-test.1"), preview = await previewInstallation(one.selection);
     const rename = fs.rename; let injected = false;
