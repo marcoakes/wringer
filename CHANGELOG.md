@@ -4,6 +4,41 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.42 — what the first beta gate run found
+
+The first beta gate run, on alpha.41, failed the Codex journey at Install and at Ask
+([its record](docs/adoption/evidence/alpha41/BETA_GATE_RUN1_2026-11-04.md)). Both are
+fixed, and so are the run's other findings.
+
+- **Upgrades across a release that added a schema work again.** Upgrading to
+  alpha.41 was held from 13 of the 15 earlier releases, alpha.23 to alpha.36: the
+  installer byte-compared every file under `schema/`, including the frozen index,
+  which grows whenever a schema is added. Only `schema/*.schema.json` files decide
+  now, and a held upgrade names the way out. CI now installs every published release
+  with its own installer and upgrades it to each new build, on Linux and macOS.
+- **`codex exec` can record a proposal.** `wring connect --client codex
+  --auto-approve` now writes `default_tools_approval_mode = "approve"` for the
+  `wringer` server only. Under `"auto"`, which it wrote before, Codex 0.153.4 still
+  asks, and `codex exec` refuses a call it would have to ask about. The connect
+  preview, TRUSTED_LOCAL.md and START_AGENT.md say when you need it.
+- **A job `wring job new` prepared is found and used.** Its status now reads phase
+  `prepared`, with the assistant as the next actor, instead of questions for the
+  person. `job new` prints a sentence naming the job to give your assistant, and the
+  MCP instructions and the workflow skill say to find it with `wringer.list_jobs`
+  and record the request on it with `wringer.revise_proposal`.
+- **The private page opens in any browser.** `wring job open --print` prints the
+  private link instead of opening the default browser.
+- **The review page shows each check's run before the work** beside its result, and
+  labels the candidate commit and its source tree.
+- **A trusted-local audit is headed "Trusted-local delivery audit".** The
+  delivery's recorded name (`contained-…`) and its evidence commit message are
+  unchanged: frozen records name them, and a delivery prepared on alpha.41 must still
+  send after an upgrade.
+- **The workflow skill and the agent guide** no longer call trusted-local work
+  contained, and the guide says approval starts the work by itself.
+- No schema changed. A prepared job's status uses a new phase value, `prepared`, and
+  next-action code, `revise`, in fields the response schema already leaves open.
+
 ## 1.0.0-alpha.41 — Send answers in seconds
 
 Fixes alpha.40's known issue. Send on the job page now answers in 2.4 s for a local
