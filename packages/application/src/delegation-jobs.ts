@@ -4,7 +4,7 @@ import { git, Redactor } from "@wringer/engine";
 import { assistantExists, assistantId, assistantInventory, assistantPath, createAssistantDirectory, readAssistantRecord, withAssistantProposalLock, writeAssistantRecord } from "./assistant-store";
 import { readWorkspace } from "./workspaces";
 import { applyDelegationProfile, inspectDelegationProfile, type DelegationSelection } from "./delegation-profile";
-import { initializeAssistant, createAssistantService, assistantControllerState } from "./assistant";
+import { initializeAssistant, createAssistantService, assistantControllerState, PREPARED_JOB_QUESTION } from "./assistant";
 import { readJobLoopInspection } from "./loop-inspection";
 import { localSourceSiblings } from "./assistant-local-source";
 import { inheritWorkspaceImprovements } from "./job-improvements";
@@ -86,7 +86,7 @@ export async function createDelegationJob(root: string, workspaceId: string, inp
         if (context.destination) await writeAssistantRecord(controller, "destination-policy.json", { schema_version: "wringer.proposal-destination-policy.v1", workspaceId: initialized.workspace.id, uniqueProposalBranches: true });
         const service = await createAssistantService(controller);
         await inheritWorkspaceImprovements(root, workspaceId, controller, profile.plan);
-        const proposed = await service.recordProposal({ workspaceId: initialized.workspace.id, idempotencyKey: id, proposal: { intent: input.intent, title: "Prepare the requested work", questions: ["Which requirement criteria, measured checks and result displays will establish this request? Ask the coding assistant to validate and revise this proposal before approval."] } });
+        const proposed = await service.recordProposal({ workspaceId: initialized.workspace.id, idempotencyKey: id, proposal: { intent: input.intent, title: "Prepare the requested work", questions: [PREPARED_JOB_QUESTION] } });
         if (proposed.isError) throw new Error(String(proposed.message));
         return retainDelegationJob(root, context, String(proposed.jobId));
     });

@@ -228,7 +228,7 @@ Wringer workspace setup and retained jobs
   wring job loop --job ID --trajectory [--effect ID] [--json]
   wring job improvements --job ID [--json]
   wring job check --workspace ID      Start each coding agent and open a session; no model prompt
-  wring job open --workspace ID [--job ID]
+  wring job open --workspace ID [--job ID] [--print]
   wring job serve --workspace ID
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
       CLIENT: claude-code, codex, cursor, gemini-cli, generic, kimi, vscode or windsurf (none is a default).

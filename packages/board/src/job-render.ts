@@ -139,7 +139,7 @@ function jobClientRuntime() {
                 // Structured views do not discard the original observed output.
                 const raw = node("details"); raw.append(node("summary", "Original display output"), node("pre", display.output)); outputParent.append(raw);
             } else { const output = node("pre", display.output || "No report content was returned."); output.tabIndex = 0; outputParent.append(output); }
-            const identity = node("details"); identity.append(node("summary", "Exact displayed source"), node("p", `Candidate ${display.candidateTree}`), node("p", `Display ${display.displayId}`)); card.append(identity);
+            const identity = node("details"); identity.append(node("summary", "Exact displayed source"), node("p", `Candidate source tree ${display.candidateTree}`), node("p", `Display ${display.displayId}`)); card.append(identity);
             if (display.visuals) {
                 identity.append(node("p", `Design snapshot ${display.visuals.snapshotSha256}`));
                 for (const [label, assets] of [["Reference", display.visuals.referenceAssets], ["Capture", display.visuals.captures]] as const) for (const asset of assets) identity.append(node("p", `${label} ${asset.id} · SHA-256 ${asset.sha256}`));
@@ -189,7 +189,8 @@ function jobClientRuntime() {
         const reviewItems = el("review-requirements"); reviewItems.replaceChildren();
         for (const requirement of value.requirements.filter(r => r.kind === "human" && r.required && r.state === "unknown")) reviewItems.append(node("li", requirement.title));
         showDestination("approval-destination", value.destination); showDestination("send-destination", value.destination);
-        el("send-source").textContent = value.candidateTree ? `This sends the exact reviewed result: ${value.candidateTree}` : "No reviewed source is recorded.";
+        // Beta gate run 1: the commit and its source tree were shown unlabelled, as two identities.
+        el("send-source").textContent = value.candidateTree ? `This sends the exact reviewed result. Its source tree is ${value.candidateTree}${value.change ? `, from candidate commit ${value.change.candidateCommit}` : ""}.` : "No reviewed source is recorded.";
         const change = value.change, changePanel = el("job-change-panel") as HTMLDetailsElement;
         changePanel.hidden = !change;
         if (change) {
@@ -219,9 +220,9 @@ function jobClientRuntime() {
                 checkFacts.append(node("li", `${check.id} · ${status} · ${check.level === "command" ? "Command result only" : check.assertionStatus === "established" ? "Executed assertions recorded" : "Assertion evidence not established"}. ${check.reason}`));
             }
             if (!engineering.history.length) historyFacts.append(node("li", "No candidate progress observation is recorded yet."));
-            for (const row of engineering.history) historyFacts.append(node("li", `${row.sequence}. ${row.phase === "checks" ? "Checks" : "Independent review"} · ${row.action === "stop" ? "Automatic repair stopped" : row.action === "warn" ? "Repeated outcome warning" : "Observation recorded"}. ${row.reason} Result: ${row.candidateTree}`));
+            for (const row of engineering.history) historyFacts.append(node("li", `${row.sequence}. ${row.phase === "checks" ? "Checks" : "Independent review"} · ${row.action === "stop" ? "Automatic repair stopped" : row.action === "warn" ? "Repeated outcome warning" : "Observation recorded"}. ${row.reason} Result source tree: ${row.candidateTree}`));
             if (value.loop) {
-                for (const row of value.loop.decisions) historyFacts.append(node("li", `Candidate ${row.candidateCommit}: ${row.outcomes.map(o => `${o.id} ${o.status}`).join("; ")}`));
+                for (const row of value.loop.decisions) historyFacts.append(node("li", `Candidate commit ${row.candidateCommit}: ${row.outcomes.map(o => `${o.id} ${o.status}`).join("; ")}`));
                 const budget = value.loop.budget;
                 if (budget) historyFacts.append(node("li", `Agent sessions: ${budget.sessions.reserved} reserved of ${budget.sessions.ceiling}; ${budget.sessions.remaining} remaining. Unresolved: ${budget.unresolvedSessions}. Verification attempts: ${budget.verification.reserved}; unresolved: ${budget.unresolvedVerifications}. Cost: unknown.`));
                 if (value.loop.repair) for (const check of value.loop.repair.checks) {
@@ -239,7 +240,7 @@ function jobClientRuntime() {
             all.append(item);
         }
         el("job-intent").textContent = value.intent; el("job-actor").textContent = value.actor ?? "No name recorded";
-        el("job-record").textContent = `Job ${value.jobId}\nRecord ${value.revision}\nDecision ${value.readyRevision}\nCandidate ${value.candidateTree ?? "Not recorded"}`;
+        el("job-record").textContent = `Job ${value.jobId}\nRecord ${value.revision}\nDecision ${value.readyRevision}\nCandidate source tree ${value.candidateTree ?? "Not recorded"}`;
         const limits = el("job-limits"); limits.replaceChildren(); for (const limit of value.limits) limits.append(node("li", limit));
         const publication = value.publication, link = safeJobReviewLink(publication?.url), anchor = el("review-request-link") as HTMLAnchorElement;
         anchor.hidden = !link; if (link) anchor.href = link; else anchor.removeAttribute("href");

@@ -245,6 +245,7 @@ describe("contained public CLI integration (no live runtime)", () => {
         const f = await fixture(true), hold = await seededHold(f);
         const audit = await call(f, "audit", "--bundle", "missing-bundle");
         expect(audit.exit).toBe(3);
+        expect(audit.text).toStartWith("Contained delivery audit failed: ");
         expect((audit.value as any).status).toBe("failed");
         await expect(call(f, "deliver", "--state", f.state, "--remote", "https://example.invalid/fixture/repository.git", "--source-branch", "review/fixture", "--target-branch", "main")).rejects.toThrow("review-ready");
         try {
@@ -263,4 +264,14 @@ describe("contained public CLI integration (no live runtime)", () => {
         await expect(dispatch(["run", f.planPath, "--authority", f.authorityPath, "--state", f.state, "--repo", f.root], "wringer-drive", { signal: controller.signal })).rejects.toThrow("Fixture interrupted");
         expect(await Bun.file(join(f.state, "plan.json")).exists()).toBe(false);
     });
+});
+
+test("a trusted-local delivery audit is headed trusted-local, not contained", async () => {
+    // Beta gate run 1 (F6): the headline read "Contained delivery audit passed" above "nothing was contained".
+    const { auditHeadline } = await import("../src/contained-cli");
+    const { TRUSTED_LOCAL_SENTENCE } = await import("@wringer/runtime");
+    const id = `contained-${"a".repeat(24)}`;
+    expect(auditHeadline({ status: "passed", deliveryId: id, limits: [TRUSTED_LOCAL_SENTENCE, "Other limit"] })).toBe(`Trusted-local delivery audit passed: ${id}`);
+    expect(auditHeadline({ status: "passed", deliveryId: id, limits: ["Containment depends on the recorded runtime."] })).toBe(`Contained delivery audit passed: ${id}`);
+    expect(auditHeadline({ status: "failed", deliveryId: null, limits: [] })).toBe("Contained delivery audit failed: unreadable delivery");
 });

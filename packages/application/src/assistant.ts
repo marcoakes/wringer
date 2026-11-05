@@ -20,6 +20,11 @@ export const ASSISTANT_BOUNDARY = "cooperative-local" as const;
 export const ASSISTANT_WARNING = "Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.";
 const SCHEMA = "wringer.assistant-response.v1";
 export const ASSISTANT_REVISION_ADVANCED = "The run advanced while it was read; read again before acting.";
+/** The one question `wring job new` records on a delegation job before any assistant
+ * proposal. Beta gate run 1 found that status then read as questions for the person. */
+export const PREPARED_JOB_QUESTION = "Which requirement criteria, measured checks and result displays will establish this request? Ask the coding assistant to validate and revise this proposal before approval.";
+export const isPreparedJob = (questions: unknown) => Array.isArray(questions) && questions.length === 1 && questions[0] === PREPARED_JOB_QUESTION;
+export const PREPARED_JOB_NEXT = "Prepared with wring job new; nothing is proposed yet. The coding assistant records the person's request on this job with revise_proposal at this revision, instead of proposing another job.";
 const allowedTools = new Set(["wringer.inspect_setup", "wringer.inspect_improvements", "wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status", "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
 allowedTools.add("wringer.validate_proposal");
 allowedTools.add("wringer.revise_proposal");
@@ -360,7 +365,7 @@ export async function createAssistantService(root: string, options: { dependenci
             : publicationStatus === "blocked" ? "Handover is blocked. Inspect the recorded reason before any separate recovery."
             : publicationStatus === "branch-pushed" ? "The branch was sent. Audit its handover record from a fresh clone. No hosted review request or merge is implied."
             : publicationStatus && ["published", "recovered", "closed", "merged"].includes(publicationStatus) ? `The hosted handover is ${publicationStatus === "recovered" ? "recorded as open" : publicationStatus}. Inspect its recorded link and audit the handover evidence.`
-            : !view.approval ? p.questions.length ? "Answer the recorded questions; submit a revised unapproved proposal." : "Review and approve the plan in the operator console."
+            : !view.approval ? isPreparedJob(p.questions) ? PREPARED_JOB_NEXT : p.questions.length ? "Answer the recorded questions; submit a revised unapproved proposal." : "Review and approve the plan in the operator console."
             : view.query?.stop?.message ?? (outOfDate ? "Approval is out of date. No new work is allowed."
                 : view.query?.stage === "human" ? "Inspect the result in the PM review workspace."
                 : view.query?.status === "review-ready" ? "Review the handover and its exact destination."

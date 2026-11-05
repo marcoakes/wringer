@@ -69,3 +69,16 @@ test("T14 only the ready page phase invites review or separate Send; blocked and
         expect(result.nextAction).toEqual({ code, actor, eligible, reason: "Page says " + phase });
     }
 });
+test("a job wring job new prepared waits for the assistant's proposal, not for the person's answers", async () => {
+    // Beta gate run 1: status read "questions" for the person, so Codex proposed a second job.
+    const plan = compileExecutionPlan(await Bun.file(new URL("../../plan/examples/contained.yaml", import.meta.url)).text(), { format: "yaml" });
+    const jobId = crypto.randomUUID(), workspaceId = crypto.randomUUID(); let questions = [(application as any).PREPARED_JOB_QUESTION];
+    const view = () => ({ jobId, workspaceId, revision: "a".repeat(64), candidateTree: null, eventId: "c".repeat(64), stage: "intake", outcome: "needs-decision", uncertainty: false, nextAction: "Next words", questions, operations: [], actions: [], usage: { development: { limits: plan.budget, measured: null } } });
+    const protocol = (application as any).createDelegationProtocol({ root: "/private/fixture", workspace: { id: workspaceId, profile: plan }, call: async () => view(), inspectProposal: async () => ({ plan }) });
+    const prepared = await protocol.call("fixture", "wringer.get_status", { jobId });
+    expect(prepared.phase).toBe("prepared"); expect(prepared.nextAction).toEqual({ code: "revise", actor: "assistant", eligible: true, reason: "Next words" });
+    questions = ["Should the dash be kept?"];
+    const asked = await protocol.call("fixture", "wringer.get_status", { jobId });
+    expect(asked.phase).toBe("questions"); expect(asked.nextAction).toEqual({ code: "answer-questions", actor: "operator", eligible: true, reason: "Next words" });
+    expect((application as any).PREPARED_JOB_NEXT).toContain("revise_proposal");
+});

@@ -97,6 +97,16 @@ of the project's. `wring connect` says so before writing anything and refuses th
 second case: remove the old entry after inspecting it (`codex mcp remove
 wringer`), or connect with `--scope user --replace`.
 
+Codex asks before each Wringer tool that records something, such as
+`wringer.propose`. Interactive Codex shows you that question. `codex exec` cannot
+answer it and refuses the call, so to use `codex exec`, connect with
+`--auto-approve`. That approves Wringer's tools for that one server only;
+approving the job, reviewing it and Send still happen on your page.
+
+`wring job open` opens the private page in your default browser. To use another
+browser, `wring job open --workspace WORKSPACE_ID --print` prints the private link
+instead. Anyone who opens it can act as you on that page, so keep it to yourself.
+
 Any named client works (`claude-code`, `codex`, `cursor`, `gemini-cli`,
 `generic`, `kimi`, `vscode`, `windsurf`); none is a default. The worker and judge
 adapters are chosen separately from the client you talk to.

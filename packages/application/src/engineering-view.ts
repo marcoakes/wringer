@@ -1,6 +1,11 @@
 import { measuredLoopPlan, hashValue, validateExecutionPlan, type ExecutionPlan } from "@wringer/plan";
 import { readValidatedContainedState, type LoopDecision, type ValidatedContainedState } from "@wringer/workflow";
 
+/** Beta gate run 1: the page showed only the passing run, and the failing run before the
+ * work surfaced only in the audit. The sentence rides the existing reason text. */
+const startingPoint = (status: string | undefined) => status === "failed" ? " Before the work, on the approved source, it failed."
+    : status === "passed" ? " Before the work, on the approved source, it already passed."
+    : status ? " Its result on the approved source before the work is unknown." : "";
 /** An explanatory read model, never authority, a worker prompt or a quality score. */
 export function projectPmEngineering(planInput: ExecutionPlan, history: ValidatedContainedState | null = null) {
     const plan = validateExecutionPlan(planInput);
@@ -21,7 +26,7 @@ export function projectPmEngineering(planInput: ExecutionPlan, history: Validate
             const result = verification?.checks.find(row => row.id === check.id), evidence = verification?.checkEvidence?.find(row => row.checkId === check.id);
             return { id: check.id, level: check.evidence ? "assertions" as const : "command" as const, status: !result ? "not-measured" as const : result.status === "unavailable" ? "unknown" as const : result.status,
                 assertionStatus: !check.evidence ? "not-requested" as const : evidence?.status ?? "not-measured" as const,
-                reason: evidence?.reason ?? (check.evidence ? "Executed assertion evidence has not been recorded for the current result." : "Command results alone do not establish executed assertions or complete requirement coverage.") };
+                reason: (evidence?.reason ?? (check.evidence ? "Executed assertion evidence has not been recorded for the current result." : "Command results alone do not establish executed assertions or complete requirement coverage.")) + startingPoint(history?.state.baseline?.checks.find(row => row.id === check.id)?.status) };
         }),
         history: decisions.map(row => ({ sequence: row.sequence, phase: row.phase, action: row.action, reason: row.reason, candidateTree: row.candidateTree, sha256: row.sha256 })),
         limits: ["This is a read-only explanation of the selected approach and retained observations, not an approval or an instruction to an agent.", "A selected playbook is worker advice, not proof of improvement. It is not injected into the judge's instructions, but tracked source can remain readable through the repository.", "Recorded adoption is future-selection provenance, not execution permission or an independent rerun of the private comparison.", "Executed assertions are stronger evidence than command exits; neither establishes complete requirements or honest, sufficient tests.", "Repeated outcomes are observations, not a quality score. Your result decision and permission to send remain separate."]

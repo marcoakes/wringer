@@ -96,7 +96,11 @@ test("T19 explicit routine approval is scoped to the restricted Codex server", a
     const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-client-approval-"))), repo = join(root, "repo"); await mkdir(repo);
     const input = { client: "codex", scope: "user", home: root, repo, workspaceId: crypto.randomUUID(), launcher: ["/wring"], mode: "verification", autoApprove: true };
     const preview = await api.previewClientConnection(join(root, "app"), input);
-    expect(preview.proposedEntry.default_tools_approval_mode).toBe("auto"); expect(preview.changes[0].path).toBe(join(root, ".codex/config.toml"));
+    // Beta gate run 1: Codex 0.153.4 still asks under "auto", and codex exec refuses the call.
+    expect(preview.proposedEntry.default_tools_approval_mode).toBe("approve"); expect(preview.changes[0].path).toBe(join(root, ".codex/config.toml"));
+    expect(preview.note).toContain("without asking"); expect(preview.note).toContain("this server only");
+    const asked = await api.previewClientConnection(join(root, "app"), { ...input, autoApprove: false });
+    expect(asked.proposedEntry.default_tools_approval_mode).toBeUndefined(); expect(asked.note).toContain("codex exec cannot answer it");
     await expect(api.previewClientConnection(join(root, "app"), { ...input, client: "claude-code" })).rejects.toThrow("auto-approval");
 });
 test("a Codex project entry that Codex would not use is refused or flagged, never reported as connected", async () => {

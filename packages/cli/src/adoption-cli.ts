@@ -53,7 +53,7 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
   wring job loop --job ID --trajectory [--effect ID] [--json]
   wring job improvements --job ID [--json]
   wring job check --workspace ID      Start each coding agent and open a session; no model prompt
-  wring job open --workspace ID [--job ID]
+  wring job open --workspace ID [--job ID] [--print]
   wring job serve --workspace ID
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
       CLIENT: claude-code, codex, cursor, gemini-cli, generic, kimi, vscode or windsurf (none is a default).
@@ -221,7 +221,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         if (workspace.mode === "delegation") {
             if (["gate", "repetitions", "run-seconds", "elapsed-seconds"].some(key => string(a, key) !== undefined)) throw new Error("Delegation check selection and ceilings belong in the typed proposal under its reviewed profile");
             const value = await createDelegationJob(root, workspace.id, { intent: required(a, "intent"), idempotencyKey: string(a, "idempotency-key", crypto.randomUUID())!, parentJobId: string(a, "parent") });
-            return { value, text: `Prepared unapproved delegation job ${value.id}. Ask the connected coding assistant to validate the acceptance criteria and revise this pending proposal.\nOpen: wring job open --workspace ${workspace.id} --job ${value.id}` };
+            return { value, text: `Prepared unapproved delegation job ${value.id}. Nothing is proposed or approved yet.\nTell your coding assistant your request and name this job, for example: "Please delegate this to Wringer on prepared job ${value.id}: YOUR REQUEST"\nOpen: wring job open --workspace ${workspace.id} --job ${value.id}` };
         }
         const selection = values(a, "gate"), parentJobId = string(a, "parent");
         const value = await createVerificationJob(root, required(a, "workspace"), { intent: required(a, "intent"), ...(selection !== undefined ? { selection } : {}), repetitions: number(a, "repetitions", 3), runSeconds: number(a, "run-seconds", 300), elapsedSeconds: number(a, "elapsed-seconds", 3600), ...(parentJobId !== undefined ? { parentJobId } : {}), idempotencyKey: string(a, "idempotency-key", crypto.randomUUID())! });
@@ -252,7 +252,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         return { text: "Owner stopped; evidence and grants retained." };
     }
     if (verb === "open") {
-        allowed(a, ["app-dir", "workspace", "job"]); const workspace = await readWorkspace(root, required(a, "workspace"));
+        allowed(a, ["app-dir", "workspace", "job", "print"]); const workspace = await readWorkspace(root, required(a, "workspace"));
         const id = string(a, "job");
         if (id) { const job = workspace.mode === "verification" ? await readVerificationJob(root, assistantId(id)) : await readDelegationJob(root, assistantId(id)); if (job.workspaceId !== workspace.id) throw new Error("Job belongs to another workspace"); }
         let location;
@@ -266,6 +266,9 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         }
         const url = new URL(location.url);
         if (id) url.searchParams.set("jobId", id);
+        // Beta gate run 1: only the default browser could be unlocked, so a person or tester
+        // using another browser had no way in. Printing is the person's explicit choice.
+        if (flag(a, "print")) return { value: { opened: false, printed: true, url: url.href, workspaceId: workspace.id, jobId: id ?? null }, text: `Private operator link for this computer:\n${url.href}\nAnyone who opens it can act as you on this page, so keep it out of chat, tickets and screenshots. Opening it does not approve work, accept it, or send it.` };
         const command = process.platform === "darwin" ? ["open", url.href] : ["xdg-open", url.href];
         const opened = Bun.spawnSync(command, { stdout: "ignore", stderr: "pipe" });
         if (opened.exitCode) throw new Error("The operating system could not open the private page. Run job serve and inspect the private operator location locally; no authority was sent to the assistant.");

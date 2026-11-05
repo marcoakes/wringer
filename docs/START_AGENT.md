@@ -43,18 +43,25 @@ other clients print their documented recipe for you to add. `wring job open`
 starts the owner your client connects to and opens the person's private page;
 connecting starts nothing. Reload the client.
 
+Codex asks before each Wringer tool that records something. If you run as
+`codex exec`, which cannot answer that question and refuses the call, connect with
+`--auto-approve`: it approves Wringer's tools for that server only.
+
 ## The loop
 
 1. `wringer.inspect_setup`, then build the request from the person's own words:
    `wringer.validate_proposal`. Take the revision of the job `wring job new`
    returned from `wringer.get_status` and record the request on that job with
    `wringer.revise_proposal`. (`wringer.propose` adds a second job beside it.)
+   Without its ID, `wringer.list_jobs` lists it, and `wringer.get_status` reports
+   its phase as `prepared`.
 2. Give the person the decision link the tools return, once, exactly as
    returned. Approval happens on that page, not in chat. A browser that has not
    been unlocked shows a locked page: they run
    `wring job open --workspace WORKSPACE_ID --job JOB_ID` on this computer.
-3. Once approved, `wringer.start` with the revision `wringer.get_status` reports.
-   Wait with `wringer.wait_for_update` (at most 25 seconds a call).
+3. Approval starts the work by itself. Wait with `wringer.wait_for_update` (at
+   most 25 seconds a call) and read `wringer.get_status`. Call `wringer.start`
+   only when the status names it as the next action.
 4. When the result is ready, send the person to the same page to review it.
    After they accept it, `wringer.prepare_handover`; Send stays their decision.
 

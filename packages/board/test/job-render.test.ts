@@ -186,6 +186,15 @@ test("what a result changed is shown as text before Send, opened once, and valid
     }
 });
 
+test("the page labels the candidate commit and its source tree instead of two bare identities", async () => {
+    // Beta gate run 1 (F7): "Candidate 7e1dbed1…" and "This sends the exact reviewed result: 587fede6…" named one result twice.
+    const job = fixture(); job.phase = "send";
+    job.change = { baseCommit: "a".repeat(40), candidateCommit: "b".repeat(40), files: [{ path: "src/value.ts", added: 1, removed: 1 }], patch: "-old\n+new\n", truncated: false };
+    const h = await harness(job);
+    expect(h.get("send-source").textContent).toBe(`This sends the exact reviewed result. Its source tree is ${"c".repeat(40)}, from candidate commit ${"b".repeat(40)}.`);
+    expect(h.get("job-record").textContent).toContain(`Candidate source tree ${"c".repeat(40)}`);
+    const unchanged = await harness(fixture()); expect(unchanged.get("send-source").textContent).toBe(`This sends the exact reviewed result. Its source tree is ${"c".repeat(40)}.`);
+});
 test("same-page engineering disclosure is plain text and preserves the user's toggle and next decision", async () => {
     const job = engineeringFixture(), h = await harness(job);
     expect(h.get("job-engineering").hidden).toBe(false); expect(h.get("job-engineering").open).toBe(false);

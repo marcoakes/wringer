@@ -1,6 +1,6 @@
 ---
 name: wringer
-description: Check changes with Wringer evidence or propose a bounded contained Wringer job, then guide the operator through review and separate delivery.
+description: Check changes with Wringer evidence or propose a bounded Wringer job, contained or trusted-local, then guide the operator through review and separate delivery.
 ---
 
 Preserve the user's original request. Inspect the connected workspace with
@@ -18,12 +18,17 @@ measured check mappings, supported result displays, narrower scope, finite
 ceilings, assumptions and questions. Use the returned field errors to repair the
 proposal. A check mapped to a new requirement must fail today, so commit the
 failing test before `wring job new`: one that already passes stops the approved
-job before any worker turn. Record the proposal with `wringer.revise_proposal` on
-the job `wring job new` returned, or `wringer.propose` when there is none; use
+job before any worker turn. Before proposing, call `wringer.list_jobs`: a job the
+person prepared with `wring job new` reports phase `prepared` in
+`wringer.get_status`. Record the proposal on it with `wringer.revise_proposal`, and
+use `wringer.propose` only when there is none; use
 `wringer.revise_proposal` to answer questions on the same lineage. Do not rewrite the original request or echo and
 edit private runtime policy. New acceptance files need the reviewed preparation
 route before execution approval. A missing contained runtime is a provisioning
-decision, never permission to run managed roles on the host.
+decision, never permission to run managed roles on the host. When
+`wringer.inspect_setup` reports execution `trusted-local`, the roles and checks
+run on this computer under the person's account and nothing is contained: say
+so, and do not call the job or its delivery contained.
 
 Keep service-issued job and operation IDs. Use the current returned revision
 and candidate identity for every continuation. Reuse an idempotency key only

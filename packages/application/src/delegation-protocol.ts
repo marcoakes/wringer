@@ -2,7 +2,7 @@ import { hashBytes, hashValue } from "@wringer/plan";
 import { Redactor } from "@wringer/engine";
 import type { createAssistantService } from "./assistant";
 import { assistantId, assistantInventory } from "./assistant-store";
-import { assistantControllerState } from "./assistant";
+import { assistantControllerState, isPreparedJob } from "./assistant";
 import { readJobLoopInspection, readJobLoopTrajectoryPage } from "./loop-inspection";
 import { inspectJobImprovements } from "./improvements";
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
@@ -43,6 +43,8 @@ export function createDelegationProtocol(service: Service) {
         if (view.uncertainty) return { code: "reconcile", actor: "operator", eligible: false, reason: view.nextAction };
         if (view.outcome === "cancelled") return { code: "inspect", actor: "assistant", eligible: false, reason: view.nextAction };
         if (["accepted", "running"].includes(view.outcome)) return { code: "wait", actor: "assistant", eligible: true, reason: view.nextAction };
+        // A job `wring job new` prepared waits for the assistant's proposal, not for the person.
+        if (view.outcome === "needs-decision" && isPreparedJob(view.questions)) return { code: "revise", actor: "assistant", eligible: true, reason: view.nextAction };
         if (view.outcome === "needs-decision") return { code: "answer-questions", actor: "operator", eligible: true, reason: view.nextAction };
         if (view.outcome === "awaiting-approval") return { code: "approve", actor: "operator", eligible: true, reason: view.nextAction };
         const phase = view.decision?.phase, reason = view.decision?.nextAction ?? view.nextAction;
@@ -55,7 +57,7 @@ export function createDelegationProtocol(service: Service) {
     }
     async function compact(view: any) {
         const evidence = (await snapshots(view.jobId, view)).map(({ content, ...handle }) => handle), action = next(view);
-        const phase = view.outcome === "awaiting-approval" ? "approval" : view.outcome === "needs-decision" ? "questions" : view.outcome === "superseded" ? "superseded" : view.decision?.phase ?? view.stage;
+        const phase = view.outcome === "awaiting-approval" ? "approval" : view.outcome === "needs-decision" ? isPreparedJob(view.questions) ? "prepared" : "questions" : view.outcome === "superseded" ? "superseded" : view.decision?.phase ?? view.stage;
         const page = view.decision?.pageUrl;
         const safePage = typeof page === "string" && /^http:\/\/127\.0\.0\.1:[0-9]+\/\?jobId=[a-f0-9-]{36}$/.test(page) ? page : null;
         return { schema_version: RESPONSE, jobId: view.jobId, workspaceId: service.workspace.id, mode: "delegation", revision: view.revision, candidateIdentity: view.candidateTree, eventId: view.eventId ?? hashValue({ revision: view.revision, outcome: view.outcome, candidate: view.candidateTree, operations: view.operations, publication: view.publication }), phase, outcome: view.outcome, uncertainty: view.uncertainty, nextAction: action,

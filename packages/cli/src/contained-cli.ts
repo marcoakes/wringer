@@ -7,9 +7,14 @@ import { deliverContained, auditContained, falsifyContained, reviewContainedSour
 import { readControllerFile, readController, startController, resumeController, showControllerCandidate, reviewControllerCandidate, recoverWorkspaceCommand } from "@wringer/application";
 import { readLoopInspection } from "@wringer/application";
 import { EngineError, Redactor } from "@wringer/engine";
+import { TRUSTED_LOCAL_SENTENCE } from "@wringer/runtime";
 import { allowed, flag, number, positionals, required, string, quote, type Args } from "./args";
 import { DRIVE_HELP } from "./help";
 import type { Answer, DispatchContext } from "./app";
+/** Beta gate run 1: "Contained delivery audit passed" headed a trusted-local audit that
+ * then said nothing was contained. The delivery's recorded name stays frozen. */
+export const auditHeadline = (value: { status: string; deliveryId: string | null; limits: string[] }) =>
+    `${value.limits.includes(TRUSTED_LOCAL_SENTENCE) ? "Trusted-local" : "Contained"} delivery audit ${value.status}: ${value.deliveryId ?? "unreadable delivery"}`;
 
 const statePath = (repo: string, a: Args) => resolve(repo, required(a, "state"));
 const nextResume = (state: string) => `wringer-drive resume --state ${quote(state)}`;
@@ -85,7 +90,7 @@ export async function containedDrive(a: Args, repo: string, context: DispatchCon
     if (a.command === "audit") {
         positionals(a, 0); allowed(a, ["bundle"]);
         const value = await auditContained(resolve(repo, required(a, "bundle")));
-        return { value, text: `Contained delivery audit ${value.status}: ${value.deliveryId ?? "unreadable delivery"}\n${value.claims.map(row => `${row.status}: ${row.id} — ${row.reason}`).join("\n")}\n${value.limits.join("\n")}`, exit: value.status === "passed" ? 0 : 3 };
+        return { value, text: `${auditHeadline(value)}\n${value.claims.map(row => `${row.status}: ${row.id} — ${row.reason}`).join("\n")}\n${value.limits.join("\n")}`, exit: value.status === "passed" ? 0 : 3 };
     }
     if (a.command === "source-review") {
         positionals(a, 0); allowed(a, ["state", "policy-dir", "inventory", "finding", "actor", "actor-kind", "reason", "decisions"]);

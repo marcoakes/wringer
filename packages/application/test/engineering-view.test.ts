@@ -28,3 +28,14 @@ test("no selected approach and command-only evidence remain honest, while mismat
     expect(() => projectPmEngineering(plan, { plan: template() } as any)).toThrow("different approved plan");
     await expect(readPmEngineering(plan, "/nonexistent/wringer-pm-view-fixture")).rejects.toThrow();
 });
+
+test("each check says how it ran on the approved source before the work", () => {
+    // Beta gate run 1 (F5): the page showed only the passing run; the red-first run was only in the audit.
+    const { schema_version, plan_sha256, intent_sha256, acceptance_sha256, ...data } = original;
+    const plan = compileDeclaration({ version: 3, ...data }), id = plan.acceptance.checks[0]!.id;
+    const check = (before: string | null) => projectPmEngineering(plan, { plan, playbook: null, events: [], state: { verification: { checks: [{ id, status: "passed" }] }, baseline: before ? { checks: [{ id, status: before }] } : null } } as any)!.checks[0]!;
+    expect(check("failed").status).toBe("passed"); expect(check("failed").reason).toEndWith(" Before the work, on the approved source, it failed.");
+    expect(check("passed").reason).toEndWith(" Before the work, on the approved source, it already passed.");
+    expect(check("unavailable").reason).toEndWith(" Its result on the approved source before the work is unknown.");
+    expect(check(null).reason).toBe("Command results alone do not establish executed assertions or complete requirement coverage.");
+});

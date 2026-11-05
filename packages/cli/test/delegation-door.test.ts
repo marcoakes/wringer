@@ -218,3 +218,29 @@ test("the check is only for a workspace that starts agents on this computer", as
     const contained = await registerWorkspace(f.app, { repo: f.repo, mode: "delegation", client: "generic", profileId: f.workspace!.preferences.profileId! });
     await expect(dispatch(["job", "check", "--app-dir", f.app, "--workspace", contained.id])).rejects.toThrow("wring runtime measure");
 }, 30000);
+
+test("job new names the prepared job for the assistant, and job open --print hands the person its private link", async () => {
+    // Beta gate run 1: Codex was never told the job job new prepared, and the private page
+    // could only be unlocked in the default browser.
+    const f = await fixture();
+    const created: any = await dispatch(["job", "new", "--app-dir", f.app, "--workspace", f.workspace!.id, "--intent", INTENT]);
+    expect(created.text).toContain(`Please delegate this to Wringer on prepared job ${created.value.id}: YOUR REQUEST`);
+    expect(created.text).toContain("Nothing is proposed or approved yet.");
+    const owner = join(f.app, "owners", f.workspace!.id), url = `http://127.0.0.1:4567/#token=${"a".repeat(64)}`; await mkdir(owner, { recursive: true });
+    await writeFile(join(owner, "operator.json"), JSON.stringify({ schema_version: "wringer.operator-location.v1", pid: process.pid, url }));
+    const printed: any = await dispatch(["job", "open", "--app-dir", f.app, "--workspace", f.workspace!.id, "--job", created.value.id, "--print"]);
+    expect(printed.value).toEqual({ opened: false, printed: true, url: `http://127.0.0.1:4567/?jobId=${created.value.id}#token=${"a".repeat(64)}`, workspaceId: f.workspace!.id, jobId: created.value.id });
+    expect(printed.text).toContain(printed.value.url); expect(printed.text).toContain("Anyone who opens it can act as you");
+    await expect(dispatch(["job", "open", "--app-dir", f.app, "--workspace", f.workspace!.id, "--print=yes"])).rejects.toThrow("--print takes no value");
+});
+
+test("the skill and guides send an assistant to the prepared job, name trusted-local plainly and say approval starts the work", async () => {
+    // Beta gate run 1 (F2, F3, F4, F8, F9): what Codex read did not match what Wringer does.
+    const read = (path: string) => Bun.file(new URL(`../../../${path}`, import.meta.url)).text();
+    const skill = await read("integrations/wringer/SKILL.md"), agent = await read("docs/START_AGENT.md"), local = await read("docs/native/TRUSTED_LOCAL.md"), pm = await read("docs/START_PM.md");
+    expect(skill).toContain("Before proposing, call `wringer.list_jobs`"); expect(skill).toContain("do not call the job or its delivery contained");
+    expect(skill.split("\n").find(line => line.startsWith("description:"))).not.toContain("propose a bounded contained");
+    expect(agent).toContain("Approval starts the work by itself."); expect(agent).not.toContain("Once approved, `wringer.start`");
+    for (const text of [agent, local]) expect(text).toContain("`--auto-approve`");
+    for (const text of [local, pm]) expect(text).toContain("--print");
+});

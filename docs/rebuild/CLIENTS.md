@@ -10,7 +10,10 @@ then repeat the same selection with `--apply --expected DIGEST`. Use
 `claude-code` for Claude Code; use `--scope user` deliberately for user scope.
 The exact paths, current named entry (redacted), proposed named entry and file
 identities are shown. A conflicting entry requires `--replace` in the preview.
-Routine Codex tool approval is available only with explicit `--auto-approve`.
+Routine Codex tool approval is available only with explicit `--auto-approve`,
+which writes `default_tools_approval_mode = "approve"` for the `wringer` server
+only. Codex 0.153.4 still asks under `"auto"`, and `codex exec` refuses a call it
+would have to ask about (beta gate run 1, 4 November 2026).
 The Claude adapter leaves normal approval to the client. Neither changes global
 shell/browser permissions, worker keys, operator authority or unrelated servers.
 

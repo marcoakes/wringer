@@ -1,10 +1,14 @@
 # Review a Wringer job
 
 Ask your coding assistant to keep your original request and choose one mode:
-checking its changes with trusted-local checks, or delegating a contained job.
+checking its changes with trusted-local checks, or delegating a job, either
+contained or trusted-local on this computer.
 Your workspace remembers preferences; it does not grant future jobs permission.
 
-Open the selected job with `wring job open --workspace ID --job ID`.
+Open the selected job with `wring job open --workspace ID --job ID`. It opens in
+your default browser. To use another browser, add `--print`: it prints the private
+link instead. Anyone who opens that link can act as you on the page, so keep it to
+yourself.
 
 1. **Approve:** inspect the original words, source, acceptance, selected checks,
    runtime, writable scope, budgets, expiry and destination. Questions and revised

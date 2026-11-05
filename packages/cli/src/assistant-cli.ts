@@ -210,7 +210,7 @@ export function codexConnectionRecipe(connectionPath: string, command = assistan
         argv,
         addCommand: `codex mcp add wringer -- ${argv.map(quote).join(" ")}`,
         inspectCommand: "codex mcp list",
-        config: `[mcp_servers.wringer]\ncommand = ${JSON.stringify(argv[0])}\nargs = ${JSON.stringify(argv.slice(1))}\nenv_vars = []\nenabled_tools = ${JSON.stringify(ASSISTANT_TOOL_NAMES)}\nstartup_timeout_sec = 10\ntool_timeout_sec = 40\n# Optional: approve routine calls for this restricted server only.\n# Do not change global shell or browser permissions.\n# default_tools_approval_mode = "auto"\n`,
+        config: `[mcp_servers.wringer]\ncommand = ${JSON.stringify(argv[0])}\nargs = ${JSON.stringify(argv.slice(1))}\nenv_vars = []\nenabled_tools = ${JSON.stringify(ASSISTANT_TOOL_NAMES)}\nstartup_timeout_sec = 10\ntool_timeout_sec = 40\n# Optional: approve routine calls for this restricted server only.\n# A non-interactive Codex run needs it: it cannot answer Codex's question before a tool call.\n# Do not change global shell or browser permissions.\n# default_tools_approval_mode = "approve"\n`,
         disconnectCommand: "codex mcp remove wringer",
     };
 }
