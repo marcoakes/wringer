@@ -1,34 +1,54 @@
-# Current product evidence — 3 November 2026
+# Current product evidence — 5 November 2026
 
 The current verified public release is
-[1.0.0-alpha.41](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.41),
-commit `76297968d80d226101baf66f08801bcb57633e89`. It fixes the slow Send that
-alpha.40 left open:
+[1.0.0-alpha.42](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.42),
+commit `630ccdd2bd29ea177a3bef07c5db51aab26f8786`. It fixes what the first
+[beta gate](docs/adoption/BETA_GATE.md) run found
+([its record](docs/adoption/evidence/alpha41/BETA_GATE_RUN1_2026-11-04.md)). That run,
+on alpha.41, failed the Codex journey at Install and at Ask:
 
-- a repeated read of an unchanged prepared bundle re-checks its bytes against the seal
-  and reuses the audit that passed, instead of running the whole audit again;
-- a command that exits with nothing left running returns at once, instead of waiting
-  100 ms before a forced stop it does not need.
+- upgrading to alpha.41 was held from 13 of the 15 earlier published releases, because
+  the installer compared the index of frozen schemas, which grows with every new schema,
+  byte for byte. Only the schema files themselves decide now;
+- `codex exec` could not record a proposal. `wring connect --client codex --auto-approve`
+  wrote `"auto"`, under which Codex 0.153.4 still asks before each Wringer tool that
+  records something, and `codex exec` cannot answer. It now writes `"approve"`, for the
+  `wringer` server only.
 
-Send for a local design job was answered in 2.4 s on an M1, down from 15.8 s at
-alpha.40. On GitHub's macOS 15 runners the four rehearsals' Send answers took
-0.8–5.9 s, down from 10–28 s and, for the local design job, over 40 s
-([numbers](docs/adoption/evidence/alpha41/send-admission.json)). Rehearsals run on
-macOS 15 again, with a 20 s bound on the Send answer. These are fixture rehearsals:
-how long Send takes on a person's own Mac is not measured.
+It also fixes the run's seven other findings. A job `wring job new` prepared is found and
+used, `wring job open --print` lets the private page open in any browser, and the review
+page shows how each check ran before the work and labels the candidate commit and its
+source tree. A trusted-local audit is headed trusted-local, and the workflow skill and the
+agent guide no longer call trusted-local work contained. A trusted-local delivery keeps
+its recorded name, `contained-…`, because frozen records name it.
+
+CI now installs every published release with its own installer and upgrades it to each
+new build. On this commit all 16, alpha.23 to alpha.41, upgraded on Linux and on macOS 15,
+and the way back was applied for alpha.39 to alpha.41, the three that share its record
+formats (`ciHistory` in the [release record](docs/adoption/evidence/alpha42/release.json)).
+Those were archives the tests run built from this commit, not the published ones.
 
 All 14 public assets matched the clean source, both archives' signed provenance
 verified, and public macOS extraction/installation passed 17/13 checks. The published
-macOS binary still needs only macOS 13.0. All eight test jobs, the Linux DAC job and
-all six release jobs passed on the first attempt.
+macOS binary still needs only macOS 13.0. All ten test jobs, the Linux DAC job and all
+six release jobs passed on the first attempt.
 
-Local validation passed 43/43 stages. Its two groups took 741 s and 269 s, against
-2,392 s and 763 s at alpha.40
-([record](docs/adoption/evidence/alpha41/local-validation.json)). Five guards were
-each removed alone, and every one turned its tests red
-([record](docs/rebuild/evidence/send-admission/reversions.json)). See the
-[release record](docs/adoption/evidence/alpha41/release.json). No live model has run,
-and no benefit is claimed.
+Local validation was not run on the release Mac, which had 1.5 GiB of free disk; the
+tests run ran both validation groups on Linux and two macOS images. Fourteen guards for
+the run's findings and five for the upgrade fix were each removed alone, and every one
+turned its tests red ([findings](docs/rebuild/evidence/gate-run1/reversions.json),
+[upgrade](docs/rebuild/evidence/install-upgrade/reversions.json)). No live Codex or
+Claude Code journey has run on alpha.42: that is the beta gate's second run.
+
+[1.0.0-alpha.41](docs/adoption/evidence/alpha41/release.json) (commit `7629796`), the
+release gate run 1 tested, fixed the slow Send that alpha.40 left open: a repeated read
+of an unchanged prepared bundle reuses the audit that passed, and a command that exits
+with nothing left running no longer waits 100 ms. Send for a local design job took 2.4 s
+on an M1, down from 15.8 s, and the rehearsals' Send answers on GitHub's macOS 15 runners
+took 0.8–5.9 s ([numbers](docs/adoption/evidence/alpha41/send-admission.json)); these are
+fixture rehearsals. Local validation passed 43/43 stages
+([record](docs/adoption/evidence/alpha41/local-validation.json)), and five guards each
+turned their tests red ([record](docs/rebuild/evidence/send-admission/reversions.json)).
 
 [1.0.0-alpha.40](docs/adoption/evidence/alpha40/release.json) (commit `edb6987`)
 carried:
@@ -86,10 +106,10 @@ delegated tester, approved and sent from the page. It reached a passing
 fresh-clone audit and found eight defects that were fixed before release
 ([rehearsal record](docs/adoption/evidence/alpha34/REHEARSAL_2026-10-01.md)).
 31 isolated reversions of its guards each went red
-([record](docs/adoption/evidence/alpha34/reversions/reversions.json)). No journey
-with a real coding app as the client has run yet; that is the
-[beta gate](docs/adoption/BETA_GATE.md), and its pass will be a delegated AI
-tester's, not an independent person's.
+([record](docs/adoption/evidence/alpha34/reversions/reversions.json)). The first
+journey with a real coding app as the client, the beta gate's first run on alpha.41,
+failed (see above); a pass will be a delegated AI tester's, not an independent
+person's.
 
 Previous release: [alpha.33](docs/restoration/evidence/phase-7/release.json),
 contained graphs on a second durable runtime, Temporal, through an optional Node
