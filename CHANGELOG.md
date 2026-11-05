@@ -4,6 +4,41 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.43 — what the second beta gate run found
+
+The second beta gate run, on alpha.42, failed both journeys at Install
+([its record](docs/adoption/evidence/alpha42/BETA_GATE_RUN2_2026-11-05.md)). On a
+separate installation, Claude Code and Codex then passed every other step. This
+release fixes the install hold and the run's other findings.
+
+- **A computer that has run a job installs and upgrades again.** Each captured
+  candidate and playbook overlay was published by a hard link that kept the attempt's
+  pending name, and the installer's state check refuses any record with two names.
+  Every release since alpha.20 did both. New records keep one name. The state check
+  reads the pair older releases left, inside its own reservation, and holds on any
+  other second name. A hold now names the record it could not read
+  (`unreadable-state-record:PATH`), and each hold gets a next step that fits it. CI's
+  upgrade check now upgrades each published release over a finished job's records.
+- **`wring job close --workspace ID`** stops the owner that `wring job open` left
+  running, and keeps every job and its evidence. It refuses while a job of the
+  workspace is still working or uncertain, and signals only a process whose command
+  line is that workspace's owner. The installer's hold for a running owner names it.
+- **A new job's review branch is `wringer/job/<job ID>`**, not one named after an
+  internal preparation ID. Jobs prepared earlier keep their branch. The evidence
+  report now says which workspace ID is internal and which one the person connected.
+- **`wring connect --client codex --scope project` checks the repository's own
+  folder.** In gate run 2, Codex ignored a project's `.codex/config.toml` in a
+  repository inside a trusted folder, and connect had counted the parent's trust. A
+  warning is also printed after the JSON now.
+- **`wring connect … --remove`** says what to do after a removal, removes a project
+  configuration file left empty, and lists and removes the empty folders connect
+  made. A user's own configuration file always stays.
+- T02, which starts seven Bun processes one after another, has a 30-second limit; it
+  took 5,013 ms on a macos-latest runner against Bun's default 5 s.
+- No schema changed. The evidence report's new `identities` field, the connect
+  preview's `emptyDirectories` and the install preview's `migration.runningOwners`
+  are in records that are not frozen.
+
 ## 1.0.0-alpha.42 — what the first beta gate run found
 
 The first beta gate run, on alpha.41, failed the Codex journey at Install and at Ask
