@@ -19,7 +19,7 @@ const refusal = (code: string, message: string) => ({ schema_version: "wringer.a
 const opaque = (value: unknown) => { const h = hashValue(value); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`; };
 /** Versioned adapter over the existing authority engine. Legacy v1 responses
  * retain their meaning. Evidence identities cover exactly the returned bytes. */
-export function createDelegationProtocol(service: Service) {
+export function createDelegationProtocol(service: Service, options: { workspaceId?: string } = {}) {
     const redactor = new Redactor(), boundary = { approval: "cooperative-local", execution: service.workspace.profile.runtime.kind === "trusted-local" ? "trusted-local" : "contained" };
     // The earlier versions pin a contained boundary; a trusted-local workspace answers in their siblings.
     const trusted = boundary.execution === "trusted-local", RESPONSE = trusted ? "wringer.assistant-response.v3" : "wringer.assistant-response.v2", SETUP = trusted ? "wringer.delegation-setup.v2" : "wringer.delegation-setup.v1";
@@ -29,7 +29,10 @@ export function createDelegationProtocol(service: Service) {
         // Wall-clock sampling is not a retained-state transition. Keep that
         // live observation in status, outside the revision-bound report bytes.
         if (report.usage?.development?.measured?.wallClock) delete report.usage.development.measured.wallClock.elapsedSeconds;
-        const values = { request: { intent: proposal.intent, assumptions: proposal.assumptions, questions: proposal.questions }, proposal, report: { schema_version: "wringer.delegation-evidence-view.v1", state: report, note: "Live elapsed-clock sampling is omitted. Current status supplies that observation; it does not reset the grant." }, handover: view.publication ?? null };
+        // Beta gate run 2 (F11): the report carried the controller's own workspace ID, not the one
+        // the person connected, and Claude Code warned the person that the two did not match.
+        const identities = options.workspaceId ? { identities: { connectedWorkspaceId: options.workspaceId, internalWorkspaceId: service.workspace.id, note: "Wringer keeps each prepared job in an internal workspace of its own, inside the workspace you connected. A workspaceId in this report names that internal workspace, not the connected one. The review branch is wringer/job/ followed by the job's ID; a job prepared before 1.0.0-alpha.43 uses wringer/job-<its preparation ID>/<its job ID>." } } : {};
+        const values = { request: { intent: proposal.intent, assumptions: proposal.assumptions, questions: proposal.questions }, proposal, report: { schema_version: "wringer.delegation-evidence-view.v1", state: report, note: "Live elapsed-clock sampling is omitted. Current status supplies that observation; it does not reset the grant.", ...identities }, handover: view.publication ?? null };
         return Object.entries(values).map(([kind, value]) => {
             const content = redactor.scrub(JSON.stringify(value, null, 2)).replaceAll(service.root, "[controller]");
             if (Buffer.byteLength(content) > 1024 * 1024) throw new Error("Evidence exceeds its bounded read contract");

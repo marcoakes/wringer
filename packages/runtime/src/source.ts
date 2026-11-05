@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile, lstat, readdir, link } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile, lstat, readdir, link, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
@@ -207,7 +207,10 @@ export async function captureCandidate(result: RoleExecutionResult, base: Reposi
     const candidate: CapturedCandidate = { source: { url: base.url, commit, bundlePath, objectStore }, tree, changedPaths };
     const pending = join(attempt, "capture.pending.json");
     await writeFile(pending, JSON.stringify({ identity, candidate }), { flag: "wx", mode: 0o600 });
-    try { await link(pending, recordPath); }
+    // The link publishes the record once and never over another attempt's. Its pending name then
+    // goes: kept, the record was one file with two names, and the installer refuses every such
+    // file (beta gate run 2, F10). A pair a crash leaves between the two is still read there.
+    try { await link(pending, recordPath); await unlink(pending); }
     catch (error) { if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error; }
     return await readSaved();
 }

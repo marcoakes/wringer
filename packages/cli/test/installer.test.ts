@@ -9,7 +9,7 @@ test("upgrade exposes an exact artifact and rollback preview, not generic help",
 });
 
 import * as fs from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { spyOn } from "bun:test";
 import { gzipSync, gunzipSync } from "node:zlib";
@@ -181,4 +181,38 @@ test("migration holds derived verification reservations and runner requests with
     await runner.enqueue(request);
     const queued = await previewInstallation(one.selection); expect(queued.eligible).toBe(false); expect(queued.holds).toContain("delegation-operation-unfinished"); expect(executions).toBe(0);
     await runner.cancel(request.jobId); expect((await previewInstallation(one.selection)).eligible).toBe(true); expect(executions).toBe(0);
+});
+
+test("a computer that has run a job installs: a retained capture's two names are read, and any other second name holds by path", async () => {
+    // Beta gate run 2 (F10): alpha.42 and earlier kept each captured candidate and playbook overlay
+    // under two names, and the installer held every install, upgrade, rollback and uninstall.
+    const f = await installerFixture(), one = await f.archive("1.0.0-test.1"), two = await f.archive("1.0.0-test.2"), attempt = `attempt-${crypto.randomUUID()}`;
+    const controller = join(f.appDir, "delegation-controllers", crypto.randomUUID(), crypto.randomUUID());
+    const capture = join(controller, "candidates/worker-1"), overlay = join(controller, "overlays", "e".repeat(64));
+    for (const [directory, record, pending] of [[capture, "capture.json", "capture.pending.json"], [overlay, "overlay.json", "overlay.pending.json"]] as const) {
+        await fs.mkdir(join(directory, attempt), { recursive: true, mode: 0o700 });
+        await fs.writeFile(join(directory, attempt, pending), JSON.stringify({ identity: "a".repeat(64) }), { mode: 0o600 });
+        await fs.link(join(directory, attempt, pending), join(directory, record));
+    }
+    const read = await previewInstallation(one.selection);
+    expect(read.holds).toEqual([]); expect(read.eligible).toBe(true);
+    await applyInstallation(one.selection, read.identity);
+    // Any other second name still holds, and the hold names the record.
+    await fs.writeFile(join(f.appDir, "stray.json"), "{}", { mode: 0o600 }); await fs.link(join(f.appDir, "stray.json"), join(f.root, "stray-elsewhere.json"));
+    const stray = await previewInstallation(two.selection);
+    expect(stray.holds).toEqual(["unreadable-state-record:stray.json"]);
+    expect(stray.nextAction).toContain("could not read each state record named after unreadable-state-record"); expect(stray.nextAction).not.toContain("wring recover");
+    await fs.unlink(join(f.root, "stray-elsewhere.json"));
+    // A third name makes the retained pair something else.
+    await fs.link(join(capture, "capture.json"), join(f.root, "third.json"));
+    expect((await previewInstallation(two.selection)).holds).toEqual([join(capture, "capture.json"), join(capture, attempt, "capture.pending.json")].map(path => `unreadable-state-record:${relative(f.appDir, path)}`).sort());
+    await fs.unlink(join(f.root, "third.json"));
+    // A running operator owner is named with the command that closes it (F12).
+    const workspace = crypto.randomUUID(); await fs.mkdir(join(f.appDir, "owners", workspace), { recursive: true, mode: 0o700 });
+    await fs.writeFile(join(f.appDir, "owners", workspace, "owner.lock"), JSON.stringify({ pid: process.pid, workspaceId: workspace }), { mode: 0o600 });
+    const owner = await previewInstallation(two.selection);
+    expect(owner.holds).toEqual(["owner-running-close-before-switch"]);
+    expect(owner.nextAction).toContain(`wring job close --workspace ${workspace}`); expect(owner.nextAction).not.toContain("wring recover");
+    await fs.unlink(join(f.appDir, "owners", workspace, "owner.lock"));
+    await applyInstallation(two.selection, (await previewInstallation(two.selection)).identity);
 });

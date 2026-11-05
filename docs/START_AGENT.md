@@ -41,7 +41,8 @@ wring job open --workspace WORKSPACE_ID
 Repeat connect with `--apply --expected IDENTITY` for `claude-code` or `codex`;
 other clients print their documented recipe for you to add. `wring job open`
 starts the owner your client connects to and opens the person's private page;
-connecting starts nothing. Reload the client.
+connecting starts nothing. Reload the client. The owner keeps running until
+`wring job close --workspace WORKSPACE_ID` stops it.
 
 Codex asks before each Wringer tool that records something. If you run as
 `codex exec`, which cannot answer that question and refuses the call, connect with

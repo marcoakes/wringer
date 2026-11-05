@@ -3,8 +3,11 @@
  * executable, the bytes install.sh runs; the candidate's executable then previews and applies
  * the upgrade, and previews the way back. Only public release assets are downloaded: no
  * account, provider, job, model call or publication. CI runs this on every push (tests.yml).
- * Alpha.36 to alpha.41 each shipped unable to upgrade an older installation, and nothing ran. */
-import { mkdir, mkdtemp, readFile, readdir, readlink, realpath, rm, writeFile } from "node:fs/promises";
+ * Alpha.36 to alpha.41 each shipped unable to upgrade an older installation, and nothing ran.
+ * Each upgrade starts from a computer that has run a job: before it, the application directory
+ * gets a finished job's retained records as published releases leave them (beta gate run 2,
+ * F10: alpha.42 refused every computer that had run one, and an empty one could not show it). */
+import { link, mkdir, mkdtemp, readFile, readdir, readlink, realpath, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { extractReleaseArchive, verifyReleaseArchive } from "../packages/cli/src/release-archive";
@@ -58,6 +61,16 @@ async function lacking(from: string, to: string) {
     }
     return out;
 }
+/** Alpha.42 and earlier publish each captured candidate and playbook overlay by a hard link and
+ * keep the attempt's pending name: one record under two names, inside its own reservation. */
+async function retainFinishedJob(app: string) {
+    const controller = join(app, "delegation-controllers", crypto.randomUUID(), crypto.randomUUID()), attempt = `attempt-${crypto.randomUUID()}`;
+    for (const [directory, record, pending] of [[join(controller, "candidates", "worker-1"), "capture.json", "capture.pending.json"], [join(controller, "overlays", "e".repeat(64)), "overlay.json", "overlay.pending.json"]] as const) {
+        await mkdir(join(directory, attempt), { recursive: true, mode: 0o700 });
+        await writeFile(join(directory, attempt, pending), JSON.stringify({ identity: "f".repeat(64), retained: "as a finished job leaves it" }), { mode: 0o600 });
+        await link(join(directory, attempt, pending), join(directory, record));
+    }
+}
 async function digestOf(directory: string) {
     const files = (await readdir(directory, { recursive: true, withFileTypes: true })).filter(e => e.isFile()).map(e => join(e.parentPath, e.name)).sort();
     return hash(JSON.stringify(await Promise.all(files.map(async path => ({ path: path.slice(directory.length + 1), sha256: hash(await readFile(path)) })))));
@@ -90,7 +103,7 @@ try {
             // install.sh executes the release's standalone binary; the archive must carry those bytes.
             if (hash(await readFile(previous.binary)) !== await declared(join(download, `${a.binary}.sha256`), a.binary)) throw new Error("The archive's executable is not the one install.sh runs");
             await writeFile(join(app, "retained.txt"), `application state kept across ${version} and ${candidate.version}\n`);
-            const before = await digestOf(app), env = { ...process.env, HOME: home, WRINGER_HOME: app };
+            let before = await digestOf(app); const env = { ...process.env, HOME: home, WRINGER_HOME: app };
             const json = async (name: string, argv: string[]) => JSON.parse(await run(version, name, argv, env, work));
             // install.sh's two calls, with an explicit private prefix and application directory.
             const install = (binary: string, selection: { path: string; sha256: string; version: string }) => [binary, "install", "--archive", selection.path, "--sha256", selection.sha256, "--release", selection.version, "--prefix", prefix, "--app-dir", app];
@@ -99,6 +112,8 @@ try {
             await run(version, "published-install-apply", [...install(previous.binary, previous), "--apply", "--expected", first.identity], env, work);
             const launcher = join(prefix, "bin", "wring");
             if (!reports(await run(version, "published-version", [launcher, "--version"], env, work), version)) throw new Error("The installed launcher reports another version");
+            // The published release has now run a job, as far as its retained records go.
+            await retainFinishedJob(app); before = await digestOf(app); row.finishedJob = "retained capture and overlay, each under two names";
             const upgrade = await json("candidate-upgrade-preview", [...install(candidate.binary, candidate), "--dry-run", "--json"]);
             row.upgrade = { eligible: upgrade.eligible, holds: upgrade.holds, ...(upgrade.holds.length ? { nextAction: upgrade.nextAction } : {}) };
             if (!upgrade.eligible || upgrade.holds.length) throw new Error(`Upgrade to ${candidate.version} held: ${upgrade.holds.join(", ")}`);
@@ -121,7 +136,7 @@ try {
     }
 } finally {
     const tested = results.filter(r => !r.skipped);
-    await writeFile(join(output, "result.json"), JSON.stringify({ schema_version: "wringer.published-upgrade-measurement.v1", kind: "Published archives installed by their own executables, then upgraded by the candidate's, in a temporary filesystem; no account, provider, job, model call or publication", platform, repository: RELEASE_REPOSITORY, candidate: candidate ? { version: candidate.version, archiveSha256: candidate.sha256, source: candidate.source } : null, passed: tested.length > 0 && tested.every(r => r.passed), releases: results, records }, null, 2) + "\n");
+    await writeFile(join(output, "result.json"), JSON.stringify({ schema_version: "wringer.published-upgrade-measurement.v1", kind: "Published archives installed by their own executables, then upgraded by the candidate's over a finished job's retained records, in a temporary filesystem; no account, provider, job, model call or publication", platform, repository: RELEASE_REPOSITORY, candidate: candidate ? { version: candidate.version, archiveSha256: candidate.sha256, source: candidate.source } : null, passed: tested.length > 0 && tested.every(r => r.passed), releases: results, records }, null, 2) + "\n");
     await rm(root, { recursive: true, force: true });
 }
 const tested = results.filter(r => !r.skipped), failed = tested.filter(r => !r.passed);

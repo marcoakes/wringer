@@ -93,9 +93,10 @@ so: sign in with that agent's own login (Claude Code: run `claude` and use
 
 With Codex, a project's `.codex/config.toml` is read only in a folder you have
 trusted, and a server named `wringer` in your user configuration is used instead
-of the project's. `wring connect` says so before writing anything and refuses the
-second case: remove the old entry after inspecting it (`codex mcp remove
-wringer`), or connect with `--scope user --replace`.
+of the project's. Trusting a folder above the repository does not count: Codex
+needs the repository's own folder trusted. `wring connect` says so before writing
+anything and refuses the second case: remove the old entry after inspecting it
+(`codex mcp remove wringer`), or connect with `--scope user --replace`.
 
 Codex asks before each Wringer tool that records something, such as
 `wringer.propose`. Interactive Codex shows you that question. `codex exec` cannot
@@ -106,6 +107,12 @@ approving the job, reviewing it and Send still happen on your page.
 `wring job open` opens the private page in your default browser. To use another
 browser, `wring job open --workspace WORKSPACE_ID --print` prints the private link
 instead. Anyone who opens it can act as you on that page, so keep it to yourself.
+
+The page's owner keeps running in the background after `wring job open`. Stop it
+with `wring job close --workspace WORKSPACE_ID`, for example before upgrading.
+Closing keeps every job and its evidence, and it refuses while a job is still
+working. `wring connect … --remove` removes the server entry and skill, and any
+folder connect made that is left empty; your own user configuration file stays.
 
 Any named client works (`claude-code`, `codex`, `cursor`, `gemini-cli`,
 `generic`, `kimi`, `vscode`, `windsurf`); none is a default. The worker and judge

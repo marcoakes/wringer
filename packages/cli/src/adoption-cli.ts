@@ -25,6 +25,7 @@ import { inspectDelegationRecovery, applyDelegationRecovery } from "@wringer/app
 import { inspectLockRecovery, applyLockRecovery, type LockSelection } from "@wringer/application";
 import { previewDiagnostics, exportDiagnostics } from "@wringer/application";
 import { previewClientConnection, applyClientConnection, detectClient, probeRestrictedConnection, type ClientSelection } from "./client-adapters";
+import { closeOwner } from "./owner-close";
 
 export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
 
@@ -55,6 +56,7 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
   wring job check --workspace ID      Start each coding agent and open a session; no model prompt
   wring job open --workspace ID [--job ID] [--print]
   wring job serve --workspace ID
+  wring job close --workspace ID      Stop the owner that job open left running; jobs and evidence are kept
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
       CLIENT: claude-code, codex, cursor, gemini-cli, generic, kimi, vscode or windsurf (none is a default).
       claude-code and codex can be applied with review; the others print their documented recipe.
@@ -203,7 +205,13 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         const input: ClientSelection = { client: client as ClientSelection["client"], scope: required(a, "scope") as ClientSelection["scope"], repo: workspace.repo, workspaceId: workspace.id, mode: workspace.mode, launcher: installedLauncher(), remove: flag(a, "remove"), replace: flag(a, "replace"), autoApprove: flag(a, "auto-approve") };
         const value = flag(a, "apply") ? await applyClientConnection(root, input, required(a, "expected")) : await previewClientConnection(root, input);
         const result = { ...value, ...(flag(a, "verify-client") ? { detection: await detectClient(input.client) } : {}), ...(flag(a, "probe-tools") ? { discovery: await probeRestrictedConnection(installedLauncher(), connectionPath, workspace.mode) } : {}) };
-        return { value: result, text: JSON.stringify(result, null, 2) + "\nStart the operator owner with wring job open, then reload the client and inspect its MCP tools. Client trust and live job acceptance are separate observations." };
+        // Beta gate run 2: a warning sat only inside the JSON (F13), and a removal printed connect's
+        // next step (F14).
+        const warnings = ((result as { warnings?: string[] }).warnings ?? []).map(row => `\nWarning: ${row}`).join("");
+        const next = !input.remove ? "Start the operator owner with wring job open, then reload the client and inspect its MCP tools. Client trust and live job acceptance are separate observations."
+            : (result as { applied?: boolean }).applied ? `Removed. Reload the client: it no longer offers Wringer's tools. Jobs, evidence and the operator owner are unchanged; wring job close --workspace ${workspace.id} stops the owner.`
+            : "Nothing was removed yet. Review the exact removal above, then repeat with --apply --expected IDENTITY.";
+        return { value: result, text: JSON.stringify(result, null, 2) + warnings + "\n" + next };
     }
     if (a.command !== "job") throw new Error("Unknown adoption command");
     const verb = a.words[0]; positionals(a, 1);
@@ -251,6 +259,10 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         finally { await owner.stop(); }
         return { text: "Owner stopped; evidence and grants retained." };
     }
+    if (verb === "close") {
+        allowed(a, ["app-dir", "workspace"]);
+        return closeOwner(root, await readWorkspace(root, required(a, "workspace")));
+    }
     if (verb === "open") {
         allowed(a, ["app-dir", "workspace", "job", "print"]); const workspace = await readWorkspace(root, required(a, "workspace"));
         const id = string(a, "job");
@@ -272,7 +284,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         const command = process.platform === "darwin" ? ["open", url.href] : ["xdg-open", url.href];
         const opened = Bun.spawnSync(command, { stdout: "ignore", stderr: "pipe" });
         if (opened.exitCode) throw new Error("The operating system could not open the private page. Run job serve and inspect the private operator location locally; no authority was sent to the assistant.");
-        return { value: { opened: true, workspaceId: workspace.id, jobId: id ?? null }, text: "Opened the operator page. Opening does not approve work, accept it, or send it." };
+        return { value: { opened: true, workspaceId: workspace.id, jobId: id ?? null }, text: `Opened the operator page. Opening does not approve work, accept it, or send it.\nIts owner keeps running in the background; wring job close --workspace ${workspace.id} stops it.` };
     }
     throw new Error(ADOPTION_HELP);
 }

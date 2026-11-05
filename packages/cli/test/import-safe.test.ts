@@ -8,4 +8,6 @@ test("T02 importing command entrypoints does not run a command or write protocol
         const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
         expect({ code, stdout, stderr }, module).toEqual({ code: 0, stdout: "import-safe", stderr: "" });
     }
-});
+// Seven fresh Bun processes, one after another: 5013 ms on a macos-latest runner (tests run
+// 42037960703, attempt 1) against Bun's default 5 s. The assertions are unchanged.
+}, 30000);

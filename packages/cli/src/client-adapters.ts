@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { mkdir, open, rename, unlink } from "node:fs/promises";
+import { lstat, mkdir, open, rename, rmdir, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { hashBytes, hashValue } from "@wringer/plan";
@@ -71,6 +71,23 @@ function paths(selection: ClientSelection) {
     if (selection.autoApprove && selection.client !== "codex") throw new Error("Routine auto-approval is not supported by this Claude adapter; use its normal client approval UI");
     return { config: join(root, selection.client === "codex" ? ".codex/config.toml" : selection.scope === "project" ? ".mcp.json" : ".claude.json"), skill: join(root, selection.client === "codex" ? ".agents/skills/wringer/SKILL.md" : ".claude/skills/wringer/SKILL.md") };
 }
+/** A project configuration with nothing left in it after the named server went. */
+function emptyConfiguration(client: ClientSelection["client"], text: string) {
+    if (client === "codex") return text.trim() === "";
+    const value = parsed(client, text);
+    return Object.keys(value).every(key => key === "mcpServers") && !Object.keys(value.mcpServers ?? {}).length;
+}
+/** The folders connect makes for its files, deepest first. A user's ~/.claude and ~/.codex, and
+ * the project's own folder, are never among them; each is removed only when empty. */
+function connectDirectories(selection: ClientSelection & { home: string }, locations: { config: string; skill: string }) {
+    const root = selection.scope === "project" ? selection.repo : selection.home, skill = dirname(locations.skill), skills = dirname(skill), top = dirname(skills);
+    const rows = [skill, skills, ...(selection.client === "codex" || selection.scope === "project" ? [top] : []), ...(selection.client === "codex" && selection.scope === "project" ? [dirname(locations.config)] : [])];
+    return rows.filter(path => path.startsWith(root + "/"));
+}
+async function removeEmptyDirectory(path: string) {
+    try { const info = await lstat(path); if (info.isDirectory() && !info.isSymbolicLink()) await rmdir(path); }
+    catch (error: any) { if (!["ENOENT", "ENOTEMPTY", "EEXIST"].includes(error.code)) throw error; }
+}
 async function binding(root: string, id: string) {
     const names = (await assistantInventory(root, `client-bindings/${id}`)).filter(name => /^\d{8}\.json$/.test(name));
     let previous: any = null;
@@ -110,13 +127,23 @@ async function proposal(root: string, input: ClientSelection) {
             refusal = `Your Codex user configuration (${userPath}) already has a server named wringer, and Codex uses that one instead of this project's entry. It runs: ${redactor.scrub([userEntry.command, ...(Array.isArray(userEntry.args) ? userEntry.args : [])].join(" ")).slice(0, 600)}. Inspect it; then remove it with codex mcp remove wringer, or connect with --scope user --replace instead. Nothing was written.`;
             warnings.push(refusal);
         }
-        const trusted = Object.entries(user.projects ?? {}).some(([path, row]: [string, any]) => row?.trust_level === "trusted" && (selected.repo === path || selected.repo.startsWith(path.endsWith("/") ? path : path + "/")));
-        if (!trusted) warnings.push(`Codex reads this project's .codex/config.toml only for a folder you trust, recorded in ${userPath}. Open codex in ${selected.repo} once and trust it, or connect with --scope user.`);
+        // Measured in beta gate run 2 (Codex 0.153.4, 2026-11-05): ~/Claude was trusted and a
+        // repository inside it was not, so Codex ignored that repository's .codex/config.toml.
+        // Only an entry for the repository's own folder counts (F13).
+        const trusted = Object.entries(user.projects ?? {}).some(([path, row]: [string, any]) => row?.trust_level === "trusted" && resolve(path) === resolve(selected.repo));
+        if (!trusted) warnings.push(`Codex has not recorded ${selected.repo} as a trusted folder in ${userPath}, and it reads a project's .codex/config.toml only in a folder it trusts; a trusted folder above this one does not count. Open codex in ${selected.repo} once and trust it, or connect with --scope user instead.`);
     }
-    const files = [{ path: locations.config, before, after }, { path: locations.skill, before: skillBefore, after: skillAfter }];
+    // Beta gate run 2 (F14): a removal left a project .codex/config.toml holding one newline, and
+    // the empty folders connect had made. A project configuration left with nothing in it goes, and
+    // those folders go only when empty. A user's own configuration file always stays.
+    const configAfter = selected.remove && selected.scope === "project" && emptyConfiguration(selected.client, after) ? null : after;
+    const directories = selected.remove ? connectDirectories(selected, locations) : [];
+    const files = [{ path: locations.config, before, after: configAfter }, { path: locations.skill, before: skillBefore, after: skillAfter }];
     const next = { schema_version: "wringer.client-binding.v1", id, sequence: (previous?.sequence ?? 0) + 1, previous: previous ? hashValue(previous) : null, workspaceId: selected.workspaceId, client: selected.client, scope: selected.scope, action: selected.remove ? "remove" : "install", entryIdentity: hashValue(entry), skillIdentity: identity(skillAfter), locations };
-    const publicValue = { schema_version: "wringer.client-change.v1", coordination: { kind: "client", id }, selection: selected, ownership: owned ? "owned" : current ? "different" : "absent", existingEntry: redactor.deep(current), proposedEntry: entry, ...(warnings.length ? { warnings } : {}), changes: files.map(file => ({ path: file.path, before: identity(file.before), after: identity(file.after), action: file.after === null ? "remove" : file.before === null ? "create" : "update" })), authority: "none", clientCompatibility: "not-measured", note: `Only the named server and workflow skill are selected. Jobs and operator authority remain in the application directory. Start its owner with wring job open --workspace ${selected.workspaceId}: connecting starts nothing. Client trust/reload may still be required.${codexApproval}` };
-    return { input: selected, files, next, refusal, publicValue: { ...publicValue, identity: hashValue({ ...publicValue, previous: next.previous }) } };
+    const publicValue = { schema_version: "wringer.client-change.v1", coordination: { kind: "client", id }, selection: selected, ownership: owned ? "owned" : current ? "different" : "absent", existingEntry: redactor.deep(current), proposedEntry: entry, ...(warnings.length ? { warnings } : {}), changes: files.map(file => ({ path: file.path, before: identity(file.before), after: identity(file.after), action: file.after === null ? "remove" : file.before === null ? "create" : "update" })), ...(directories.length ? { emptyDirectories: directories } : {}), authority: "none", clientCompatibility: "not-measured", note: selected.remove
+        ? `Only the named server and workflow skill are selected for removal${directories.length ? ", with each listed folder that is empty afterwards" : ""}. Jobs, evidence and operator authority remain in the application directory, and the operator owner is unchanged. Reload the client afterwards.`
+        : `Only the named server and workflow skill are selected. Jobs and operator authority remain in the application directory. Start its owner with wring job open --workspace ${selected.workspaceId}: connecting starts nothing. Client trust/reload may still be required.${codexApproval}` };
+    return { input: selected, files, directories, next, refusal, publicValue: { ...publicValue, identity: hashValue({ ...publicValue, previous: next.previous }) } };
 }
 export async function previewClientConnection(root: string, input: ClientSelection) { return (await proposal(root, input)).publicValue; }
 /** Private resumable transaction. Backups stay outside project/client config and
@@ -158,6 +185,10 @@ export async function applyClientConnection(root: string, input: ClientSelection
             }
             const directory = await open(dirname(file.path), "r"); try { await directory.sync(); } finally { await directory.close(); }
         }
+        // A transaction retained by an earlier release names no folders.
+        const folders = plan.directories ?? [], allowedFolders = selected.remove ? connectDirectories(selected, locations) : [];
+        if (folders.some(path => !allowedFolders.includes(path))) throw new Error("Client transaction escapes its selected paths");
+        for (const path of folders) await removeEmptyDirectory(path);
         await writeAssistantRecord(root, `client-bindings/${id}/${String(plan.next.sequence).padStart(8, "0")}.json`, plan.next);
         return { ...plan.publicValue, applied: true, verified: "exact-config-and-skill-bytes", compatibility: "client-discovery-and-live-job-not-yet-measured" };
     } finally { await lock.close(); await unlink(lockPath); }

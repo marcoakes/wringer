@@ -2,7 +2,7 @@
  * fixed identity and date so the same inputs always name the same commit. A
  * tournament pins challenges this way; a worker playbook tree is materialised this
  * way for the worker alone. Git objects only: no checkout, hook or agent. */
-import { lstat, readFile, writeFile, link } from "node:fs/promises";
+import { lstat, readFile, writeFile, link, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { processDriver } from "./driver";
@@ -80,7 +80,8 @@ export async function materialisePlaybookOverlay(base: PreparedRepositorySource,
     const overlay: PlaybookOverlay = { source: { url: base.url, commit, bundlePath, objectStore }, base: { url: base.url, commit: base.commit }, tree, replaced: replaced.sort(), files: rows };
     const pending = join(attempt, "overlay.pending.json");
     await writeFile(pending, JSON.stringify(overlay), { flag: "wx", mode: 0o600 });
-    try { await link(pending, recordPath); } catch (error) { if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error; }
+    // As for a captured candidate: publish once, then drop the pending name (beta gate run 2, F10).
+    try { await link(pending, recordPath); await unlink(pending); } catch (error) { if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error; }
     return saved();
 }
 /** Independent re-observation of a retained overlay: its one parent is the base, it

@@ -36,7 +36,7 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
         const controller = await createAssistantService(await delegationControllerRoot(root, workspaceId, context.id));
         const flow = createAssistantJobFlow(controller, { isStopping: () => closed, autoAdvance: false });
         controller.setPresentation(async jobId => { const shown = await flow.read(jobId); return { phase: shown.phase, nextAction: shown.nextAction, eventId: shown.readyRevision, observedRevision: shown.revision, observedCandidateTree: shown.candidateTree, pageUrl: `${origin}/?jobId=${jobId}` }; });
-        return { context, controller, flow, capability, protocol: createDelegationProtocol(controller) };
+        return { context, controller, flow, capability, protocol: createDelegationProtocol(controller, { workspaceId }) };
     }
     /** `wring job new` in another process prepares a context between sweeps. A sweep
      * already under way may have listed before it, so one more covers it. */

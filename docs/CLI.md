@@ -230,6 +230,7 @@ Wringer workspace setup and retained jobs
   wring job check --workspace ID      Start each coding agent and open a session; no model prompt
   wring job open --workspace ID [--job ID] [--print]
   wring job serve --workspace ID
+  wring job close --workspace ID      Stop the owner that job open left running; jobs and evidence are kept
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
       CLIENT: claude-code, codex, cursor, gemini-cli, generic, kimi, vscode or windsurf (none is a default).
       claude-code and codex can be applied with review; the others print their documented recipe.

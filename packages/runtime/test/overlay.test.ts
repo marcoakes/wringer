@@ -2,7 +2,7 @@
  * re-observable in Git; a worker's change is read against the overlay, may not touch
  * it, and lands on the base alone. Real Git, no agent or sandbox. */
 import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { captureCandidate, digest, materialisePlaybookOverlay, overlayCommit, prepareRepositorySource, processDriver, verifyPlaybookOverlay, type PlaybookOverlay, type PreparedRepositorySource, type RoleExecutionResult } from "../src/index";
@@ -87,4 +87,18 @@ test("a change that only applies with the overlay is stopped, never silently reb
     const ran = { url, commit, bundlePath, objectStore: store };
     const change = await workerChange(root, ran, { "src/total.ts": "export const total = () => 5;\n" });
     await expect(captureCandidate(change, prepared, { controllerDir, effectId: "worker-1", overlay: { source: ran, paths: ["CLAUDE.md"] } })).rejects.toMatchObject({ code: "playbook-overlay-rebase-failed" });
+}, 60000);
+
+test("a captured candidate and an overlay are each kept under one name", async () => {
+    // Beta gate run 2 (F10): each kept its attempt's pending name too, one file with two names,
+    // and the installer refuses those on every computer that has run a job.
+    const { root, prepared } = await source(), controllerDir = join(root, "controller"), key = "5".repeat(64);
+    await materialisePlaybookOverlay(prepared, PLAYBOOK, { controllerDir, key, replace: [] });
+    await captureCandidate(await workerChange(root, prepared, { "src/total.ts": "export const total = () => 5;\n" }), prepared, { controllerDir, effectId: "worker-once" });
+    for (const [directory, record, pending] of [[join(controllerDir, "overlays", key), "overlay.json", "overlay.pending.json"], [join(controllerDir, "candidates/worker-once"), "capture.json", "capture.pending.json"]] as const) {
+        expect((await lstat(join(directory, record))).nlink).toBe(1);
+        const attempts = (await readdir(directory)).filter(name => name.startsWith("attempt-"));
+        expect(attempts).toHaveLength(1);
+        expect(await Bun.file(join(directory, attempts[0]!, pending)).exists()).toBe(false);
+    }
 }, 60000);

@@ -75,7 +75,9 @@ export async function createDelegationJob(root: string, workspaceId: string, inp
             if (workspace.preferences.destination) {
                 const selectedDestination = workspace.preferences.destination, remote = (await git(workspace.repo, ["remote", "get-url", selectedDestination.remote])).stdout.trim();
                 if (redactor.scrub(remote) !== remote) throw new Error("The destination contains a credential");
-                destination = { remote, sourceBranch: `wringer/job-${id}`, targetBranch: selectedDestination.base };
+                // Beta gate run 2 (F11): named wringer/job-<this preparation's ID>, an ID the person never
+                // sees. The controller appends the job's own ID, so the branch is wringer/job/<job ID>.
+                destination = { remote, sourceBranch: "wringer/job", targetBranch: selectedDestination.base };
             }
             context = { schema_version: "wringer.delegation-context.v1", id, workspaceId, profileId: profile.id, intent: input.intent, parentJobId: input.parentJobId ?? null, createdAt: new Date().toISOString(), destination };
             await writeAssistantRecord(root, contextFile, context);

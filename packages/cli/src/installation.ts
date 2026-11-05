@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import { lstat, mkdir, mkdtemp, open, readFile, readdir, readlink, realpath, rename, rmdir, statfs, symlink, unlink } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { withMaintenanceLock, createAssistantRunner } from "@wringer/application";
 import { distributionHash as hash, RELEASE_REPOSITORY, releaseVersion, verifyDistributionManifest, type ReleaseManifest } from "./distribution-manifest";
@@ -23,11 +23,35 @@ async function safePath(path: string) {
     catch (error: any) { if (error.code !== "ENOENT") throw error; }
     return absolute;
 }
-async function ownedFile(path: string, maxBytes = 2 * 1024 * 1024) {
+/** `pair` admits the one second name `retainedPair` found, and only for that same file. */
+async function ownedFile(path: string, maxBytes = 2 * 1024 * 1024, pair?: { dev: number; ino: number }) {
     await safePath(path);
     const f = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-    try { const s = await f.stat(); if (!s.isFile() || s.nlink !== 1 || s.uid !== process.getuid?.() || s.mode & 0o022 || s.size > maxBytes) throw new Error("Expected an owned bounded regular installation file"); return await f.readFile(); }
+    try { const s = await f.stat(); if (!s.isFile() || s.nlink !== (pair ? 2 : 1) || pair && (s.dev !== pair.dev || s.ino !== pair.ino) || s.uid !== process.getuid?.() || s.mode & 0o022 || s.size > maxBytes) throw new Error("Expected an owned bounded regular installation file"); return await f.readFile(); }
     finally { await f.close(); }
+}
+// Alpha.42 and earlier published each captured candidate and playbook overlay by a hard link
+// and kept the attempt's pending name, so every computer that had run a job kept one record
+// under two names, and every install, upgrade, rollback and uninstall was held (beta gate
+// run 2, F10). That pair, inside its own reservation, is read; any other second name holds.
+const PENDING_NAME: Record<string, string> = { "capture.json": "capture.pending.json", "overlay.json": "overlay.pending.json" };
+const ATTEMPT = /^attempt-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+async function retainedPair(path: string, info: { dev: number; ino: number; nlink: number }) {
+    if (info.nlink !== 2) return undefined;
+    const name = basename(path), directory = dirname(path), record = Object.keys(PENDING_NAME).find(key => PENDING_NAME[key] === name);
+    const attempts = async (parent: string) => {
+        const rows: string[] = [];
+        for (const entry of await readdir(parent)) if (ATTEMPT.test(entry)) { const s = await lstat(join(parent, entry)); if (s.isDirectory() && !s.isSymbolicLink()) rows.push(join(parent, entry)); }
+        return rows;
+    };
+    const others = PENDING_NAME[name] ? (await attempts(directory)).map(attempt => join(attempt, PENDING_NAME[name]!))
+        : record && ATTEMPT.test(basename(directory)) ? [join(dirname(directory), record)] : [];
+    let names = 0;
+    for (const other of others) {
+        try { const s = await lstat(other); if (s.isFile() && s.dev === info.dev && s.ino === info.ino) names++; }
+        catch (error: any) { if (error.code !== "ENOENT") throw error; }
+    }
+    return names === 1 ? { dev: info.dev, ino: info.ino } : undefined;
 }
 async function syncDir(path: string) { const f = await open(path, "r"); try { await f.sync(); } finally { await f.close(); } }
 async function atomicJson(path: string, value: unknown) {
@@ -66,8 +90,8 @@ async function checkLaunchers(prefix: string, state: InstallationState) {
 /** Metadata-only migration preflight: no source checkout traversal, credentials,
  * controller writes, renewal, dispatch or legacy record transformation. */
 export async function inspectInstallationState(appDir: string) {
-    await safePath(appDir); const root = resolve(appDir), held: string[] = [], queues = new Set<string>(); let records = 0, entries = 0;
-    if (!await exists(root)) return { records, holds: held, migrated: false, policy: "retain-records-and-read-original-semantics" };
+    await safePath(appDir); const root = resolve(appDir), held: string[] = [], queues = new Set<string>(), owners = new Set<string>(); let records = 0, entries = 0;
+    if (!await exists(root)) return { records, holds: held, migrated: false, policy: "retain-records-and-read-original-semantics", runningOwners: [] as string[] };
     const info = await lstat(root); if (!info.isDirectory() || info.uid !== process.getuid?.() || info.mode & 0o077) throw new Error("Application state directory ownership differs");
     async function walk(path: string, depth: number) {
         if (depth > 12) throw new Error("State inspection depth exceeded; select a bounded application root");
@@ -81,10 +105,11 @@ export async function inspectInstallationState(appDir: string) {
             if (!entry.isFile()) { held.push("state-special-entry-requires-inspection"); continue; }
             if (!/\.(json|lock)$/.test(entry.name)) continue;
             const s = await lstat(full); if (s.size > 2 * 1024 * 1024) { held.push("state-record-exceeds-inspection-limit"); continue; }
-            let record: any; try { record = JSON.parse((await ownedFile(full)).toString()); } catch { held.push("unreadable-state-record"); continue; } records++;
+            // The hold names the record, so the person can find it (F10).
+            let record: any; try { record = JSON.parse((await ownedFile(full, 2 * 1024 * 1024, await retainedPair(full, s))).toString()); } catch { held.push(`unreadable-state-record:${relative(root, full)}`); continue; } records++;
             if (/\.lock$/.test(entry.name) || ["owner.json", "operator.json"].includes(entry.name)) {
                 if (!Number.isSafeInteger(record.pid) || record.pid < 1) { held.push("unresolved-owner-record"); continue; }
-                try { process.kill(record.pid, 0); held.push("owner-running-close-before-switch"); }
+                try { process.kill(record.pid, 0); held.push("owner-running-close-before-switch"); if (dirname(path) === join(root, "owners")) owners.add(basename(path)); }
                 catch (error: any) { if (error.code !== "ESRCH") held.push("owner-status-unknown"); }
             }
             if (["wringer.verification-operation.v1", "wringer.verification-operation.v2"].includes(record.schema_version)) {
@@ -102,7 +127,7 @@ export async function inspectInstallationState(appDir: string) {
         const runner = await createAssistantRunner(directory, { createStorage: false, execute: async () => { throw new Error("Migration inspection cannot dispatch"); } });
         if ((await runner.list()).some(operation => ["accepted", "running", "cancel-requested", "uncertain"].includes(operation.status))) held.push("delegation-operation-unfinished");
     }
-    return { records, holds: [...new Set(held)].sort(), migrated: false, policy: "retain-records-and-read-original-semantics" };
+    return { records, holds: [...new Set(held)].sort(), migrated: false, policy: "retain-records-and-read-original-semantics", runningOwners: [...owners].sort() };
 }
 // A record contract is a published schema file. The frozen index beside them grows with
 // every release that adds one, and the notes and examples change freely; comparing their
@@ -113,14 +138,19 @@ function compatibility(current: ReleaseManifest | null, target: ReleaseManifest 
     const files = new Map(target.files.map(file => [file.path, file]));
     return current.files.filter(f => contract(f.path) && f.kind === "file" && (files.get(f.path)?.kind !== "file" || (files.get(f.path) as any).sha256 !== f.sha256)).map(f => `target-lacks-compatible-record:${f.path}`);
 }
-/** Each hold names its cause; this names the way out. */
-function nextAction(holds: string[]) {
+/** Each hold names its cause; this names the way out. A step is given only for a hold it fits:
+ * beta gate run 2 met "Stop running owners … (wring recover --help)" for a record it could not
+ * read, with no owner running and nothing in recover for it (F10, F12). */
+function nextAction(holds: string[], owners: string[] = []) {
     if (!holds.length) return "Review exact changes and apply with --expected identity. State, evidence, grants and unrelated client settings are retained. No job is started.";
-    const format = holds.some(h => h.startsWith("target-lacks-compatible-record:")), client = holds.some(h => h.startsWith("disconnect-client:"));
+    const prefixes = ["target-lacks-compatible-record:", "disconnect-client:", "unreadable-state-record:"], has = (prefix: string) => holds.some(h => h.startsWith(prefix));
+    const owner = holds.includes("owner-running-close-before-switch"), other = holds.some(h => h !== "owner-running-close-before-switch" && !prefixes.some(prefix => h.startsWith(prefix)));
     const steps = [
-        ...(format ? ["The selected release cannot read a record format the installed version uses: keep the installed version, or select a release that carries every listed format unchanged."] : []),
-        ...(client ? ["Remove each listed client entry through its own scoped removal (wring connect --help)."] : []),
-        ...(holds.some(h => !h.startsWith("target-lacks-compatible-record:") && !h.startsWith("disconnect-client:")) ? ["Stop running owners and reconcile the uncertain or unfinished work the holds name (wring recover --help)."] : []),
+        ...(has(prefixes[0]!) ? ["The selected release cannot read a record format the installed version uses: keep the installed version, or select a release that carries every listed format unchanged."] : []),
+        ...(has(prefixes[1]!) ? ["Remove each listed client entry through its own scoped removal (wring connect --help)."] : []),
+        ...(owner ? [owners.length ? `Close each running operator owner: ${owners.map(id => `wring job close --workspace ${id}`).join("; ")}.` : "Close the running Wringer command that holds a state lock, or wait for it to finish; an operator owner closes with wring job close --workspace ID."] : []),
+        ...(has(prefixes[2]!) ? ["Wringer could not read each state record named after unreadable-state-record: a record must be a JSON file you own, writable only by you, under one name. Inspect each one; none was changed."] : []),
+        ...(other ? ["Reconcile the uncertain or unfinished work the holds name (wring recover --help)."] : []),
     ];
     return `Nothing was changed. ${steps.join(" ")} Then preview the same selection again.`;
 }
@@ -163,7 +193,7 @@ export async function previewInstallation(selection: InstallSelection) {
         remove.push({ path: `versions/${installed.id}/DISTRIBUTION.json`, sha256: installed.manifestSha256, target: null });
         for (const file of manifest.files) remove.push({ path: `versions/${installed.id}/${file.path}`, sha256: file.kind === "file" ? file.sha256 : null, target: file.kind === "symlink" ? file.target : null });
     }
-    const value = { schema_version: "wringer.install-preview.v1", selection: { ...selection, prefix, appDir, ...(selection.archive ? { archive: resolve(selection.archive) } : {}) }, state, target: version, source: target?.source ?? null, migration, holds, eligible: holds.length === 0, remove, stateChanges: "none", backup: state.current ? `versions/${state.current}` : null, checksumPolicy: "Exact selected SHA-256 plus repository/version/platform declaration; same-origin checksums are not independent origin proof", nextAction: nextAction(holds) };
+    const value = { schema_version: "wringer.install-preview.v1", selection: { ...selection, prefix, appDir, ...(selection.archive ? { archive: resolve(selection.archive) } : {}) }, state, target: version, source: target?.source ?? null, migration, holds, eligible: holds.length === 0, remove, stateChanges: "none", backup: state.current ? `versions/${state.current}` : null, checksumPolicy: "Exact selected SHA-256 plus repository/version/platform declaration; same-origin checksums are not independent origin proof", nextAction: nextAction(holds, migration.runningOwners) };
     return { ...value, identity: digest(value) };
 }
 export type InstallationPreview = Awaited<ReturnType<typeof previewInstallation>>;

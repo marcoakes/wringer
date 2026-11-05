@@ -116,14 +116,19 @@ test("a Codex project entry that Codex would not use is refused or flagged, neve
     expect(shadowed.warnings[0]).toContain("/old/wringer-assistant mcp --connection /old/controller/connection.json");
     await expect(api.applyClientConnection(app, input, shadowed.identity)).rejects.toThrow("codex mcp remove wringer");
     expect(await Bun.file(join(repo, ".codex/config.toml")).exists()).toBe(false);
-    // Without the stale entry the folder's trust decides; an ancestor's trust counts.
+    // Without the stale entry the repository folder's own trust decides. Beta gate run 2 measured
+    // that a trusted folder above it does not count: Codex ignored the project's entry (F13).
     await writeFile(join(home, ".codex/config.toml"), 'model = "kept"\n');
     const untrusted = await api.previewClientConnection(app, input);
-    expect(untrusted.warnings).toEqual([expect.stringContaining("only for a folder you trust")]);
+    expect(untrusted.warnings).toEqual([expect.stringContaining("only in a folder it trusts")]);
     await writeFile(join(home, ".codex/config.toml"), `[projects."${root}"]\ntrust_level = "trusted"\n`);
+    const above = await api.previewClientConnection(app, input);
+    expect(above.warnings).toEqual([expect.stringContaining("a trusted folder above this one does not count")]);
+    expect(above.warnings[0]).toContain("or connect with --scope user instead");
+    await writeFile(join(home, ".codex/config.toml"), `[projects."${repo}"]\ntrust_level = "trusted"\n`);
     const trusted = await api.previewClientConnection(app, input);
     expect(trusted.warnings).toBeUndefined();
     await api.applyClientConnection(app, input, trusted.identity);
     expect((Bun.TOML.parse(await Bun.file(join(repo, ".codex/config.toml")).text()) as any).mcp_servers.wringer.command).toBe("/wring");
-    expect(await Bun.file(join(home, ".codex/config.toml")).text()).toBe(`[projects."${root}"]\ntrust_level = "trusted"\n`);
+    expect(await Bun.file(join(home, ".codex/config.toml")).text()).toBe(`[projects."${repo}"]\ntrust_level = "trusted"\n`);
 });

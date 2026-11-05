@@ -18,8 +18,11 @@ The Claude adapter leaves normal approval to the client. Neither changes global
 shell/browser permissions, worker keys, operator authority or unrelated servers.
 
 `--remove` previews removal of this workspace's unchanged owned server and skill;
-repeat with `--apply --expected DIGEST` to remove them. Disconnect retains work
-and does not stop it. A modified or foreign entry/skill is refused. The private
+repeat with `--apply --expected DIGEST` to remove them. A project configuration
+file left with nothing in it is removed too, and the preview lists, as
+`emptyDirectories`, each folder connect makes that goes if it is empty afterwards;
+a user's own configuration file always stays. Disconnect retains work and does not
+stop it; `wring job close --workspace ID` stops the owner. A modified or foreign entry/skill is refused. The private
 application transaction retains original bytes for interrupted-write recovery;
 these backups can contain unrelated client settings and must never be exported
 with diagnostics or published. Application state remains outside the repository.
