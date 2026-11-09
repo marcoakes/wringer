@@ -104,8 +104,8 @@ test("R-1 a trusted-local profile names pinned ACP adapters, no provision or net
     const preview = await application.inspectDelegationProfile(f.app, f.repo, selection as any);
     expect(preview.plan.schema_version).toBe("wringer.execution-plan.v5");
     expect(preview.plan.runtime).toEqual({ kind: "trusted-local", network: { policy: "unenforced" }, env: [] });
-    expect(preview.plan.agents.worker).toEqual({ protocol: "acp", command: "npx", args: ["-y", "@agentclientprotocol/claude-agent-acp@0.65.0"], env: [] });
-    expect(preview.plan.agents.judge).toEqual({ protocol: "acp", command: "npx", args: ["-y", "@agentclientprotocol/codex-acp@1.10.0"], env: [] });
+    expect(preview.plan.agents.worker).toEqual({ protocol: "acp", command: "npx", args: ["-y", "@agentclientprotocol/claude-agent-acp@0.101.1"], env: [] });
+    expect(preview.plan.agents.judge).toEqual({ protocol: "acp", command: "npx", args: ["-y", "@agentclientprotocol/codex-acp@2.6.0"], env: [] });
     expect(preview.plan.environment.tools.map(tool => tool.name)).toContain("bun");
     expect(preview.readiness.containment).toContain("none: trusted-local");
     expect(preview.limits.join(" ")).toContain("Tool versions were read by running bun --version and node on this computer");

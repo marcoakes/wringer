@@ -1,0 +1,43 @@
+{
+  "schema_version": "wringer.measurement.alpha44-adapter-check.v1",
+  "measuredAt": "2026-11-09",
+  "approval": "Marc, in the review session: \"(a) Adapter downloads + check,(b) Protocol-version runs\"; then typed in this session: \"Yes, run both\".",
+  "method": "A scratch trusted-local workspace (worker claude-agent-acp, judge codex-acp) on a clone of the gate's textkit fixture, set up from this release's source with the new pins; then `wring job check` with Marc's own HOME, PATH and logins. npx downloaded both adapters. No model prompt was sent.",
+  "wallSeconds": 30,
+  "result": {
+    "schema_version": "wringer.agent-check.v1",
+    "workspaceId": "a0c949ea-631d-43fe-bf75-f9954fa07943",
+    "profileId": "0b6ada41-c350-479c-ad2f-4a0518dcb2ff",
+    "at": "2026-11-09T18:08:32.681Z",
+    "ready": true,
+    "promptSent": false,
+    "modelWorkRequested": false,
+    "roles": [
+      {
+        "role": "worker",
+        "adapter": "npx -y @agentclientprotocol/claude-agent-acp@0.101.1",
+        "ready": true,
+        "agent": {
+          "name": "@agentclientprotocol/claude-agent-acp",
+          "version": "0.101.1"
+        },
+        "detail": "Started @agentclientprotocol/claude-agent-acp 0.101.1 and opened a session."
+      },
+      {
+        "role": "judge",
+        "adapter": "npx -y @agentclientprotocol/codex-acp@2.6.0",
+        "ready": true,
+        "agent": {
+          "name": "@agentclientprotocol/codex-acp",
+          "version": "2.6.0"
+        },
+        "detail": "Started @agentclientprotocol/codex-acp 2.6.0 and opened a session."
+      }
+    ],
+    "limit": "No model prompt was sent. Opening a session does not show its sign-in still works: only the first model call can."
+  },
+  "limits": [
+    "Opening a session does not show a sign-in still works or that a job succeeds: no live job has run on these versions.",
+    "Contained images keep their own adapter pins (runtime/package.json: 0.65.0 and 1.10.0); they were not rebuilt or measured."
+  ]
+}

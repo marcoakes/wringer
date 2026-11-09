@@ -54,8 +54,11 @@ unattended anyway.
 ## Set it up
 
 You need Git and either Claude Code or Codex, signed in. The adapters are
-fetched by `npx` at fixed versions: `@agentclientprotocol/claude-agent-acp@0.65.0`
-and `@agentclientprotocol/codex-acp@1.10.0`.
+fetched by `npx` at fixed versions: `@agentclientprotocol/claude-agent-acp@0.101.1`
+and `@agentclientprotocol/codex-acp@2.6.0`. Both opened a session under `wring job check`
+on 9 November 2026; no live job has run on them yet. A profile set up before
+1.0.0-alpha.44 keeps the versions it recorded (0.65.0 and 1.10.0) until you run setup
+again.
 
 ```sh
 wring setup --repo /absolute/project --client claude-code --mode delegation \

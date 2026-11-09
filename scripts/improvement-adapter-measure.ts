@@ -10,7 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { executeAgentRole } from "../packages/runtime/src";
 
-const PINNED: Record<string, string> = { "claude-agent-acp": "@agentclientprotocol/claude-agent-acp@0.65.0", "codex-acp": "@agentclientprotocol/codex-acp@1.10.0" };
+// The trusted-local pins (alpha.44); Phase A's recorded measurements were made at 0.65.0 and 1.10.0.
+const PINNED: Record<string, string> = { "claude-agent-acp": "@agentclientprotocol/claude-agent-acp@0.101.1", "codex-acp": "@agentclientprotocol/codex-acp@2.6.0" };
 const [adapter, output] = process.argv.slice(2);
 if (!adapter || !PINNED[adapter] || !output) throw new Error("Usage: bun scripts/improvement-adapter-measure.ts claude-agent-acp|codex-acp OUTPUT.json");
 const git = (cwd: string, ...args: string[]) => {

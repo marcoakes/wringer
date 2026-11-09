@@ -12,7 +12,7 @@ import { ACCEPTANCE_ADAPTER, readAcceptancePreparation } from "./acceptance-prep
 export interface RoleChoice { provider: "openai" | "anthropic"; model: string }
 /** Trusted-local agents: ACP adapters run by npx at a pinned version, on this computer,
  * under the operator's own login. Alphabetical; none is a default. */
-export const ACP_ADAPTERS = { "claude-agent-acp": "@agentclientprotocol/claude-agent-acp@0.65.0", "codex-acp": "@agentclientprotocol/codex-acp@1.10.0" } as const;
+export const ACP_ADAPTERS = { "claude-agent-acp": "@agentclientprotocol/claude-agent-acp@0.101.1", "codex-acp": "@agentclientprotocol/codex-acp@2.6.0" } as const;
 export type AcpAdapter = keyof typeof ACP_ADAPTERS;
 export interface AdapterChoice { adapter: AcpAdapter }
 export interface DelegationSelection {

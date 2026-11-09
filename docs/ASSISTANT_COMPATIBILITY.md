@@ -17,8 +17,10 @@ a connection, checked against the client's official documentation on
 
 The worker and judge are chosen separately from the client. A
 [trusted-local](native/TRUSTED_LOCAL.md) profile runs them through
-`@agentclientprotocol/claude-agent-acp@0.65.0` or
-`@agentclientprotocol/codex-acp@1.10.0` on this computer, with nothing contained.
+`@agentclientprotocol/claude-agent-acp@0.101.1` or
+`@agentclientprotocol/codex-acp@2.6.0` on this computer, with nothing contained (a
+profile set up before 1.0.0-alpha.44 keeps 0.65.0 and 1.10.0). Contained images pin
+their own adapter versions; see [runtime](../runtime/README.md).
 
 Use [START_AGENT](START_AGENT.md) for preview/apply/remove. Standard scoped config
 locations are supported; custom CODEX_HOME/CLAUDE_CONFIG_DIR configurations refuse

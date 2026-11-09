@@ -1,0 +1,65 @@
+{
+  "schema_version": "wringer.measurement.alpha44-tool-list.v1",
+  "measuredAt": "2026-11-09",
+  "method": "A Bun stdio client spawned the launcher's `mcp --connection` against a running scratch trusted-local owner (no model), sent initialize (2025-06-18), notifications/initialized and tools/list, and measured JSON.stringify(result) in UTF-8 bytes.",
+  "before": {
+    "binary": "dist/wring 1.0.0-alpha.43 (db123fb)",
+    "protocolVersion": "2025-06-18",
+    "tools": 16,
+    "names": [
+      "wringer.inspect_setup",
+      "wringer.validate_proposal",
+      "wringer.propose",
+      "wringer.revise_proposal",
+      "wringer.list_jobs",
+      "wringer.get_status",
+      "wringer.inspect_loop",
+      "wringer.inspect_improvements",
+      "wringer.get_approval_request",
+      "wringer.wait_for_update",
+      "wringer.get_evidence",
+      "wringer.start",
+      "wringer.continue",
+      "wringer.request_revision",
+      "wringer.cancel",
+      "wringer.prepare_handover"
+    ],
+    "compactResultBytes": 166286,
+    "responseLineBytes": 166320,
+    "outputSchemaBytes": 148488,
+    "inputSchemaBytes": 12131,
+    "withOutputSchema": 16
+  },
+  "after": {
+    "binary": "dist/wring built from this release's source (the alpha.44 fixes, before the version bump)",
+    "protocolVersion": "2025-06-18",
+    "tools": 16,
+    "names": [
+      "wringer.inspect_setup",
+      "wringer.validate_proposal",
+      "wringer.propose",
+      "wringer.revise_proposal",
+      "wringer.list_jobs",
+      "wringer.get_status",
+      "wringer.inspect_loop",
+      "wringer.inspect_improvements",
+      "wringer.get_approval_request",
+      "wringer.wait_for_update",
+      "wringer.get_evidence",
+      "wringer.start",
+      "wringer.continue",
+      "wringer.request_revision",
+      "wringer.cancel",
+      "wringer.prepare_handover"
+    ],
+    "compactResultBytes": 17542,
+    "responseLineBytes": 17576,
+    "outputSchemaBytes": 0,
+    "inputSchemaBytes": 12131,
+    "withOutputSchema": 0
+  },
+  "limits": [
+    "A client's own token count for the listing is not this byte count. One Claude Code run's usage is recorded in mcp-protocol.json; it is not a before/after comparison.",
+    "Output schemas are still enforced on every result in the owner; this measures only what tools/list returns."
+  ]
+}

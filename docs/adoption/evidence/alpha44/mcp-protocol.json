@@ -1,0 +1,117 @@
+{
+  "schema_version": "wringer.measurement.alpha44-mcp-protocol.v1",
+  "measuredAt": "2026-11-09",
+  "approval": "Marc, in the review session: \"(a) Adapter downloads + check,(b) Protocol-version runs\"; then typed in this session: \"Yes, run both\".",
+  "method": "Each client was given Wringer's server on its command line (claude -p --mcp-config FILE --strict-mcp-config; codex exec -c mcp_servers.wringer.command/args), pointing at a pass-through that logged every message the client sent and forwarded it unchanged to `wring mcp --connection` for a running scratch owner built from this release's source. The prompt asked only for the tool names and to call none.",
+  "server": {
+    "supportedProtocolVersions": [
+      "2025-11-25",
+      "2025-06-18"
+    ],
+    "answerToServerDiscover": "JSON-RPC error -32000: Initialize this connection and send notifications/initialized before using tools."
+  },
+  "claudeCode": {
+    "version": "2.1.317 (Claude Code)",
+    "binary": "The Claude Code bundled with the Claude desktop app",
+    "messages": [
+      {
+        "event": "started"
+      },
+      {
+        "event": "method",
+        "method": "server/discover"
+      },
+      {
+        "event": "initialize",
+        "protocolVersion": "2025-11-25",
+        "clientInfo": {
+          "name": "claude-code",
+          "title": "Claude Code",
+          "version": "2.1.317",
+          "description": "Anthropic's agentic coding tool",
+          "websiteUrl": "https://claude.com/claude-code"
+        },
+        "capabilities": {
+          "roots": {
+            "listChanged": true
+          },
+          "elicitation": {
+            "form": {},
+            "url": {}
+          }
+        }
+      },
+      {
+        "event": "method",
+        "method": "notifications/initialized"
+      },
+      {
+        "event": "method",
+        "method": "tools/list"
+      }
+    ],
+    "result": {
+      "is_error": false,
+      "num_turns": 1,
+      "duration_ms": 4841,
+      "usage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 13297,
+        "cache_read_input_tokens": 24140,
+        "output_tokens": 155
+      },
+      "model": [
+        "claude-fable-5-1"
+      ],
+      "toolNamesListed": 16
+    }
+  },
+  "codex": {
+    "version": "codex-cli 0.153.4",
+    "messages": [
+      {
+        "event": "started"
+      },
+      {
+        "event": "initialize",
+        "protocolVersion": "2025-06-18",
+        "clientInfo": {
+          "name": "codex-mcp-client",
+          "title": "Codex",
+          "version": "0.153.4"
+        },
+        "capabilities": {
+          "elicitation": {
+            "form": {},
+            "url": {}
+          }
+        }
+      },
+      {
+        "event": "method",
+        "method": "notifications/initialized"
+      },
+      {
+        "event": "method",
+        "method": "tools/list"
+      }
+    ],
+    "result": {
+      "usage": {
+        "input_tokens": 15677,
+        "cached_input_tokens": 7936,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 140,
+        "reasoning_output_tokens": 118
+      },
+      "agentMessage": [
+        "The wringer MCP server\u2019s tool names aren\u2019t visible in the provided context."
+      ]
+    }
+  },
+  "limits": [
+    "One run per client; a client's protocol choice may change with its version.",
+    "Claude Code sent server/discover before initialize. Wringer refused it, and Claude Code then initialized at 2025-11-25. What Claude Code does with a server that answers server/discover was not measured.",
+    "Codex called tools/list, but its model answered that the tool names were not visible to it. Why was not investigated; in beta gate run 2, codex exec with connect's enabled_tools did call Wringer's tools."
+  ]
+}
