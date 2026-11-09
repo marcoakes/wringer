@@ -1,8 +1,38 @@
-# Current product evidence — 5 November 2026
+# Current product evidence — 9 November 2026
 
 The current verified public release is
-[1.0.0-alpha.42](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.42),
-commit `630ccdd2bd29ea177a3bef07c5db51aab26f8786`. It fixes what the first
+[1.0.0-alpha.43](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.43),
+commit `114ed89fe8878c74633e15016b7472f2a7fee708`. It fixes what the second beta gate
+run found ([its record](docs/adoption/evidence/alpha42/BETA_GATE_RUN2_2026-11-05.md)).
+That run, on alpha.42, failed both journeys at Install. Once any job had run, the
+installer refused to install or upgrade, because it reads its state records through a
+check that refuses a file with two names. Every release since alpha.20 published each
+captured candidate and playbook overlay under two names, one of them a hard link. New
+records now keep one name. The installer reads the pair that older releases left, but
+only inside its own reservation. `wring job close --workspace ID` stops an owner that
+was left running. New review branches are `wringer/job/<job ID>`. `wring connect` checks
+Codex trust on the repository's own folder, and `--remove` cleans up the folders it
+created.
+
+CI now upgrades each published release over the records a finished job leaves. On this
+commit all 17 releases, alpha.23 to alpha.42, upgraded on Linux and on macOS 15, each
+over a finished job's records. The way back was applied for alpha.39 to alpha.42, and
+held as expected for the other 13
+([`ciHistory`](docs/adoption/evidence/alpha43/release.json)). Those were archives the
+tests run built from this commit, not the published ones. Local validation passed 43/43
+stages on the release Mac: core took 792 s and rehearsals 287 s
+([record](docs/adoption/evidence/alpha43/local-validation.json)). Sixteen guards for the
+run's findings were each removed alone, and every one turned its tests red. All 14
+public assets matched the clean source, both archives' signed provenance verified,
+public macOS extraction and installation passed 17/13 checks, and the published macOS
+binary still needs only macOS 13.0. Two macOS test jobs never acquired a runner on the
+first attempt and passed when re-run unchanged. Every other job passed on the first
+attempt. A trusted-local delivery is still named `contained-…`, because frozen records
+name it. No live Codex or Claude Code journey has run on alpha.43: that is the beta
+gate's third run.
+
+[1.0.0-alpha.42](docs/adoption/evidence/alpha42/release.json) (commit `630ccdd`), the
+release gate run 2 tested, fixed what the first
 [beta gate](docs/adoption/BETA_GATE.md) run found
 ([its record](docs/adoption/evidence/alpha41/BETA_GATE_RUN1_2026-11-04.md)). That run,
 on alpha.41, failed the Codex journey at Install and at Ask:

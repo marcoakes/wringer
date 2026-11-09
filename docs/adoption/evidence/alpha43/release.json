@@ -1,0 +1,327 @@
+{
+  "release_name": "adoption alpha.43",
+  "release": {
+    "tag": "v1.0.0-alpha.43",
+    "url": "https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.43",
+    "publishedAt": "2026-11-09T14:06:31Z",
+    "isDraft": false
+  },
+  "source": {
+    "commit": "114ed89fe8878c74633e15016b7472f2a7fee708",
+    "dirty": false,
+    "contentSha256": "26e1fcb3d85f2b6c8082e37688ca08e2be84720758a4580150bd22b5fd426c1f"
+  },
+  "assets": [
+    {
+      "name": "wringer-1.0.0-alpha.43-darwin-arm64.tar.gz",
+      "sha256": "a4b84973551fd58f77f3fd549c68af8d71463d374c3f951cbfd66c8cc81ddfc8",
+      "bytes": 29971918
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-darwin-arm64.tar.gz.sha256",
+      "sha256": "0c0aa7f5d70abb521debb69dccd11ab8c3dd76fb28348f9509b7a19983358006",
+      "bytes": 109
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-darwin-arm64.tar.gz.manifest.json",
+      "sha256": "6d9e3850c31b7cc8ae2b589cf0e14d3a3b9c67f3191d86a43b8b85d291537d22",
+      "bytes": 149487
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-darwin-arm64.tar.gz.inventory.json",
+      "sha256": "388207d96f279be9a148326914abc26ca67ae8a39e947a3c5bc25977f371ed19",
+      "bytes": 64725
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-darwin-arm64.tar.gz.claims.json",
+      "sha256": "94c5d3c57a183450194d73ef4bdf3175769099f5682d0c57786619a31ed0996e",
+      "bytes": 1185
+    },
+    {
+      "name": "wring-1.0.0-alpha.43-darwin-arm64",
+      "sha256": "66d26ac0bb6f94affbb7107a2a8585caf5ab24039a99ebe9b6eab3e8040d1c33",
+      "bytes": 76493298
+    },
+    {
+      "name": "wring-1.0.0-alpha.43-darwin-arm64.sha256",
+      "sha256": "7e56f6bc678fc394eb84a9b371019310d38721c12a4674ac62f3ea56de528e75",
+      "bytes": 100
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-linux-x64.tar.gz",
+      "sha256": "41780ae60d05b6220c2ca8514d31dda689a5fefa2b10ff6cd97ea7224ebebaf0",
+      "bytes": 40741127
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-linux-x64.tar.gz.sha256",
+      "sha256": "23f825e10e6c52ce6bd6724c2095bd8f68cf59799ead1713ebe850530ca9634c",
+      "bytes": 106
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-linux-x64.tar.gz.manifest.json",
+      "sha256": "62536f422a6a4fca3f37bf18974035d99f78f724ec251df8b2d7b8e1d7f956ec",
+      "bytes": 149484
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-linux-x64.tar.gz.inventory.json",
+      "sha256": "592b7efa93ff9020279adae2e9ea1f507a12f84448eed08cb3bcf0f67c411983",
+      "bytes": 64719
+    },
+    {
+      "name": "wringer-1.0.0-alpha.43-linux-x64.tar.gz.claims.json",
+      "sha256": "4ee3f31ca3d61524801f5ad21dafce58833a2632da7a4ba442f3e367eb9e7e75",
+      "bytes": 1179
+    },
+    {
+      "name": "wring-1.0.0-alpha.43-linux-x64",
+      "sha256": "0e33b40b245526c34b1d8d526706d72a08ce0274768eb9770a7cca5db7f56ad4",
+      "bytes": 95475168
+    },
+    {
+      "name": "wring-1.0.0-alpha.43-linux-x64.sha256",
+      "sha256": "93ff21975d3f122be2cb960afab4938e094f0ca3f65e71ab8829c5faf56dd407",
+      "bytes": 97
+    }
+  ],
+  "runs": [
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624",
+      "source": "114ed89fe8878c74633e15016b7472f2a7fee708",
+      "attempt": 2,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Rehearsals / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384592609",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384593009",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upgrade from published releases / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384595323",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "action",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384595966",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-15",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384596869",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384597916",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / macos-15",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384672040",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Temporal / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384687007",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upgrade from published releases / macos-15",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384687457",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501624/job/127384693539",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/42063501314",
+      "source": "114ed89fe8878c74633e15016b7472f2a7fee708",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42063501314/job/127371206643",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/42627572192",
+      "source": "114ed89fe8878c74633e15016b7472f2a7fee708",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "rehearsals (macos-15, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42627572192/job/129195203370",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "permission-adversary / permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42627572192/job/129195203772",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (macos-15, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42627572192/job/129195203846",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42627572192/job/129195203864",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42627572192/job/129195203897",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "publish-draft",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/42627572192/job/129207680235",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "ciHistory": {
+    "schema_version": "wringer.release-ci-history.v1",
+    "note": "114ed89fe8878c74633e15016b7472f2a7fee708 was the only alpha.43 candidate. Its permission run passed on the first attempt. In the first attempt of its tests run, Bun / macos-latest and Rehearsals / macos-latest were cancelled before any step ran: GitHub reported 'The job was not acquired by Runner of type hosted even after multiple attempts', a macOS arm64 capacity shortage. Only those two jobs were re-run, unchanged, and passed in attempt 2; the other eight passed in attempt 1.",
+    "attempts": [
+      {
+        "commit": "114ed89fe8878c74633e15016b7472f2a7fee708",
+        "workflow": "tests",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/42063501624",
+        "attempt": 1,
+        "conclusion": "failure",
+        "cause": "two macos-latest jobs never acquired a runner; no step ran"
+      },
+      {
+        "commit": "114ed89fe8878c74633e15016b7472f2a7fee708",
+        "workflow": "tests",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/42063501624",
+        "attempt": 2,
+        "conclusion": "success",
+        "rerun": [
+          "Bun / macos-latest",
+          "Rehearsals / macos-latest"
+        ]
+      },
+      {
+        "commit": "114ed89fe8878c74633e15016b7472f2a7fee708",
+        "workflow": "Linux permission adversary",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/42063501314",
+        "attempt": 1,
+        "conclusion": "success"
+      }
+    ],
+    "upgradeFromPublished": {
+      "note": "From result.json in the upgrade-evidence artifacts of the tests run on this commit. Each published release installed itself with its own installer; the application directory then got a finished job's retained records as alpha.42 and earlier leave them (a captured candidate and a playbook overlay, each under two names); an archive that run built from this commit, not the published asset, upgraded it and previewed the way back, applied where the preview allowed it.",
+      "run": "https://github.com/marcoakes/wringer/actions/runs/42063501624",
+      "ubuntu-latest (linux-x64)": {
+        "candidateArchiveSha256": "0b10dd9f0d7c6772c19c05b63d781ecfc36e15c38a645428cb290e505aeac522",
+        "releases": 17,
+        "passed": 17,
+        "first": "1.0.0-alpha.23",
+        "last": "1.0.0-alpha.42",
+        "finishedJobRecords": 17,
+        "wayBackApplied": [
+          "1.0.0-alpha.39",
+          "1.0.0-alpha.40",
+          "1.0.0-alpha.41",
+          "1.0.0-alpha.42"
+        ],
+        "wayBackHeldAsExpected": 13,
+        "commands": 127
+      },
+      "macos-15 (darwin-arm64)": {
+        "candidateArchiveSha256": "6fc7ac476279c991d7ca66ef034c3a3d289b26a65386371de4cd7a8c2b7230c8",
+        "releases": 17,
+        "passed": 17,
+        "first": "1.0.0-alpha.23",
+        "last": "1.0.0-alpha.42",
+        "finishedJobRecords": 17,
+        "wayBackApplied": [
+          "1.0.0-alpha.39",
+          "1.0.0-alpha.40",
+          "1.0.0-alpha.41",
+          "1.0.0-alpha.42"
+        ],
+        "wayBackHeldAsExpected": 13,
+        "commands": 127
+      }
+    }
+  },
+  "attestations": [
+    {
+      "platform": "darwin-arm64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "114ed89fe8878c74633e15016b7472f2a7fee708",
+        "sourceRef": "refs/tags/v1.0.0-alpha.43"
+      }
+    },
+    {
+      "platform": "linux-x64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "114ed89fe8878c74633e15016b7472f2a7fee708",
+        "sourceRef": "refs/tags/v1.0.0-alpha.43"
+      }
+    }
+  ],
+  "publicVerification": {
+    "download": "Authenticated GitHub release download after publication; anonymous installation not measured",
+    "darwinArm64": {
+      "extractedChecks": 17,
+      "installerChecks": 13,
+      "minimumMacOS": "13.0"
+    },
+    "linuxX64": "Native Linux CI; archive bytes, manifests and signed provenance verified locally"
+  },
+  "limits": [
+    "Engineering fixtures establish mechanisms, not live benefit, live containment or independent human acceptance.",
+    "No live Codex or Claude Code journey has run on alpha.43. The beta gate's third run, with both journeys from the start, is what measures these fixes.",
+    "The installer reads a captured candidate or playbook overlay under the two names alpha.20 to alpha.42 left, and only inside its own reservation. CI upgrades each published release over records made in that shape, not over a job one of those releases ran; beta gate run 2's read-only replay found exactly those two names on a real computer.",
+    "Each upgrade check used an archive the tests run built from this commit, not the published asset, on GitHub runners (ubuntu-latest, macos-15). An upgrade on a person's own machine is not measured.",
+    "wring job close refuses while a job of the workspace is accepted, running or uncertain, and signals only a process whose command line is that workspace's owner. Closing was exercised against a real wring job serve in tests, not on a person's computer.",
+    "A job prepared before alpha.43 keeps its review branch, wringer/job-<preparation ID>/<job ID>; only new jobs use wringer/job/<job ID>.",
+    "The Codex trust check compares the repository folder with the folders Codex recorded as trusted, as measured on Codex 0.153.4 in beta gate run 2. A repository reached through a symbolic link may be reported untrusted when Codex recorded its real path.",
+    "A trusted-local delivery is still named contained-… in its records and its evidence commit message, because frozen records name it.",
+    "The release run's artifacts were not downloaded; its job records were used."
+  ]
+}
