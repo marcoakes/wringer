@@ -4,6 +4,39 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.45 — what the first real change found
+
+Wringer carried its first real multi-file feature on 9 November 2026: per-team routing
+precision and recall for ZenJev's evaluation lab, on a real npm repository, with live
+coding agents, an independent judge, a Send and a fresh-clone audit
+([record](docs/adoption/evidence/alpha45/REAL_CHANGE_ZENJEV_2026-11-09.md)). It stopped
+four times on the way, and each stop is fixed here.
+
+- **npm projects can run jobs.** `--dependencies npm-ci` runs
+  `npm ci --ignore-scripts --no-audit --no-fund` from a committed `package-lock.json` or
+  `npm-shrinkwrap.json` in each fresh clone. Before, only `none` or `bun-frozen` existed,
+  so an npm project's checks had no `node_modules`.
+- **A tracked file inside an ignored folder no longer breaks capture or delivery.** Git
+  refuses `add -A` on such a file, and ZenJev has them. Worker capture (trusted-local and
+  contained) and delivery now stage tracked changes with `add -u`, and pass only new,
+  unignored files to `add -A`.
+- **A finished session whose change cannot be kept is a stop you can retry.** In
+  trusted-local, a Git failure while capturing, or a change that looks like it holds a
+  credential, made the effect "uncertain". Nothing could then retry it, recover it or
+  close its owner. Now the assistant is told to retry with `wringer.continue`, and the
+  page says so.
+- **`wring job close` closes once nothing is live.** It refused forever while any step
+  was recorded uncertain, which would also have held every later install. It now waits
+  only for live or uncertain operations.
+- **Handover preparation can be retried.** A stop while preparing the handover, which
+  sends nothing (here, source-history review of a fake key in ZenJev's redaction test),
+  was recorded uncertain, so the page would not prepare again. It is now a failure, and
+  the page offers "Retry handover preparation".
+- 11 guards (`scripts/alpha45-guards.ts`), each undone alone in a scratch copy, turned
+  their tests red.
+- No schema changed. `npm-ci` is a new value in the setup selection, which is not a
+  frozen record; `operationStates` in `wring job status` is a new field there.
+
 ## 1.0.0-alpha.44 — the doors, honestly
 
 The 2026-11-09 end-to-end review walked both doors with no model and found dead ends

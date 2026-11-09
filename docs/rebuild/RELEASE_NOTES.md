@@ -1,62 +1,48 @@
-Wringer 1.0.0-alpha.44 fixes what an end-to-end review found at the doors. On
-9 November 2026 the review walked both doors, the coding agent's and the person's, with
-no model, and found dead ends and words that did not match what Wringer does. This
-release adds no capability.
+Wringer 1.0.0-alpha.45 fixes what the first real change through it found. On 9 November
+2026, Wringer carried a real multi-file feature for the first time: per-team routing
+precision and recall for ZenJev's evaluation lab, on an npm repository, with live
+coding agents and an independent judge. The change was sent, and it passed an audit
+from a fresh clone. It stopped four times on the way.
+[The run's record](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.45/docs/adoption/evidence/alpha45/REAL_CHANGE_ZENJEV_2026-11-09.md).
 
-**A refusal names its fix.** Setting `WRINGER_HOME` or `--app-dir` to a folder others
-can read was refused with `wring --help` as the only way out. The refusal now names the
-folder and its mode, and the next step is `chmod 700 PATH`, or the default application
-directory.
+**npm projects can run jobs.** Setup offered only `none` or Bun for dependencies, so an
+npm project's checks ran without its packages. `--dependencies npm-ci` installs them
+from the committed lockfile in each fresh clone, with install scripts off.
 
-**Connection files stay out of your commits.** `wring connect --scope project` writes
-`.mcp.json` and a skill folder into the repository, and both hold absolute paths to this
-computer's Wringer and its owner. Preview and apply now say not to commit them. Apply
-adds them to the clone's own `.git/info/exclude` when nothing ignores them, so
-`git status` stays clean, and `--remove` takes those lines out again.
+**Ignored folders no longer break capture.** ZenJev keeps tracked files inside folders
+its `.gitignore` ignores, and Git refuses `add -A` on those. Wringer's capture and
+delivery both used it, so every attempt failed. Tracked changes are now staged with
+`add -u`.
 
-**A tenth of the tool list.** Every client session reads Wringer's MCP tool list. It was
-166,286 bytes compact, 148,488 of them output schemas. The list now leaves output schemas
-out, and the owner still checks every result against them: measured over stdio,
-17,542 bytes for the same 16 tools.
+**A stuck job is no longer stuck.** That failure came after a paid agent session, and
+Wringer recorded it as uncertain. Then nothing could retry it or recover it, and
+`wring job close` refused forever, which would have held every later install. A
+finished session whose change cannot be kept is now a stop your coding assistant can
+retry. `wring job close` waits only for work that is still live.
 
-**A stopped step says who retries it.** When a coding agent could not start, the page
-said "retry the stopped step" without saying who could, and the assistant was told to
-inspect, for the operator. When a retry is allowed, the assistant is now told to call
-`wringer.continue`, with the action to send, and the page says "Ask your coding assistant
-to retry the stopped step". A stop only you can act on says what to run.
+**Preparing a handover can be retried.** Source-history review rightly stopped on a
+fake key in ZenJev's redaction test. That stop was recorded as uncertain, though
+preparing sends nothing, so the page would not prepare again. Now the page offers
+"Retry handover preparation".
 
-**One job, one ID.** When your assistant recorded your request on a job `wring job new`
-prepared, Wringer made a second record. `wring job open --job` then opened the old one,
-and `wring job list` showed two jobs. The page, its decision link, `job list`,
-`job status`, `job open` and the evidence report now all name the job by the ID you were
-given. The later record is shown only as "request revision 2".
-
-**Smaller fixes.** The setup preview shows the destination it will record. `wring demo`
-now points at the two start pages, not the standalone route.
-
-**Current coding-agent adapters.** New trusted-local profiles run
-`claude-agent-acp` 0.101.1 and `codex-acp` 2.6.0, up from 0.65.0 and 1.10.0. Both
-started and opened a session under `wring job check` with real logins, with no model
-prompt; no live job has run on them yet. A profile set up earlier keeps its versions
-until you run setup again.
-
-**Measured for the next releases.** On `initialize`, Claude Code 2.1.317 asks for MCP
-revision 2025-11-25 and Codex 0.153.4 for 2025-06-18; Wringer answers both. Claude Code
-first sent `server/discover`, and fell back to `initialize` when Wringer refused it.
-Nothing was built for it in this release.
+**What was delivered.** Four files, +47 −4: a new `src/domain/routing.ts`, its use in
+the lab's evaluation, a per-team table and a confusion table in the lab, and their
+styles. ZenJev's own lint, typecheck and 90 domain, provider and GitLab tests pass on it.
+Claude ran it acting for Marc; no independent human approved or reviewed it.
 
 **How it was tested.** Each fix has a test that failed before it and passes after.
-Twenty-four guards were each undone alone in a scratch copy, and each turned its test red.
+Eleven guards were each undone alone in a scratch copy, and each turned its test red.
 No schema changed.
 
-**Not measured:** a live Codex or Claude Code journey on alpha.44. That is the beta
-gate's third run. A trusted-local delivery is still named `contained-…` in its records.
+**Not measured:** a job on the published alpha.45, and a contained capture failure,
+which is still recorded uncertain. A trusted-local delivery is still named
+`contained-…` in its records.
 
 Native macOS arm64 and Linux x64 archives retain checksums, inventories, signed
 provenance and exact-artifact claim reports. GitHub publication does not itself
 publish an npm package, Homebrew tap or MCP registry listing. The documented
 cooperative-local operator boundary remains.
 
-[Start from your coding agent](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.44/docs/START_AGENT.md)
-· [Trusted-local](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.44/docs/native/TRUSTED_LOCAL.md)
-· [Previous release: what the second beta gate run found](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.43)
+[The first real change](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.45/docs/adoption/evidence/alpha45/REAL_CHANGE_ZENJEV_2026-11-09.md)
+· [Trusted-local](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.45/docs/native/TRUSTED_LOCAL.md)
+· [Previous release: the doors, honestly](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.44)
