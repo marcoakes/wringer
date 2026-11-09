@@ -1,6 +1,6 @@
 # Capabilities and their evidence
 
-Updated for 1.0.0-alpha.43, 5 November 2026. Source implementation,
+Updated for 1.0.0-alpha.44, 9 November 2026. Source implementation,
 fixture coverage, live qualification and comparative benefit are separate facts.
 The [release notes](https://github.com/marcoakes/wringer/releases) identify the
 exact published commit and native artifact measurements.

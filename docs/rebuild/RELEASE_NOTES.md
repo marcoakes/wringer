@@ -1,38 +1,55 @@
-Wringer 1.0.0-alpha.43 fixes what the second beta gate run found. That run, on alpha.42
-on 5 November 2026, failed both journeys at Install: the installer refused a computer
-that had already run a job. On a separate installation, Claude Code and Codex then
-passed every other step.
-[The run's record](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.43/docs/adoption/evidence/alpha42/BETA_GATE_RUN2_2026-11-05.md).
+Wringer 1.0.0-alpha.44 fixes what an end-to-end review found at the doors. On
+9 November 2026 the review walked both doors, the coding agent's and the person's, with
+no model, and found dead ends and words that did not match what Wringer does. This
+release adds no capability.
 
-**A computer that has run a job can install and upgrade again.** Each captured change
-and playbook overlay was kept under two file names, and the installer refuses any
-record with two names. Every release since alpha.20 did both. New records keep one
-name, and the installer reads the pairs older releases left. A hold now names the
-record it could not read, and gives a next step that fits it. CI's upgrade check now
-upgrades each published release over a finished job's records.
+**A refusal names its fix.** Setting `WRINGER_HOME` or `--app-dir` to a folder others
+can read was refused with `wring --help` as the only way out. The refusal now names the
+folder and its mode, and the next step is `chmod 700 PATH`, or the default application
+directory.
 
-**`wring job close` stops the page's owner.** `wring job open` leaves the owner running
-in the background, and the installer's hold said to stop it without saying how.
-`wring job close --workspace ID` stops it and keeps every job. It refuses while a job
-is still working, and the hold now names it.
+**Connection files stay out of your commits.** `wring connect --scope project` writes
+`.mcp.json` and a skill folder into the repository, and both hold absolute paths to this
+computer's Wringer and its owner. Preview and apply now say not to commit them. Apply
+adds them to the clone's own `.git/info/exclude` when nothing ignores them, so
+`git status` stays clean, and `--remove` takes those lines out again.
 
-**Clearer IDs.** A new job's review branch is `wringer/job/<job ID>`, named after the
-job you were given. The evidence report says which workspace ID is internal and which
-one you connected.
+**A tenth of the tool list.** Every client session reads Wringer's MCP tool list. It was
+166,286 bytes compact, 148,488 of them output schemas. The list now leaves output schemas
+out, and the owner still checks every result against them: measured over stdio,
+17,542 bytes for the same 16 tools.
 
-**Codex trust is checked for the repository itself.** Codex ignored a project's
-`.codex/config.toml` in a repository inside a trusted folder. `wring connect` now
-warns unless the repository's own folder is trusted, and names both ways forward.
+**A stopped step says who retries it.** When a coding agent could not start, the page
+said "retry the stopped step" without saying who could, and the assistant was told to
+inspect, for the operator. When a retry is allowed, the assistant is now told to call
+`wringer.continue`, with the action to send, and the page says "Ask your coding assistant
+to retry the stopped step". A stop only you can act on says what to run.
 
-**A removed connection leaves nothing behind.** `wring connect … --remove` now says
-what to do after a removal, removes a project configuration file left empty, and
-removes the empty folders connect made. Your own user configuration file stays.
+**One job, one ID.** When your assistant recorded your request on a job `wring job new`
+prepared, Wringer made a second record. `wring job open --job` then opened the old one,
+and `wring job list` showed two jobs. The page, its decision link, `job list`,
+`job status`, `job open` and the evidence report now all name the job by the ID you were
+given. The later record is shown only as "request revision 2".
+
+**Smaller fixes.** The setup preview shows the destination it will record. `wring demo`
+now points at the two start pages, not the standalone route.
+
+**Current coding-agent adapters.** New trusted-local profiles run
+`claude-agent-acp` 0.101.1 and `codex-acp` 2.6.0, up from 0.65.0 and 1.10.0. Both
+started and opened a session under `wring job check` with real logins, with no model
+prompt; no live job has run on them yet. A profile set up earlier keeps its versions
+until you run setup again.
+
+**Measured for the next releases.** On `initialize`, Claude Code 2.1.317 asks for MCP
+revision 2025-11-25 and Codex 0.153.4 for 2025-06-18; Wringer answers both. Claude Code
+first sent `server/discover`, and fell back to `initialize` when Wringer refused it.
+Nothing was built for it in this release.
 
 **How it was tested.** Each fix has a test that failed before it and passes after.
-Sixteen guards were each removed alone in a scratch copy, and each turned its test red.
+Twenty-four guards were each undone alone in a scratch copy, and each turned its test red.
 No schema changed.
 
-**Not measured:** a live Codex or Claude Code journey on alpha.43. That is the beta
+**Not measured:** a live Codex or Claude Code journey on alpha.44. That is the beta
 gate's third run. A trusted-local delivery is still named `contained-…` in its records.
 
 Native macOS arm64 and Linux x64 archives retain checksums, inventories, signed
@@ -40,6 +57,6 @@ provenance and exact-artifact claim reports. GitHub publication does not itself
 publish an npm package, Homebrew tap or MCP registry listing. The documented
 cooperative-local operator boundary remains.
 
-[Start from your coding agent](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.43/docs/START_AGENT.md)
-· [Trusted-local](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.43/docs/native/TRUSTED_LOCAL.md)
-· [Previous release: what the first beta gate run found](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.42)
+[Start from your coding agent](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.44/docs/START_AGENT.md)
+· [Trusted-local](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.44/docs/native/TRUSTED_LOCAL.md)
+· [Previous release: what the second beta gate run found](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.43)

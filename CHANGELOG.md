@@ -4,6 +4,62 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.44 — the doors, honestly
+
+The 2026-11-09 end-to-end review walked both doors with no model and found dead ends
+and words that did not match what Wringer does. This release adds no capability: it
+fixes those and measures two things the next releases depend on.
+
+- **A private-directory refusal names the directory and the fix.** Setup or apply with
+  a `WRINGER_HOME` or `--app-dir` others can read said only "Controller must be an
+  operator-owned private directory (mode 0700)", with `wring --help` as the way out.
+  It now names the directory and its mode, and the next move is `chmod 700 PATH`, or
+  the default application directory.
+- **`wring connect --scope project` says not to commit what it writes.** `.mcp.json`
+  and `.claude/skills/wringer/` (Codex: `.codex/config.toml` and
+  `.agents/skills/wringer/`) hold absolute paths to this computer's install and owner.
+  Preview and apply say so, and apply adds them to the clone's own
+  `.git/info/exclude` when nothing ignores them, so `git status` stays clean;
+  `--remove` takes those lines out again.
+- **The MCP tool list is a tenth of its size.** Compact `tools/list` was 166,286
+  bytes, 148,488 of them output schemas, read by a client on every session. The
+  listing leaves output schemas out; the owner still validates every result against
+  them. Measured over stdio: 17,542 bytes for the same 16 tools
+  ([record](docs/adoption/evidence/alpha44/tool-list.json)). A test holds every listing
+  under 25 KB.
+- **A stopped step says who retries it.** After a worker that could not start,
+  `wringer.get_status` said `inspect`, for the operator, not eligible, while the
+  docs said to retry with `wringer.continue`. When `wringer.continue` would be
+  accepted, the next action is now `continue`, for the assistant, with the stop's
+  words and the action to send. The job page's stop card says "Ask your coding
+  assistant to retry the stopped step", or what the person runs when it is theirs.
+- **One job, one ID.** Recording a request on a prepared job with
+  `wringer.revise_proposal` makes a new internal record, and the person's
+  `wring job open --job ID` then opened the superseded one while `wring job list`
+  showed two jobs. The page, its picker and decision link, `job list`, `job status`,
+  `job open` and the evidence report now name the job by the ID `wring job new`
+  printed, with the later record shown as "request revision 2".
+- **The setup preview shows the destination it will record** (`destination`, and a
+  `Destination:` line), outside the profile's identity.
+- **Trusted-local adapters at their current versions.** New profiles run
+  `@agentclientprotocol/claude-agent-acp@0.101.1` and `@agentclientprotocol/codex-acp@2.6.0`
+  (were 0.65.0 and 1.10.0). Both opened a session under `wring job check` on 9
+  November with real logins and no prompt
+  ([record](docs/adoption/evidence/alpha44/adapter-check.json)); no live job has run on
+  them. Earlier profiles keep their versions; contained images keep theirs.
+- **Measured, not built (R-6):** Claude Code 2.1.317 initializes at MCP 2025-11-25
+  after first trying `server/discover`, which Wringer refuses before `initialize`; Codex
+  0.153.4 initializes at 2025-06-18
+  ([record](docs/adoption/evidence/alpha44/mcp-protocol.json)).
+- **`wring demo` points at the two doors**, `docs/START_PM.md` and
+  `docs/START_AGENT.md`, not the standalone `wring start`.
+- 24 guards (`scripts/alpha44-guards.ts`), each undone alone in a scratch copy, turned
+  their tests red.
+- No schema changed. The listing change is in what `tools/list` returns, not in a
+  frozen record; the page's `stop` and `proposalRevision`, the job list's
+  `requestRevision` and the connect preview's `repositoryFiles` are in records that
+  are not frozen.
+
 ## 1.0.0-alpha.43 — what the second beta gate run found
 
 The second beta gate run, on alpha.42, failed both journeys at Install
