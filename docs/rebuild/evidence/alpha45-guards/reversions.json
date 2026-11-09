@@ -1,0 +1,93 @@
+{
+  "baseline": "11f895c370b166147fd6aae61e94e69d4b1c0c4f",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "npm-mode-refused",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "npm-setup-missing",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "npm-lockfile-unchecked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "trusted-local-capture-adds-tracked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "contained-capture-adds-tracked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "delivery-adds-tracked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "capture-failure-uncertain",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "capture-stop-unexplained",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "credential-uncertain",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "preparation-refusal-uncertain",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "close-held-by-recorded-step",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}
