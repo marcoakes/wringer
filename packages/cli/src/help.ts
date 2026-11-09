@@ -10,6 +10,13 @@ export async function documentationHint(file = "README.md"): Promise<string> {
             return path;
     return file === "HEADLESS.md" ? "wringer-drive --help" : "wring start --help";
 }
+/** The two doors the README leads with, installed beside the binary or in this checkout. */
+export async function startPage(file: "START_PM.md" | "START_AGENT.md"): Promise<string> {
+    for (const path of [join(dirname(process.execPath), "docs", file), new URL(`../../../docs/${file}`, import.meta.url).pathname])
+        if (await Bun.file(path).exists())
+            return path;
+    return `docs/${file}`;
+}
 export const HELP = `Wringer · Bun/TypeScript · ${VERSION}
 
 Check your coding agent's changes, or delegate a bounded contained job.

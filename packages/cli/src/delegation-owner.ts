@@ -3,7 +3,7 @@ import { mkdir, open, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Redactor } from "@wringer/engine";
 import { renderPmJobWorkspace } from "@wringer/board";
-import { assistantId, assistantInventory, assistantPath, createAssistantService, createDelegationProtocol, delegationControllerRoot, issueAssistantCapability, readDelegationContext, readDelegationJob, readWorkspace, retainDelegationJob } from "@wringer/application";
+import { assistantId, assistantInventory, assistantPath, createAssistantService, createDelegationProtocol, delegationControllerRoot, issueAssistantCapability, proposalIdentity, readDelegationContext, readDelegationJob, readWorkspace, retainDelegationJob } from "@wringer/application";
 import { parseDelegationCall, parseMcpJson, validateDelegationOutput } from "@wringer/mcp";
 import { createAssistantTransport } from "./assistant-transport";
 import { createOperatorBrowserSessions } from "./operator-browser-session";
@@ -35,7 +35,7 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
         if (!capability) throw new Error("This prepared context could not be connected. Inspect its retained records; reads never start a runner");
         const controller = await createAssistantService(await delegationControllerRoot(root, workspaceId, context.id));
         const flow = createAssistantJobFlow(controller, { isStopping: () => closed, autoAdvance: false });
-        controller.setPresentation(async jobId => { const shown = await flow.read(jobId); return { phase: shown.phase, nextAction: shown.nextAction, eventId: shown.readyRevision, observedRevision: shown.revision, observedCandidateTree: shown.candidateTree, pageUrl: `${origin}/?jobId=${jobId}` }; });
+        controller.setPresentation(async jobId => { const shown = await flow.read(jobId); return { phase: shown.phase, nextAction: shown.nextAction, eventId: shown.readyRevision, observedRevision: shown.revision, observedCandidateTree: shown.candidateTree, pageUrl: `${origin}/?jobId=${(await proposalIdentity(controller, jobId)).rootJobId}` }; });
         return { context, controller, flow, capability, protocol: createDelegationProtocol(controller, { workspaceId }) };
     }
     /** `wring job new` in another process prepares a context between sweeps. A sweep
@@ -114,19 +114,24 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
         }
         return jobs;
     }
-    /** The picker's rows. A revised proposal replaces its job; only a repeated request costs the status read that shows it. */
+    /** W7 (alpha.44): the person's identity for a job, and the revision that holds its current state. */
+    async function identity(jobId: string) {
+        const current = await selected(jobId);
+        return { current, ...await proposalIdentity(current.controller, jobId) };
+    }
+    /** The picker's rows: one per job, under the ID `wring job new` printed (W7). Its revisions are
+     * listed only so a link naming one of them still finds the job. */
     async function pickable() {
-        const rows = await list(), seen = new Map<string, number>();
-        for (const row of rows) seen.set(row.name, (seen.get(row.name) ?? 0) + 1);
-        const kept = [];
+        const rows = await list(), jobs = new Map<string, { jobId: string; name: string; contextId: string; createdAt: string; revisionIds: string[] }>();
         for (const row of rows) {
-            if (seen.get(row.name)! > 1) {
-                const superseded = await selected(row.jobId).then(current => current.controller.status(row.jobId)).then(status => status.outcome === "superseded", () => false);
-                if (superseded) continue;
-            }
-            kept.push(row);
+            const named = await identity(row.jobId).catch(() => null);
+            if (!named) continue;
+            const kept = jobs.get(named.rootJobId);
+            if (kept) { kept.revisionIds.push(row.jobId); continue; }
+            const first = rows.find(other => other.jobId === named.rootJobId) ?? row;
+            jobs.set(named.rootJobId, { jobId: named.rootJobId, name: first.name, contextId: first.contextId, createdAt: first.createdAt, revisionIds: [row.jobId] });
         }
-        return kept;
+        return [...jobs.values()].map(row => ({ ...row, revisionIds: row.revisionIds.filter(id => id !== row.jobId).sort() }));
     }
     const service = { async call(credential: string, name: string, raw: unknown, signal?: AbortSignal): Promise<Record<string, any>> {
         if (typeof credential !== "string" || credential.length !== token.length || !timingSafeEqual(Buffer.from(credential), Buffer.from(token))) throw new Error("Connection revoked");
@@ -176,20 +181,22 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
             try {
                 if (request.method === "GET" && url.pathname === "/api/jobs") return json({ jobs: await pickable(), ownerStops: [...activationErrors].map(([contextId, code]) => ({ contextId, code })) });
                 if (request.method === "GET" && url.pathname === "/api/job") {
-                    const jobId = assistantId(url.searchParams.get("jobId")), view = await (await selected(jobId)).flow.read(jobId);
+                    // W7 (alpha.44): any revision's ID shows the job under its root ID, in its current revision.
+                    const named = await identity(assistantId(url.searchParams.get("jobId"))), read = await named.current.flow.read(named.currentJobId);
+                    const view = { ...read, jobId: named.rootJobId, ...(named.revision > 1 ? { proposalRevision: named.revision } : {}) };
                     if (view.execution !== "trusted-local") return json(view);
                     const latest = await latestAgentCheck(root, workspaceId);
                     return json({ ...view, agentCheck: { command: agentCheckCommand(workspaceId), latest: latest && { at: latest.at, ready: latest.ready, roles: latest.roles.map(({ role, ready, detail }) => ({ role, ready, detail })), limit: latest.limit } } });
                 }
                 if (request.method === "GET" && url.pathname === "/api/improvements") {
                     if ([...url.searchParams.keys()].join(",") !== "jobId") throw new Error("Select exactly one job for improvement evidence");
-                    const jobId = assistantId(url.searchParams.get("jobId")), current = await selected(jobId), proposal = await current.controller.inspectProposal(jobId);
+                    const { current, currentJobId: jobId } = await identity(assistantId(url.searchParams.get("jobId"))), proposal = await current.controller.inspectProposal(jobId);
                     return json({ ...await inspectJobImprovements(current.controller.root, proposal.plan ?? current.controller.workspace.profile, jobId), collection: collections.messages(current.controller.root) });
                 }
                 if (request.method === "POST" && /^\/api\/improvements\/(collect|promote|rollback)$/.test(url.pathname)) {
                     if (closed || url.search || request.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new Error("Use the displayed separate improvement decision");
                     const text = await request.text(); if (Buffer.byteLength(text) > 16384) throw new Error("Improvement decision too large");
-                    const input = parseMcpJson(text) as Record<string, any>, jobId = assistantId(input?.jobId), current = await selected(jobId), proposal = await current.controller.inspectProposal(jobId);
+                    const input = parseMcpJson(text) as Record<string, any>, { current, currentJobId: jobId } = await identity(assistantId(input?.jobId)), proposal = await current.controller.inspectProposal(jobId);
                     const { jobId: ignored, ...decision } = input, action = url.pathname.split("/").at(-1)!, profile = proposal.plan ?? current.controller.workspace.profile;
                     if (closed) throw new Error("Owner is stopping");
                     if (action === "collect") return json(await collections.collect(current.controller.root, profile, decision as any), 202);
@@ -197,10 +204,12 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
                 }
                 if (closed || request.method !== "POST" || url.search || !/^\/api\/job\/(approve|retry|decision|correction|stop|send)$/.test(url.pathname) || request.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new Error("Use the current operator page action");
                 const text = await request.text(); if (Buffer.byteLength(text) > 16384) throw new Error("Decision too large");
-                const input = parseMcpJson(text) as Record<string, unknown>, jobId = assistantId(input?.jobId);
-                const action = url.pathname.split("/").at(-1)!, current = await selected(jobId);
+                // The page names the job by its root (W7); the decision binds the current revision, whose
+                // exact state expectedRevision still pins: a newer revision refuses it.
+                const input = parseMcpJson(text) as Record<string, unknown>, named = await identity(assistantId(input?.jobId));
+                const action = url.pathname.split("/").at(-1)!, current = named.current;
                 if (action !== "stop") await activate(current.context);
-                return json(await current.flow.post(action, input));
+                return json(await current.flow.post(action, { ...input, jobId: named.currentJobId }));
             } catch (error) { return json({ error: redactor.scrub(error instanceof Error ? error.message : "Decision refused") }, 409); }
         } });
         origin = `http://127.0.0.1:${server.port}`;

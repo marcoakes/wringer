@@ -93,19 +93,44 @@ export async function createDelegationJob(root: string, workspaceId: string, inp
         return retainDelegationJob(root, context, String(proposed.jobId));
     });
 }
-export async function delegationJobStatus(root: string, jobId: string) {
+/** W7 (alpha.44): the person knows a job by the ID `wring job new` printed, its root. Each revision of
+ * its proposal is recorded under an ID of its own. Resolve any of them to that root, the current
+ * revision and its number (the root is revision 1). A follow-up job (`--parent`) is a job of its own. */
+export async function proposalIdentity(service: { status(jobId: string): Promise<any> }, jobId: string) {
+    let view = await service.status(jobId), currentJobId = jobId;
+    const rootJobId: string = view.lineage?.rootJobId ?? jobId;
+    for (let depth = 0; view.supersededBy; depth++) {
+        if (depth >= 64) throw new Error("Proposal lineage exceeds its bound");
+        currentJobId = assistantId(view.supersededBy); view = await service.status(currentJobId);
+    }
+    let revision = 1, cursor = view;
+    for (; cursor.lineage?.parentJobId; revision++) {
+        if (revision > 64) throw new Error("Proposal lineage exceeds its bound");
+        cursor = await service.status(assistantId(cursor.lineage.parentJobId));
+    }
+    if ((view.lineage?.rootJobId ?? currentJobId) !== rootJobId) throw new Error("Proposal lineage names a different root");
+    return { rootJobId, currentJobId, revision };
+}
+export async function delegationJobIdentity(root: string, jobId: string) {
     const job = await readDelegationJob(root, jobId), service = await createAssistantService(await delegationControllerRoot(root, job.workspaceId, job.contextId));
+    const named = await proposalIdentity(service, jobId), first = named.rootJobId === job.id ? job : await readDelegationJob(root, named.rootJobId);
+    if (first.workspaceId !== job.workspaceId || first.contextId !== job.contextId) throw new Error("Proposal lineage crosses a prepared job");
+    return { job: first, service, ...named };
+}
+export async function delegationJobStatus(root: string, requested: string) {
+    // W7 (alpha.44): the job under the ID wring job new printed, in its current revision.
+    const { job, service, rootJobId, currentJobId: jobId, revision } = await delegationJobIdentity(root, requested);
     const view = await service.status(jobId), workspace = await readWorkspace(root, job.workspaceId);
     // The local CLI is an operator-owned observation, not a minted MCP session.
-    return { schema_version: "wringer.delegation-job-status.v1", jobId, workspaceId: job.workspaceId, mode: "delegation", revision: view.revision, outcome: view.outcome, phase: view.stage, uncertainty: view.uncertainty, operationIds: view.operations.map((operation: any) => operation.operationId), stopCodes: view.stop ? [view.stop.reason] : [], approvalExpiresAt: (await service.inspectApproval(jobId))?.authority.expires_at ?? null, candidateIdentity: view.candidateTree, nextAction: view.nextAction, remaining: { ceilings: view.usage.development.limits, measured: view.usage.development.measured, monetaryCost: null }, parentJobId: job.parentJobId, source: job.source, boundary: { approval: "cooperative-local", execution: workspace.boundary.execution } };
+    return { schema_version: "wringer.delegation-job-status.v1", jobId: rootJobId, ...(revision > 1 ? { requestRevision: { number: revision, recordedAs: jobId } } : {}), workspaceId: job.workspaceId, mode: "delegation", revision: view.revision, outcome: view.outcome, phase: view.stage, uncertainty: view.uncertainty, operationIds: view.operations.map((operation: any) => operation.operationId), stopCodes: view.stop ? [view.stop.reason] : [], approvalExpiresAt: (await service.inspectApproval(jobId))?.authority.expires_at ?? null, candidateIdentity: view.candidateTree, nextAction: view.nextAction, remaining: { ceilings: view.usage.development.limits, measured: view.usage.development.measured, monetaryCost: null }, parentJobId: job.parentJobId, source: job.source, boundary: { approval: "cooperative-local", execution: workspace.boundary.execution } };
 }
-export async function inspectDelegationTrajectories(root: string, jobId: string, effectId?: string) {
-    const job = await readDelegationJob(root, jobId), controller = await delegationControllerRoot(root, job.workspaceId, job.contextId);
-    const service = await createAssistantService(controller), status = await service.status(jobId);
+export async function inspectDelegationTrajectories(root: string, requested: string, effectId?: string) {
+    const { job, service, currentJobId: jobId } = await delegationJobIdentity(root, requested), controller = await delegationControllerRoot(root, job.workspaceId, job.contextId);
+    const status = await service.status(jobId);
     return status.stage === "intake" ? [] : readLoopTrajectories(assistantControllerState(controller, jobId), effectId ? { effectId } : {});
 }
-export async function inspectDelegationLoop(root: string, jobId: string) {
-    const job = await readDelegationJob(root, jobId), controller = await delegationControllerRoot(root, job.workspaceId, job.contextId);
-    const service = await createAssistantService(controller), proposal = await service.inspectProposal(jobId), status = await service.status(jobId);
+export async function inspectDelegationLoop(root: string, requested: string) {
+    const { job, service, currentJobId: jobId } = await delegationJobIdentity(root, requested), controller = await delegationControllerRoot(root, job.workspaceId, job.contextId);
+    const proposal = await service.inspectProposal(jobId), status = await service.status(jobId);
     return readJobLoopInspection(proposal.plan, status.stage === "intake" ? undefined : assistantControllerState(controller, jobId));
 }

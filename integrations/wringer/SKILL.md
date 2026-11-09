@@ -56,9 +56,12 @@ its acknowledgment does not establish that a remote effect stopped. Keep the
 evidence for recovery. After explicit Send, report the exact recorded branch or
 PR and audit instructions. A pushed branch is not a merge or deployment.
 
-If a worker stops unfinished, retry it with `wringer.continue`: its edits are kept
-and offered to the next session, which is told how earlier attempts ended. They
-are not a candidate. `wring job check --workspace ID` starts each coding agent with
+When a step stops and a retry is allowed, `wringer.get_status` names `continue`
+as the next action, for you, with the stop's words and the action to send: call
+`wringer.continue` with it. The stopped worker's edits are kept and offered to the
+next session, which is told how earlier attempts ended. They are not a candidate.
+When the next action is the operator's, no retry is allowed: tell the person what
+the status says. `wring job check --workspace ID` starts each coding agent with
 no model prompt, so a broken adapter shows before anyone approves.
 
 Connection setup is previewed by `wring connect --workspace ID --client CLIENT

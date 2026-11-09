@@ -171,3 +171,20 @@ test("a shape refusal names the field at fault and never echoes the value", () =
     // The two tools that lead to approval warn about a check that cannot fail.
     for (const name of ["wringer.validate_proposal", "wringer.propose", "wringer.revise_proposal"]) expect(DELEGATION_TOOLS.find(tool => tool.name === name)!.description).toContain("must fail today");
 });
+
+test("W3: every tool list a client reads is under 25 KB compact, and results are still validated server-side", async () => {
+    // alpha.43 listed 166,286 compact bytes for delegation, 148,488 of them output schemas (2026-11-09 review, A2).
+    const { delegationContract, validateDelegationOutput } = await import("../src/delegation-contract");
+    const { verificationContract, validateVerificationOutput } = await import("../src/verification-contract");
+    for (const contract of [delegationContract, verificationContract, undefined]) {
+        for (const declared of [false, true]) {
+            const { session } = await ready({ ...(contract ? { contract } : {}), design: declared } as Partial<McpSessionOptions>);
+            const listed: any = result(await session.receive(frame("list", "tools/list")));
+            expect(listed.tools.length).toBeGreaterThan(0);
+            expect(Buffer.byteLength(JSON.stringify(listed))).toBeLessThan(25 * 1024);
+            expect(listed.tools.some((tool: any) => "outputSchema" in tool)).toBeFalse();
+        }
+    }
+    expect(() => validateDelegationOutput("wringer.get_status", { schema_version: "not-a-response" })).toThrow("did not match its declared schema");
+    expect(() => validateVerificationOutput("wringer.get_status", { schema_version: "not-a-response" })).toThrow("did not match its declared output schema");
+});

@@ -16,6 +16,8 @@ import { createMcpSession } from "../../mcp/src/server";
 import { validateDelegationOutput } from "../../mcp/src/delegation-contract";
 import { createDelegationProtocol } from "../src/delegation-protocol";
 import { readPmWorkspace } from "../../cli/src/workspace";
+import { createAssistantJobFlow } from "../../cli/src/assistant-job";
+import { validatePmJob } from "../../board/src/job-model";
 
 const roots: string[] = [], services: Awaited<ReturnType<typeof createAssistantService>>[] = [];
 afterEach(async () => { for (const service of services.splice(0)) await service.runner.stop(100); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
@@ -25,7 +27,7 @@ function git(cwd: string, ...args: string[]) {
     if (result.exitCode) throw new Error(result.stderr.toString());
     return result.stdout.toString().trim();
 }
-async function fixture(workerArgs: (scratch: string) => string[] = () => ["worker"]) {
+async function fixture(workerArgs: (scratch: string) => string[] = () => ["worker"], worker?: { command: string; args: string[] }) {
     const scratch = await realpath(await mkdtemp(join(tmpdir(), "wringer-tl-journey-"))); roots.push(scratch);
     const repo = join(scratch, "source"); await mkdir(join(repo, "src"), { recursive: true });
     git(scratch, "init", "--initial-branch=main", repo);
@@ -37,7 +39,7 @@ async function fixture(workerArgs: (scratch: string) => string[] = () => ["worke
     const source = await createLocalSourceBundle(repo, commit, bundle);
     const plan = compileDeclaration({ version: 5, name: "Make the value true", intent: "Set expected to true.", repository: { url: source.url, commit },
         runtime: { kind: "trusted-local", network: { policy: "unenforced" }, env: [] },
-        agents: { worker: { protocol: "acp", command: process.execPath, args: [agent, ...workerArgs(scratch)] }, judge: { protocol: "acp", command: process.execPath, args: [agent, "judge"] } },
+        agents: { worker: { protocol: "acp", ...(worker ?? { command: process.execPath, args: [agent, ...workerArgs(scratch)] }) }, judge: { protocol: "acp", command: process.execPath, args: [agent, "judge"] } },
         environment: { context: ["README.md"], tools: [{ name: "fixture-shell", version: "fixture-1.0", probe: ["sh", "-c", "echo fixture-1.0"] }], setup: [], baseline: [], writable_directories: [] },
         scope: { writable: ["src"] },
         acceptance: { criteria: [{ id: "value", title: "The value is true", quote: "Set expected to true.", kind: "check", required: true }], checks: [{ id: "value-check", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 30, criteria: ["value"], files: ["check.sh"] }], protected_paths: ["check.sh"] },
@@ -171,3 +173,37 @@ test("protected mode refuses a trusted-local plan; only the labelled cooperative
     const record = join(f.scratch, "profile.json.source.json"), bundle = join(f.scratch, "profile.json.source.bundle");
     await expect(initializeAssistant(join(f.scratch, "protected"), { plan: f.plan, cooperativeLocal: false, localSource: { record, bundle } } as any)).rejects.toMatchObject({ code: "trusted-local-refused" });
 }, 60000);
+
+test("a worker that cannot start: the assistant is told to retry with wringer.continue, and the page says who retries (W4)", async () => {
+    // The 2026-11-09 review walk: the page said "retry the stopped step" with no one to do it, and
+    // get_status said inspect, for the operator, not eligible, while START_AGENT said to continue.
+    const f = await fixture(undefined, { command: "/bin/sh", args: ["-c", "echo 'stub npx: no model spent' >&2; exit 86"] });
+    const flow = createAssistantJobFlow(f.service, { autoAdvance: false });
+    f.service.setPresentation(async jobId => { const shown = await flow.read(jobId); return { phase: shown.phase, nextAction: shown.nextAction, eventId: shown.readyRevision, observedRevision: shown.revision, observedCandidateTree: shown.candidateTree, pageUrl: `http://127.0.0.1:1/?jobId=${jobId}` }; });
+    const protocol = createDelegationProtocol(f.service), status = async (jobId: string) => validateDelegationOutput("wringer.get_status", await protocol.call(f.capability.token, "wringer.get_status", { jobId })) as any;
+    const proposed = await f.call("propose", { workspaceId: f.workspace.id, idempotencyKey: crypto.randomUUID(), intent: f.plan.intent, plan: f.plan });
+    const approval = await f.call("get_approval_request", { jobId: proposed.jobId });
+    await approveAssistantProposal(f.root, { jobId: proposed.jobId, expectedRevision: approval.revision, actor: "Scripted engineering fixture (not a human verdict)", expiresAt: new Date(Date.now() + 600000).toISOString(), confirmExecution: true });
+    const settled = async (id: string) => { for (let n = 0; n < 1200; n++) { const operation = await f.service.runner.read(id); if (["completed", "failed", "uncertain"].includes(operation.status)) return operation; await Bun.sleep(50); } throw new Error("Operation did not settle"); };
+    const guard = (view: any) => ({ jobId: proposed.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: view.revision, expectedCandidateIdentity: view.candidateIdentity });
+    const begin = guard(await status(proposed.jobId));
+    expect(["accepted", "running"]).toContain((await protocol.call(f.capability.token, "wringer.start", begin)).outcome);
+    await f.service.runner.start(); await settled(begin.idempotencyKey);
+    const stopped = await status(proposed.jobId);
+    expect(stopped.phase).toBe("blocked");
+    expect(stopped.nextAction.code).toBe("continue"); expect(stopped.nextAction.actor).toBe("assistant"); expect(stopped.nextAction.eligible).toBe(true);
+    expect(stopped.nextAction.reason).toContain("could not start: stub npx: no model spent");
+    expect(stopped.nextAction.reason).toContain('call wringer.continue with action "retry-stopped"');
+    const page = validatePmJob(await flow.read(proposed.jobId));
+    expect(page.phase).toBe("blocked");
+    expect(page.stop).toEqual({ by: "assistant", text: expect.stringContaining("Ask your coding assistant to retry the stopped step") });
+    // What the status names is what wringer.continue accepts.
+    const retry = { ...guard(stopped), action: "retry-stopped" };
+    expect(["accepted", "running"]).toContain((await protocol.call(f.capability.token, "wringer.continue", retry)).outcome);
+    await settled(retry.idempotencyKey);
+    // The worker's two turns are spent: nothing can retry it now, and neither the status nor the page says otherwise.
+    const spent = await status(proposed.jobId);
+    expect(spent.phase).toBe("blocked"); expect(spent.nextAction.code).not.toBe("continue"); expect(spent.nextAction.actor).toBe("operator");
+    expect((await flow.read(proposed.jobId)).stop).toBeUndefined();
+    await flow.stop();
+}, 120000);

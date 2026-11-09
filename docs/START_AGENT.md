@@ -39,7 +39,11 @@ wring job open --workspace WORKSPACE_ID
 ```
 
 Repeat connect with `--apply --expected IDENTITY` for `claude-code` or `codex`;
-other clients print their documented recipe for you to add. `wring job open`
+other clients print their documented recipe for you to add. At `--scope project`
+connect writes `.mcp.json` and `.claude/skills/wringer/` (Codex: `.codex/config.toml`
+and `.agents/skills/wringer/`) into the repository. They hold absolute paths to
+this computer's install and owner: do not commit them. When no ignore rule covers
+them, `--apply` adds them to `.git/info/exclude`. `wring job open`
 starts the owner your client connects to and opens the person's private page;
 connecting starts nothing. Reload the client. The owner keeps running until
 `wring job close --workspace WORKSPACE_ID` stops it.
@@ -66,9 +70,13 @@ Codex asks before each Wringer tool that records something. If you run as
 4. When the result is ready, send the person to the same page to review it.
    After they accept it, `wringer.prepare_handover`; Send stays their decision.
 
-If a worker stops unfinished, retry it with `wringer.continue`. The next session
-is told how earlier attempts ended, what they changed and which checks failed, and
-gets the edits the stopped one left, to reuse if they help.
+When a step stops and a retry is allowed, `wringer.get_status` returns next
+action `continue` for the assistant, with the stop's words and the action to send
+(`retry-stopped` for a stopped worker or judge): call `wringer.continue` with it.
+The person's page says to ask you. The next session is told how earlier attempts
+ended, what they changed and which checks failed, and gets the edits the stopped
+one left, to reuse if they help. When the next action is the operator's, no retry
+is allowed: tell the person what it says.
 
 There are no approval, verdict or Send tools. Never write a decision for the
 person, edit `wringer.judgements.yaml`, or replace their keys. A refusal is an

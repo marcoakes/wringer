@@ -96,13 +96,16 @@ test("removing a connection removes what connect made, keeps the rest, and says 
     await applyClientConnection(f.app, base, (await previewClientConnection(f.app, base)).identity);
     expect(await present(join(f.repo, ".agents/skills/wringer/SKILL.md"))).toBe(true);
     const preview: any = await dispatch(["connect", "--app-dir", f.app, "--workspace", f.workspace.id, "--client", "codex", "--scope", "project", "--remove", "--dry-run"]);
-    expect(preview.value.changes.map((row: any) => row.action)).toEqual(["remove", "remove"]);
+    // alpha.44 (W2): connect also wrote this clone's .git/info/exclude; removal takes its lines back out.
+    expect(preview.value.changes.map((row: any) => row.action)).toEqual(["remove", "remove", "update"]);
+    expect(preview.value.changes[2].path).toBe(join(f.repo, ".git/info/exclude"));
     expect(preview.value.emptyDirectories).toEqual([".agents/skills/wringer", ".agents/skills", ".agents", ".codex"].map(path => join(f.repo, path)));
     expect(preview.text).toContain("Nothing was removed yet."); expect(preview.text).not.toContain("Start the operator owner");
     expect(preview.value.note).not.toContain("wring job open");
     const removed: any = await dispatch(["connect", "--app-dir", f.app, "--workspace", f.workspace.id, "--client", "codex", "--scope", "project", "--remove", "--apply", "--expected", preview.value.identity]);
     expect(removed.text).toContain("Removed. Reload the client"); expect(removed.text).toContain(`wring job close --workspace ${f.workspace.id}`);
     expect((await readdir(f.repo)).sort()).toEqual([".git", "package.json", "src"]);
+    expect(await Bun.file(join(f.repo, ".git/info/exclude")).text()).not.toContain("wring connect");
     // At user scope the user's own configuration file stays, and a folder holding anything else stays.
     const user = { ...base, scope: "user" } as ClientSelection;
     await mkdir(join(home, ".agents/skills/another"), { recursive: true }); await writeFile(join(home, ".agents/skills/another/SKILL.md"), "---\nname: another\n---\n");

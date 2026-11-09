@@ -96,13 +96,16 @@ test("the approval page says when the result could not be sent, and a locked pag
     const { jobs } = await read("/api/jobs");
     expect(jobs.length).toBe(2);
     for (const row of jobs) expect(Date.parse(row.createdAt)).toBeGreaterThan(0);
-    // The documented route answers the job `wring job new` made, and the replaced proposal leaves the picker.
+    // The documented route answers the job `wring job new` made. Since alpha.44 (W7) the picker keeps that
+    // job under its own ID, and its revised record is only a revision of it.
     const placeholder = jobs.find((row: any) => row.jobId !== proposed.jobId).jobId;
     const pending: any = await callAssistantConnection(owner.connectionPath, "wringer.get_status", { jobId: placeholder });
     const revised: any = await callAssistantConnection(owner.connectionPath, "wringer.revise_proposal", { jobId: placeholder, idempotencyKey: crypto.randomUUID(), expectedRevision: pending.revision, proposal });
     expect(revised.outcome).toBe("awaiting-approval");
-    const after = (await read("/api/jobs")).jobs.map((row: any) => row.jobId);
-    expect(after).toContain(revised.jobId); expect(after).not.toContain(placeholder);
+    const after = (await read("/api/jobs")).jobs;
+    expect(after.map((row: any) => row.jobId).sort()).toEqual([placeholder, proposed.jobId].sort());
+    expect(after.find((row: any) => row.jobId === placeholder).revisionIds).toEqual([revised.jobId]);
+    expect((await read(`/api/job?jobId=${placeholder}`)).phase).toBe("approval");
 }, 30000);
 
 test("a stop only a new check can resolve tells the person what to do, without controller paths", () => {

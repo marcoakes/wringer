@@ -8,7 +8,7 @@ import type { Answer, DispatchContext } from "./app";
 import { createVerificationOwner } from "./verification-owner";
 import { readAssistantConnection } from "./assistant-transport";
 import { applyDelegationProfile, checkDelegationAgents, inspectDelegationProfile, type DelegationSelection } from "@wringer/application";
-import { assistantExists, createDelegationJob, readDelegationJob, delegationJobStatus, inspectDelegationLoop, inspectDelegationTrajectories } from "@wringer/application";
+import { assistantExists, createDelegationJob, readDelegationJob, delegationJobIdentity, delegationJobStatus, inspectDelegationLoop, inspectDelegationTrajectories } from "@wringer/application";
 import { renderLoopTrajectory } from "@wringer/workflow";
 import { createDelegationOwner } from "./delegation-owner";
 import { inspectDelegationImprovements } from "@wringer/application";
@@ -93,10 +93,13 @@ async function ownerLocation(root: string, workspace: string) {
     try { process.kill(owner.pid, 0); } catch { throw new Error("The recorded owner is not running. Explicit recovery must preserve uncertain operations before restart."); }
     return owner as { pid: number; url: string };
 }
-/** A destination is chosen beside the reviewed profile, not inside it: its absence is only felt at Send, after the work is done. */
-function withDestinationLimit<T extends { limits: string[] }>(preview: T, a: Args): T {
-    return string(a, "remote") && string(a, "base") ? preview : { ...preview, limits: [...preview.limits, "No handover destination is selected, so a finished job could not be sent. Repeat with --remote NAME --base BRANCH to keep one."] };
+/** A destination is chosen beside the reviewed profile, not inside it: its absence is only felt at Send, after the work is done.
+ * The preview shows the destination apply will record on the workspace (N1), outside the profile's identity. */
+function withDestinationLimit<T extends { limits: string[] }>(preview: T, a: Args): T & { destination: { remote: string; base: string; recorded: string } | null } {
+    const remote = string(a, "remote"), base = string(a, "base");
+    return remote && base ? { ...preview, destination: { remote, base, recorded: `Applying records this on the workspace: a finished job can be sent to remote ${remote}, base ${base}, only after the person's Send.` } } : { ...preview, destination: null, limits: [...preview.limits, "No handover destination is selected, so a finished job could not be sent. Repeat with --remote NAME --base BRANCH to keep one."] };
 }
+const destinationLine = (preview: { destination: { remote: string; base: string } | null }) => preview.destination ? `Destination: remote ${preview.destination.remote}, base ${preview.destination.base}; a finished job is sent there only after the person's Send.` : "Destination: none selected, so a finished job could be accepted but not sent.";
 export async function adoptionCommand(a: Args, context: DispatchContext): Promise<Answer> {
     if (flag(a, "help")) return { text: ADOPTION_HELP };
     const root = applicationDirectory(string(a, "app-dir")), repo = resolve(string(a, "repo", process.cwd())!);
@@ -155,7 +158,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
             const source = required(a, "source"); if (!["local", "remote"].includes(source)) throw new Error("Choose --source local or remote explicitly");
             const selection: DelegationSelection = { runtime: "trusted-local", ...(string(a, "acceptance") ? { acceptanceId: string(a, "acceptance") } : {}), worker: { adapter: required(a, "worker-adapter") as any }, judge: { adapter: required(a, "judge-adapter") as any }, source: source === "local" ? { kind: "local" } : { kind: "remote", remote: required(a, "source-remote") }, dependencies: required(a, "dependencies") as any, ...(values(a, "writable") ? { writable: values(a, "writable") } : {}), ...(values(a, "output-dir") ? { outputDirectories: values(a, "output-dir") } : {}), ...(values(a, "gate") ? { gates: values(a, "gate") } : {}) };
             const reviewed = await inspectDelegationProfile(root, repo, selection), trusted = withDestinationLimit(reviewed, a);
-            if (!flag(a, "apply")) return { value: trusted, text: `${JSON.stringify(trusted, null, 2)}\nIts roles and checks will run on this computer under your account; nothing is contained. Repeat with --apply --expected ${trusted.identity} --actor NAME --cooperative-local to keep this profile.` };
+            if (!flag(a, "apply")) return { value: trusted, text: `${JSON.stringify(trusted, null, 2)}\nIts roles and checks will run on this computer under your account; nothing is contained.\n${destinationLine(trusted)}\nRepeat with --apply --expected ${trusted.identity} --actor NAME --cooperative-local to keep this profile.` };
             const remote = string(a, "remote"), base = string(a, "base"); if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
             const profile = await applyDelegationProfile(root, reviewed, { expectedIdentity: required(a, "expected"), actor: required(a, "actor"), cooperativeLocal: flag(a, "cooperative-local") });
             const workspace = await registerWorkspace(root, { repo, mode, client, execution: "trusted-local", applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(remote && base ? { destination: { remote, base } } : {}) });
@@ -178,7 +181,10 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
             const workspace = await registerWorkspace(root, { repo, mode, client, applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(remote && base ? { destination: { remote, base } } : {}) });
             return { value: { workspace, profile }, text: `Registered contained workspace ${workspace.id} and reviewed profile ${profile.id}.\nNo work or Send was approved. Next: wring job new --workspace ${workspace.id} --intent 'YOUR REQUEST'` };
         }
-        if (!flag(a, "apply")) return { value: preview, text: JSON.stringify(preview, null, 2) + "\nReview these changes; repeat with the chosen --mode and --apply to register." };
+        if (!flag(a, "apply")) {
+            const remote = string(a, "remote"), base = string(a, "base"), shown = { ...preview, destination: remote && base ? { remote, base, recorded: `Applying records this on the workspace: a finished job can be sent to remote ${remote}, base ${base}, only after the person's Send.` } : null };
+            return { value: shown, text: JSON.stringify(shown, null, 2) + `\n${destinationLine(shown)}\nReview these changes; repeat with the chosen --mode and --apply to register.` };
+        }
         if (!mode) throw new Error("Choose verification or delegation explicitly before applying setup");
         const remote = string(a, "remote"), base = string(a, "base");
         if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
@@ -207,7 +213,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         const result = { ...value, ...(flag(a, "verify-client") ? { detection: await detectClient(input.client) } : {}), ...(flag(a, "probe-tools") ? { discovery: await probeRestrictedConnection(installedLauncher(), connectionPath, workspace.mode) } : {}) };
         // Beta gate run 2: a warning sat only inside the JSON (F13), and a removal printed connect's
         // next step (F14).
-        const warnings = ((result as { warnings?: string[] }).warnings ?? []).map(row => `\nWarning: ${row}`).join("");
+        const warnings = ((result as { warnings?: string[] }).warnings ?? []).map(row => `\nWarning: ${row}`).join("") + ((result as { repositoryFiles?: { advice: string } }).repositoryFiles ? `\nRepository: ${(result as { repositoryFiles: { advice: string } }).repositoryFiles.advice}` : "");
         const next = !input.remove ? "Start the operator owner with wring job open, then reload the client and inspect its MCP tools. Client trust and live job acceptance are separate observations."
             : (result as { applied?: boolean }).applied ? `Removed. Reload the client: it no longer offers Wringer's tools. Jobs, evidence and the operator owner are unchanged; wring job close --workspace ${workspace.id} stops the owner.`
             : "Nothing was removed yet. Review the exact removal above, then repeat with --apply --expected IDENTITY.";
@@ -220,7 +226,16 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         const offset = number(a, "offset", 0), limit = number(a, "limit", 50); if (limit < 1 || limit > 100) throw new Error("Page limit is 1–100");
         const workspace = string(a, "workspace"), jobs = [];
         for (const id of await assistantInventory(root, "verification-jobs")) { const job = await readVerificationJob(root, id); if (!workspace || job.workspaceId === workspace) jobs.push({ jobId: job.id, workspaceId: job.workspaceId, mode: job.mode, intent: job.intent, parentJobId: job.parentJobId }); }
-        for (const name of await assistantInventory(root, "delegation-jobs")) { if (!/^[a-f0-9-]{36}\.json$/.test(name)) continue; const job = await readDelegationJob(root, name.slice(0, -5)); if (!workspace || job.workspaceId === workspace) jobs.push({ jobId: job.id, workspaceId: job.workspaceId, mode: job.mode, intent: job.intent, parentJobId: job.parentJobId }); }
+        // W7 (alpha.44): one row per job, under the ID wring job new printed. A revised request is shown
+        // as that job's revision, never as a job of its own.
+        const seen = new Set<string>();
+        for (const name of await assistantInventory(root, "delegation-jobs")) {
+            if (!/^[a-f0-9-]{36}\.json$/.test(name)) continue;
+            const { job, rootJobId, currentJobId, revision } = await delegationJobIdentity(root, name.slice(0, -5));
+            if ((workspace && job.workspaceId !== workspace) || seen.has(rootJobId)) continue;
+            seen.add(rootJobId);
+            jobs.push({ jobId: rootJobId, workspaceId: job.workspaceId, mode: job.mode, intent: job.intent, parentJobId: job.parentJobId, ...(revision > 1 ? { requestRevision: { number: revision, recordedAs: currentJobId } } : {}) });
+        }
         return { value: { schema_version: "wringer.job-list.v1", jobs: jobs.slice(offset, offset + limit), nextOffset: offset + limit < jobs.length ? offset + limit : null } };
     }
     if (verb === "new") {
@@ -265,8 +280,12 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
     }
     if (verb === "open") {
         allowed(a, ["app-dir", "workspace", "job", "print"]); const workspace = await readWorkspace(root, required(a, "workspace"));
-        const id = string(a, "job");
-        if (id) { const job = workspace.mode === "verification" ? await readVerificationJob(root, assistantId(id)) : await readDelegationJob(root, assistantId(id)); if (job.workspaceId !== workspace.id) throw new Error("Job belongs to another workspace"); }
+        let id = string(a, "job");
+        if (id) {
+            const job = workspace.mode === "verification" ? await readVerificationJob(root, assistantId(id)) : await readDelegationJob(root, assistantId(id)); if (job.workspaceId !== workspace.id) throw new Error("Job belongs to another workspace");
+            // W7 (alpha.44): a revision's ID opens its job, under the ID wring job new printed.
+            if (workspace.mode === "delegation") id = (await delegationJobIdentity(root, id)).rootJobId;
+        }
         let location;
         try { location = await ownerLocation(root, workspace.id); }
         catch (error: any) {

@@ -5,6 +5,7 @@ import { assistantId, assistantInventory } from "./assistant-store";
 import { assistantControllerState, isPreparedJob } from "./assistant";
 import { readJobLoopInspection, readJobLoopTrajectoryPage } from "./loop-inspection";
 import { inspectJobImprovements } from "./improvements";
+import { proposalIdentity } from "./delegation-jobs";
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const guard = ["jobId", "idempotencyKey", "expectedRevision", "expectedCandidateIdentity"];
 const fields: Record<string, string[]> = {
@@ -15,6 +16,11 @@ const fields: Record<string, string[]> = {
     "wringer.inspect_loop": ["jobId", "trajectory", "effectId", "offset", "limit"],
     "wringer.inspect_improvements": ["jobId"],
 };
+/** The continuation wringer.continue would accept now, if any (W4). */
+export function retryAction(view: { revisionAdvanced?: boolean; uncertainty?: boolean; actions?: { action: string; enabled: boolean }[] }): string | undefined {
+    if (view.revisionAdvanced || view.uncertainty) return undefined;
+    return view.actions?.find(row => row.enabled && ["retry-stopped", "retry-judge", "retry-verification", "resume"].includes(row.action))?.action;
+}
 const refusal = (code: string, message: string) => ({ schema_version: "wringer.assistant-refusal.v2", mode: "delegation", outcome: "refused", isError: true, code, message });
 const opaque = (value: unknown) => { const h = hashValue(value); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`; };
 /** Versioned adapter over the existing authority engine. Legacy v1 responses
@@ -31,7 +37,9 @@ export function createDelegationProtocol(service: Service, options: { workspaceI
         if (report.usage?.development?.measured?.wallClock) delete report.usage.development.measured.wallClock.elapsedSeconds;
         // Beta gate run 2 (F11): the report carried the controller's own workspace ID, not the one
         // the person connected, and Claude Code warned the person that the two did not match.
-        const identities = options.workspaceId ? { identities: { connectedWorkspaceId: options.workspaceId, internalWorkspaceId: service.workspace.id, note: "Wringer keeps each prepared job in an internal workspace of its own, inside the workspace you connected. A workspaceId in this report names that internal workspace, not the connected one. The review branch is wringer/job/ followed by the job's ID; a job prepared before 1.0.0-alpha.43 uses wringer/job-<its preparation ID>/<its job ID>." } } : {};
+        // W7 (alpha.44): the person knows the job by its first ID; a revised request is recorded under another.
+        const named = options.workspaceId ? await proposalIdentity(service, jobId) : null;
+        const identities = options.workspaceId && named ? { identities: { connectedWorkspaceId: options.workspaceId, internalWorkspaceId: service.workspace.id, job: { jobId: named.rootJobId, requestRevision: named.revision, recordedAs: jobId }, note: `Wringer keeps each prepared job in an internal workspace of its own, inside the workspace you connected. A workspaceId in this report names that internal workspace, not the connected one. The job is ${named.rootJobId}, the ID wring job new printed${named.revision > 1 ? `; this is revision ${named.revision} of its request, recorded as ${jobId}, which is the jobId this report's state names` : ""}. The review branch is wringer/job/ followed by the job's ID; a job prepared before 1.0.0-alpha.43 uses wringer/job-<its preparation ID>/<its job ID>.` } } : {};
         const values = { request: { intent: proposal.intent, assumptions: proposal.assumptions, questions: proposal.questions }, proposal, report: { schema_version: "wringer.delegation-evidence-view.v1", state: report, note: "Live elapsed-clock sampling is omitted. Current status supplies that observation; it does not reset the grant.", ...identities }, handover: view.publication ?? null };
         return Object.entries(values).map(([kind, value]) => {
             const content = redactor.scrub(JSON.stringify(value, null, 2)).replaceAll(service.root, "[controller]");
@@ -54,6 +62,10 @@ export function createDelegationProtocol(service: Service, options: { workspaceI
         if (["working", "preparing"].includes(phase)) return { code: "wait", actor: "assistant", eligible: true, reason };
         if (["review", "send", "correction"].includes(phase)) return { code: phase, actor: "operator", eligible: true, reason };
         if (phase === "sent") return { code: "audit", actor: "assistant", eligible: true, reason };
+        // W4 (alpha.44): a stop that wringer.continue would accept is the assistant's to retry, with the
+        // stop's own words and the action to send; it is not an operator inspection.
+        const retry = phase === "blocked" && view.stop ? retryAction(view) : undefined;
+        if (retry) return { code: "continue", actor: "assistant", eligible: true, reason: `${view.stop.message ?? reason} To retry, call wringer.continue with action "${retry}" and this status's revision and candidateIdentity; it runs under the approval already given. If the stop names something to fix on this computer, tell the person first.` };
         if (phase === "blocked" || view.stage === "human") return { code: "inspect", actor: "operator", eligible: false, reason };
         const action = view.actions?.find((row: any) => row.enabled);
         return { code: action?.action ?? "inspect", actor: "assistant", eligible: !!action && !view.revisionAdvanced, reason: action?.reason ?? view.nextAction };

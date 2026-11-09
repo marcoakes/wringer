@@ -55,4 +55,7 @@ export function validateDelegationOutput(name: string, output: unknown) {
     if (!validate || !validate(output)) throw new Error(`Delegation output did not match its declared schema: ${name}`);
     return output;
 }
-export const delegationContract = { parse: parseDelegationCall, tools: () => DELEGATION_TOOLS };
+/** W3 (alpha.44): the output schemas were 148,488 of the listing's 166,286 compact bytes, read by a
+ * client on every session. The listing leaves them out; the owner still validates every result
+ * against them (validateDelegationOutput), and outputSchema reads one. */
+export const delegationContract = { parse: parseDelegationCall, tools: () => DELEGATION_TOOLS.map(({ outputSchema, ...row }) => row), outputSchema: (name: string) => DELEGATION_TOOLS.find(row => row.name === name)?.outputSchema };

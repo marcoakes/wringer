@@ -32,4 +32,6 @@ export function validateVerificationOutput(name: string, output: unknown) {
     if (!outputValidators.get(name)?.(output)) throw new Error("Verification response did not match its declared output schema");
     return output;
 }
-export const verificationContract = { parse: parseVerificationCall, tools: () => VERIFICATION_TOOLS.map(({ readOnly, ...tool }) => ({ ...tool, outputSchema: outputSchema(tool.name), annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: true, openWorldHint: !readOnly } })) };
+/** W3 (alpha.44): as for delegation, the listing leaves the output schemas out and the owner
+ * validates every result against them (validateVerificationOutput). */
+export const verificationContract = { parse: parseVerificationCall, tools: () => VERIFICATION_TOOLS.map(({ readOnly, ...tool }) => ({ ...tool, annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: true, openWorldHint: !readOnly } })), outputSchema: (name: string) => VERIFICATION_TOOLS.some(tool => tool.name === name) ? outputSchema(name) : undefined };

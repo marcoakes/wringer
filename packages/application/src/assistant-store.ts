@@ -1,6 +1,7 @@
 import { lstat, mkdir, open, link, unlink, readFile, readdir, realpath } from "node:fs/promises";
 import { dirname, join, resolve, relative, sep } from "node:path";
 import { hashValue } from "@wringer/plan";
+import { EngineError } from "@wringer/engine";
 import { validateAdoptionRecord } from "./adoption-records";
 
 export const assistantId = (value: unknown): string => {
@@ -19,17 +20,26 @@ export async function assistantPath(root: string, name: string): Promise<string>
     }
     return path;
 }
+/** The refusal names the directory and the way out: a directory the operator owns needs only
+ * `chmod 700`; anything else needs another directory. Nothing is changed for them. */
+function privateDirectoryRefusal(path: string, info: { isDirectory(): boolean; mode: number; uid: number }) {
+    const quoted = /^[A-Za-z0-9_./-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`;
+    const owned = info.isDirectory() && info.uid === process.getuid?.();
+    const reason = !info.isDirectory() ? "is not a directory" : !owned ? "is owned by another account" : `is readable by others (mode ${(info.mode & 0o777).toString(8).padStart(4, "0")})`;
+    const move = owned ? `chmod 700 ${quoted}, or unset WRINGER_HOME and drop --app-dir to use the default application directory` : "Unset WRINGER_HOME and drop --app-dir to use the default application directory, or name an empty directory you own";
+    return new EngineError(`${path} ${reason}. Wringer keeps its records only in an operator-owned private directory (mode 0700). Nothing was changed.`, 2, move);
+}
 /** Validate an existing private root without creating or syncing anything. */
 export async function readAssistantDirectory(root: string) {
     const path = await assistantPath(root, "."), info = await lstat(path);
-    if (!info.isDirectory() || (info.mode & 0o077) !== 0 || info.uid !== process.getuid?.()) throw new Error("Controller must be an operator-owned private directory (mode 0700)");
+    if (!info.isDirectory() || (info.mode & 0o077) !== 0 || info.uid !== process.getuid?.()) throw privateDirectoryRefusal(path, info);
     return realpath(path);
 }
 export async function createAssistantDirectory(root: string) {
     const path = await assistantPath(root, ".");
     await mkdir(path, { recursive: true, mode: 0o700 });
     const info = await lstat(path);
-    if (!info.isDirectory() || (info.mode & 0o077) !== 0 || info.uid !== process.getuid?.()) throw new Error("Controller must be an operator-owned private directory (mode 0700)");
+    if (!info.isDirectory() || (info.mode & 0o077) !== 0 || info.uid !== process.getuid?.()) throw privateDirectoryRefusal(path, info);
     const parent = await open(dirname(path), "r"); try { await parent.sync(); } finally { await parent.close(); }
     return realpath(path);
 }

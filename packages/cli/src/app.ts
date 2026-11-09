@@ -5,7 +5,7 @@ import * as workflow from "@wringer/workflow";
 import * as board from "@wringer/board";
 import * as delivery from "@wringer/delivery";
 import { parseArgs, allowed, flag, number, positionals, quote, required, string, values, type Args } from "./args";
-import { HELP, DRIVE_HELP, BOARD_HELP, commandHelp, documentationHint } from "./help";
+import { HELP, DRIVE_HELP, BOARD_HELP, commandHelp, documentationHint, startPage } from "./help";
 import { containedDrive } from "./contained-cli";
 import { recordJudgement, showCriterion } from "./pen";
 import { designCommand, DESIGN_HELP } from "./design-cli";
@@ -74,7 +74,7 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
         case "demo": {
             allowed(a, []); positionals(a, 0);
             const value = await (await import("./demo")).runDemo(context.signal);
-            return { value, text: `${value.note}\nExpected failure: ${value.red.exit}; corrected check: ${value.corrected.exit}.\nEvidence: ${join(value.repo, value.corrected.evidence)}\nNext: wring start, in your own repository` };
+            return { value, text: `${value.note}\nExpected failure: ${value.red.exit}; corrected check: ${value.corrected.exit}.\nEvidence: ${join(value.repo, value.corrected.evidence)}\nNext, in your own repository: read ${await startPage("START_PM.md")} if you decide on the work, or ${await startPage("START_AGENT.md")} if your coding assistant does it` };
         }
         case "init": {
             allowed(a, ["dry-run"]);

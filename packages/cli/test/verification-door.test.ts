@@ -71,5 +71,10 @@ test("the demo points at evidence that exists, wherever it was run from", async 
     const evidence = answer.text.split("\n").find((line: string) => line.startsWith("Evidence: ")).slice("Evidence: ".length);
     expect(isAbsolute(evidence)).toBeTrue();
     expect(await Bun.file(join(evidence, "manifest.json")).exists()).toBeTrue();
-    expect(answer.text).toContain("Next: wring start");
+    // The two doors the README leads with, not the standalone route (alpha.44).
+    const next = answer.text.split("\n").find((line: string) => line.startsWith("Next"));
+    expect(next).toContain("START_PM.md");
+    expect(next).toContain("START_AGENT.md");
+    expect(next).not.toContain("wring start");
+    for (const page of next.match(/\S+START_(?:PM|AGENT)\.md/g)) expect(await Bun.file(page).exists()).toBeTrue();
 }, 30000);

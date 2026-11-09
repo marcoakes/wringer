@@ -87,6 +87,13 @@ wring connect --workspace WORKSPACE_ID --client claude-code --scope project --dr
 wring job open --workspace WORKSPACE_ID
 ```
 
+At `--scope project`, connect writes two things into the repository: `.mcp.json`
+and `.claude/skills/wringer/` for Claude Code, or `.codex/config.toml` and
+`.agents/skills/wringer/` for Codex. They hold absolute paths to this computer's
+Wringer install and its owner, so do not commit them. When nothing already
+ignores them, `--apply` adds them to the clone's own `.git/info/exclude`, which
+is never committed, and `--remove` takes those lines out again.
+
 If a coding agent's login has expired, the job stops before any change and says
 so: sign in with that agent's own login (Claude Code: run `claude` and use
 `/login`; Codex: `codex login`) and ask your assistant to retry the stopped step.

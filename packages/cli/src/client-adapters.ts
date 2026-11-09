@@ -1,9 +1,9 @@
 import { constants } from "node:fs";
-import { lstat, mkdir, open, rename, rmdir, unlink } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { lstat, mkdir, open, realpath, rename, rmdir, unlink } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { hashBytes, hashValue } from "@wringer/plan";
-import { Redactor, runProcess } from "@wringer/engine";
+import { git, Redactor, runProcess } from "@wringer/engine";
 import { assistantPath, assistantExists, assistantInventory, createAssistantDirectory, readAssistantRecord, writeAssistantRecord, assistantId } from "@wringer/application";
 import { parseMcpJson, delegationContract, verificationContract } from "@wringer/mcp";
 import workflow from "../../../integrations/wringer/SKILL.md" with { type: "text" };
@@ -88,6 +88,40 @@ async function removeEmptyDirectory(path: string) {
     try { const info = await lstat(path); if (info.isDirectory() && !info.isSymbolicLink()) await rmdir(path); }
     catch (error: any) { if (!["ENOENT", "ENOTEMPTY", "EEXIST"].includes(error.code)) throw error; }
 }
+/** W2 (alpha.44): a project connection writes files into the repository that hold absolute paths
+ * to this computer's install and owner. Say not to commit them and, when nothing ignores them,
+ * add them to the clone's own .git/info/exclude, which is never committed or shared. */
+const excludeMark = (client: ClientSelection["client"]) => `# Added by wring connect --client ${client}: this computer's paths, not for commit`;
+async function repositoryFiles(selection: ClientSelection & { home: string }, locations: { config: string; skill: string }) {
+    if (selection.scope !== "project") return null;
+    const shown = await git(selection.repo, ["rev-parse", "--show-toplevel"], true);
+    if (shown.exit_code !== 0) return null;
+    const top = await realpath(shown.stdout.trim()), rows = [] as { path: string; pattern: string; probe: string; tracked: boolean; ignored: boolean }[];
+    for (const [path, directory] of [[locations.config, false], [dirname(locations.skill), true]] as const) {
+        const rel = relative(top, path);
+        if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
+        const probe = directory ? relative(top, locations.skill) : rel;
+        const tracked = (await git(top, ["ls-files", "-z", "--", rel], true)).stdout.length > 0;
+        const ignored = (await git(top, ["check-ignore", "-q", "--no-index", "--", probe], true)).exit_code === 0;
+        rows.push({ path: directory ? `${rel}/` : rel, pattern: directory ? `/${rel}/` : `/${rel}`, probe, tracked, ignored });
+    }
+    const excludePath = resolve(top, (await git(top, ["rev-parse", "--git-path", "info/exclude"])).stdout.trim());
+    const before = await boundedFile(excludePath), mark = excludeMark(selection.client), lines = (before ?? "").split("\n");
+    let after = before;
+    if (selection.remove) {
+        // Only the block this client's connect added goes; any other rule stays.
+        const at = lines.indexOf(mark);
+        if (at >= 0) { let end = at + 1; while (end < lines.length && rows.some(row => row.pattern === lines[end])) end++; after = [...lines.slice(0, at), ...lines.slice(end)].join("\n"); }
+    } else {
+        const missing = rows.filter(row => !row.tracked && !row.ignored).map(row => row.pattern);
+        if (missing.length) after = `${before ?? ""}${before && !before.endsWith("\n") ? "\n" : ""}${mark}\n${missing.join("\n")}\n`;
+    }
+    const names = rows.map(row => row.path).join(" and "), tracked = rows.filter(row => row.tracked).map(row => row.path), excluded = after !== before && !selection.remove;
+    const advice = selection.remove
+        ? (after !== before ? `The lines connect added to ${relative(top, excludePath)} for ${names} are removed with them.` : `Nothing in ${relative(top, excludePath)} needs removing.`)
+        : `Do not commit ${names}: they hold absolute paths to this computer's Wringer install and its owner. ${tracked.length ? `${tracked.join(" and ")} ${tracked.length > 1 ? "are" : "is"} already tracked here, so leave this edit out of your commits. ` : ""}${excluded ? `Applying adds them to ${relative(top, excludePath)}, which only this clone reads, so git status will not list them.` : tracked.length === rows.length ? "" : "An ignore rule here already covers them."}`.trim();
+    return { top, excludePath, before, after, value: { files: rows.map(({ path, tracked, ignored }) => ({ path, tracked, ignored })), exclude: { path: relative(top, excludePath), add: excluded ? rows.filter(row => !row.tracked && !row.ignored).map(row => row.pattern) : [], remove: !!selection.remove && after !== before }, commit: "do-not-commit", advice } };
+}
 async function binding(root: string, id: string) {
     const names = (await assistantInventory(root, `client-bindings/${id}`)).filter(name => /^\d{8}\.json$/.test(name));
     let previous: any = null;
@@ -137,12 +171,12 @@ async function proposal(root: string, input: ClientSelection) {
     // the empty folders connect had made. A project configuration left with nothing in it goes, and
     // those folders go only when empty. A user's own configuration file always stays.
     const configAfter = selected.remove && selected.scope === "project" && emptyConfiguration(selected.client, after) ? null : after;
-    const directories = selected.remove ? connectDirectories(selected, locations) : [];
-    const files = [{ path: locations.config, before, after: configAfter }, { path: locations.skill, before: skillBefore, after: skillAfter }];
+    const directories = selected.remove ? connectDirectories(selected, locations) : [], repository = await repositoryFiles(selected, locations);
+    const files = [{ path: locations.config, before, after: configAfter }, { path: locations.skill, before: skillBefore, after: skillAfter }, ...(repository && repository.after !== repository.before ? [{ path: repository.excludePath, before: repository.before, after: repository.after }] : [])];
     const next = { schema_version: "wringer.client-binding.v1", id, sequence: (previous?.sequence ?? 0) + 1, previous: previous ? hashValue(previous) : null, workspaceId: selected.workspaceId, client: selected.client, scope: selected.scope, action: selected.remove ? "remove" : "install", entryIdentity: hashValue(entry), skillIdentity: identity(skillAfter), locations };
-    const publicValue = { schema_version: "wringer.client-change.v1", coordination: { kind: "client", id }, selection: selected, ownership: owned ? "owned" : current ? "different" : "absent", existingEntry: redactor.deep(current), proposedEntry: entry, ...(warnings.length ? { warnings } : {}), changes: files.map(file => ({ path: file.path, before: identity(file.before), after: identity(file.after), action: file.after === null ? "remove" : file.before === null ? "create" : "update" })), ...(directories.length ? { emptyDirectories: directories } : {}), authority: "none", clientCompatibility: "not-measured", note: selected.remove
+    const publicValue = { schema_version: "wringer.client-change.v1", coordination: { kind: "client", id }, selection: selected, ownership: owned ? "owned" : current ? "different" : "absent", existingEntry: redactor.deep(current), proposedEntry: entry, ...(warnings.length ? { warnings } : {}), changes: files.map(file => ({ path: file.path, before: identity(file.before), after: identity(file.after), action: file.after === null ? "remove" : file.before === null ? "create" : "update" })), ...(directories.length ? { emptyDirectories: directories } : {}), ...(repository ? { repositoryFiles: repository.value } : {}), authority: "none", clientCompatibility: "not-measured", note: selected.remove
         ? `Only the named server and workflow skill are selected for removal${directories.length ? ", with each listed folder that is empty afterwards" : ""}. Jobs, evidence and operator authority remain in the application directory, and the operator owner is unchanged. Reload the client afterwards.`
-        : `Only the named server and workflow skill are selected. Jobs and operator authority remain in the application directory. Start its owner with wring job open --workspace ${selected.workspaceId}: connecting starts nothing. Client trust/reload may still be required.${codexApproval}` };
+        : `Only the named server and workflow skill are selected. Jobs and operator authority remain in the application directory. Start its owner with wring job open --workspace ${selected.workspaceId}: connecting starts nothing. Client trust/reload may still be required.${codexApproval}${repository ? ` ${repository.value.advice}` : ""}` };
     return { input: selected, files, directories, next, refusal, publicValue: { ...publicValue, identity: hashValue({ ...publicValue, previous: next.previous }) } };
 }
 export async function previewClientConnection(root: string, input: ClientSelection) { return (await proposal(root, input)).publicValue; }
@@ -169,8 +203,10 @@ export async function applyClientConnection(root: string, input: ClientSelection
         }
         const latest = await binding(root, id);
         if ((latest ? hashValue(latest) : null) !== plan.next.previous && hashValue(latest) !== hashValue(plan.next)) throw new Error("Client ownership advanced after this transaction; inspect a fresh preview");
+        // The only other file a transaction may touch is this clone's own .git/info/exclude (W2).
+        const exclude = (await repositoryFiles(selected, locations))?.excludePath;
         for (const file of plan.files) {
-            if (![locations.config, locations.skill].includes(file.path)) throw new Error("Client transaction escapes its selected paths");
+            if (![locations.config, locations.skill, ...(exclude ? [exclude] : [])].includes(file.path)) throw new Error("Client transaction escapes its selected paths");
             const current = await boundedFile(file.path);
             if (current === file.after) continue;
             if (current !== file.before) throw new Error("Client configuration changed during the transaction; retained backups were not overwritten");

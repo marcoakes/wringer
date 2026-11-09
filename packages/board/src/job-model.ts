@@ -57,6 +57,10 @@ export interface PmJob {
     error: string | null;
     retryable?: boolean;
     retryLabel?: string;
+    /** Who acts on a stop, and how (alpha.44): the coding assistant retries, or the person runs what it names. */
+    stop?: { by: "assistant" | "person"; text: string };
+    /** Which revision of the request this is, when it was revised (alpha.44); the job keeps its first ID. */
+    proposalRevision?: number;
     limits: string[];
 }
 
@@ -100,6 +104,8 @@ export function validatePmJob(value: unknown): PmJob {
         || !text(v.name, 1000) || !text(v.intent) || !text(v.nextAction, 16000) || !(v.error === null || text(v.error, 16000))
         || !(v.revisionAdvanced === undefined || typeof v.revisionAdvanced === "boolean") || v.revisionAdvanced === true && !["working", "sent"].includes(v.phase)
         || !(v.retryable === undefined || typeof v.retryable === "boolean") || !(v.retryLabel === undefined || text(v.retryLabel, 200)) || v.retryable === true && !id(v.retryLabel)
+        || !(v.proposalRevision === undefined || Number.isInteger(v.proposalRevision) && v.proposalRevision >= 2 && v.proposalRevision <= 65)
+        || !(v.stop === undefined || v.phase === "blocked" && exact(v.stop, ["by", "text"]) && ["assistant", "person"].includes(v.stop.by) && text(v.stop.text, 4000) && v.stop.text.length > 0)
         || !(v.actor === null || id(v.actor)) || !list(v.limits, 100, x => text(x, 16000))
         || !v.budget || !count(v.budget.sessions) || !count(v.budget.wallSeconds) || !(v.budget.expiresAt === null || typeof v.budget.expiresAt === "string" && Number.isFinite(Date.parse(v.budget.expiresAt)))
         || !v.scope || !text(v.scope.repository, 4096) || !tree(v.scope.sourceCommit) || !list(v.scope.writable, 1000, x => text(x, 4096)) || !list(v.scope.protected, 1000, x => text(x, 4096))

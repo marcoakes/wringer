@@ -9,6 +9,7 @@ import { projectDesignDisplay } from "./design-assets";
 import { readLoopInspection } from "../../application/src/loop-inspection";
 import { readCandidateChange, type CandidateChange } from "../../application/src/candidate-change";
 import { readValidatedContainedState } from "@wringer/workflow";
+import { retryAction } from "../../application/src/delegation-protocol";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`; };
@@ -18,6 +19,16 @@ const redactor = new Redactor();
 /** What a person can do about a stop, where the recorded message is written for the record. */
 export function stopForPerson(reason: string | undefined) {
     return reason === "acceptance-born-green" ? "The checks chosen for this request already pass, so they cannot show that the change worked. Nothing was changed and no agent ran. Ask your coding app to add a test that fails today, commit it, and propose the work again." : null;
+}
+/** W4 (alpha.44): the stop card says who acts next and how. A stop wringer.continue would accept is
+ * the coding assistant's to retry; a stop it cannot retry names what the person runs. Any other stop
+ * keeps the page's general text. */
+export function stopCard(status: { stop?: { reason?: string } | null; revisionAdvanced?: boolean; uncertainty?: boolean; actions?: { action: string; enabled: boolean }[] }): PmJob["stop"] {
+    if (!status.stop) return undefined;
+    if (retryAction(status)) return { by: "assistant", text: "Ask your coding assistant to retry the stopped step. It retries under what you already approved: nothing new is approved and the limits above still apply." };
+    if (status.stop.reason === "worker-auth-rejected") return { by: "person", text: "Sign in with that agent's own login on this computer: for Claude Code, run claude and use /login; for Codex, run codex login. This job cannot retry a rejected sign-in, so then ask your coding assistant to propose the work again." };
+    if (status.stop.reason === "acceptance-born-green") return { by: "person", text: "Add a test that fails today and commit it, then ask your coding assistant to propose the work again. This job cannot continue." };
+    return undefined;
 }
 
 /** A deterministic convenience layer, never a second workflow or model loop.
@@ -188,6 +199,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         if (revisionAdvanced && phase !== "sent") { phase = "working"; nextAction = ASSISTANT_REVISION_ADVANCED; error = null; }
         // --no-local streams a pack; a plain local clone copies loose objects that a detached gc may remove mid-copy.
         const publication = status.publication ? { ...status.publication, ...(destination && typeof destination.remote === "string" ? { cloneCommand: `git clone --no-local --branch ${quote(status.publication.sourceBranch)} -- ${quote(destination.remote)} 'reviewed-change'` } : {}) } : null;
+        const stop = phase === "blocked" && !revisionAdvanced ? stopCard(status) : undefined;
         const revision = status.revision, retryable = phase === "blocked" && !send && attempt < 3 && (failed?.status === "failed" || failedDisplay) && !status.uncertainty && !!approval && Date.parse(approval.authority.expires_at) > Date.now();
         const readyRevision = hashValue({ jobId, revision, candidateTree: status.candidateTree, phase, attempt, displays: displays.map(d => ({ id: d.displayId, success: d.success })), preparedId: phase === "send" ? prepareId : null, publication });
         const trustedLocal = (p.plan ?? service.workspace.profile).runtime.kind === "trusted-local";
@@ -200,7 +212,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
             }),
             budget: { sessions: p.plan?.budget.max_sessions ?? 0, wallSeconds: p.plan?.budget.wall_clock_seconds ?? 0, expiresAt: approval?.authority.expires_at ?? null }, actor: approval?.authority.actor ?? null,
             displays, destination: destination ? { remote: destination.remote, sourceBranch: destination.sourceBranch, targetBranch: destination.targetBranch } : null,
-            preparedId: phase === "send" ? prepareId : null, publication, nextAction: error ?? nextAction, error, retryable, retryLabel: preparation?.status === "failed" ? "Retry handover preparation" : "Try showing the result again",
+            preparedId: phase === "send" ? prepareId : null, publication, nextAction: error ?? nextAction, error, ...(stop ? { stop } : {}), retryable, retryLabel: preparation?.status === "failed" ? "Retry handover preparation" : "Try showing the result again",
             limits: ["Cooperative-local preview: the recorded name is not proof of physical human presence.", "Only an actual click records a decision. An optional comment is retained only when the person supplied it.", "A changed result needs a fresh decision. Sending is separate from accepting, merging and deploying.", "Coding-app and managed development costs are unknown when not reported; session/time limits are not a cash ceiling.", ...(board?.limits ?? [])],
         }) as PmJob;
     }
