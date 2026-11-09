@@ -1,8 +1,33 @@
 # Current product evidence — 9 November 2026
 
 The current verified public release is
-[1.0.0-alpha.43](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.43),
-commit `114ed89fe8878c74633e15016b7472f2a7fee708`. It fixes what the second beta gate
+[1.0.0-alpha.44](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.44),
+commit `f758b0f55636dbafc9564efc074e039276d88350`. It fixes what the 2026-11-09
+end-to-end review found at the two doors, walked with no model, and adds no capability.
+A private-folder refusal names the folder and `chmod 700`. A project connection keeps
+its files out of `git status`. The MCP tool list fell from 166,286 to 17,542 compact
+bytes ([record](docs/adoption/evidence/alpha44/tool-list.json)) and every result is still
+checked against its schema. A stopped step tells the assistant to retry with
+`wringer.continue`, and tells the person who retries. A revised request keeps the job ID
+`wring job new` printed. Trusted-local profiles now pin `claude-agent-acp` 0.101.1 and
+`codex-acp` 2.6.0; both opened a session under `wring job check` with real logins and
+no prompt ([record](docs/adoption/evidence/alpha44/adapter-check.json)). On `initialize`,
+Claude Code 2.1.317 asks for MCP 2025-11-25 and Codex 0.153.4 for 2025-06-18
+([record](docs/adoption/evidence/alpha44/mcp-protocol.json)).
+
+Twenty-four guards, each undone alone, turned their tests red
+([record](docs/rebuild/evidence/alpha44-guards/reversions.json)). CI on the commit passed
+the tests run's ten jobs on its second attempt: GitHub created only one job in the
+first, and nothing failed. The DAC run passed. Each of the 18 published releases,
+alpha.23 to alpha.43, upgraded on Linux and macOS 15 with an archive built from this
+commit ([`ciHistory`](docs/adoption/evidence/alpha44/release.json)). All 14 public assets
+matched the clean source, both archives' signed provenance verified, public macOS
+extraction and installation passed 17/13 checks, and the published macOS binary still
+needs only macOS 13.0. Local `bun run check` passed 1574 tests (1 skipped); the full
+local validation was not run. No live job has run on alpha.44 or on the new adapter
+versions.
+
+[1.0.0-alpha.43](docs/adoption/evidence/alpha43/release.json) (commit `114ed89`) fixed what the second beta gate
 run found ([its record](docs/adoption/evidence/alpha42/BETA_GATE_RUN2_2026-11-05.md)).
 That run, on alpha.42, failed both journeys at Install. Once any job had run, the
 installer refused to install or upgrade, because it reads its state records through a
