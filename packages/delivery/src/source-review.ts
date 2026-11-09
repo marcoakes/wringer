@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, lstat, realpath } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile, lstat, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { hashValue, canonicalJson } from "@wringer/plan";
 import { Redactor } from "@wringer/engine";
@@ -97,6 +97,30 @@ export async function readSourceApprovals(stateDir: string, inventory: SourceFin
         checkApproval(value, inventory); approvals.push(value);
     }
     return approvals;
+}
+/** An earlier decision about the same exact object, rule and matching bytes, recorded in this policy
+ * directory for another candidate. A finding's ID is the hash of those, so this is the person's own
+ * earlier judgement of identical bytes; it is offered again, never applied by itself (alpha.46). */
+export interface CarriedSourceDecision { findingId: string; candidateCommit: string; actor: string; actorKind: "operator" | "delegated-agent"; reason: string; at: string }
+export async function carriedSourceDecisions(directory: string, inventory: SourceFindingInventory): Promise<CarriedSourceDecision[]> {
+    validateSourceInventory(inventory);
+    let candidates: string[];
+    try {
+        const info = await lstat(directory);
+        if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o077) || typeof process.getuid === "function" && info.uid !== process.getuid()) return [];
+        candidates = (await readdir(directory)).filter(name => commit.test(name) && name !== inventory.candidateCommit).sort().slice(0, 1000);
+    } catch (error: any) { if (error.code === "ENOENT") return []; throw error; }
+    const carried: CarriedSourceDecision[] = [];
+    for (const finding of inventory.findings) {
+        for (const candidate of candidates) {
+            let value: any;
+            try { value = await privateJson(await inside(directory, `${candidate}/${finding.id}.json`)); } catch (error: any) { if (error.code === "ENOENT") continue; throw error; }
+            if (value?.schema_version !== "wringer.source-review-approval.v1" || !sealed(value) || value.candidateCommit !== candidate || !same(value.finding, finding) || !["operator", "delegated-agent"].includes(value.actorKind) || typeof value.actor !== "string" || typeof value.reason !== "string" || typeof value.at !== "string") continue;
+            carried.push({ findingId: finding.id, candidateCommit: candidate, actor: value.actor, actorKind: value.actorKind, reason: value.reason, at: value.at });
+            break;
+        }
+    }
+    return carried;
 }
 type SourceReviewOptions = { directory: string; sourceUrl: string; sourcePaths: string[]; redactor: Redactor };
 export async function readSourceDecisionBatch(path: string, stateDir: string, directory: string, inventory: SourceFindingInventory): Promise<SourceReviewDecision[]> {

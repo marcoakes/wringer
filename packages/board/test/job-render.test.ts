@@ -462,3 +462,17 @@ test("only a recorded retryable failed local step exposes explicit retry, never 
     h.job.retryable = true; h.job.retryLabel = "Try showing the result again"; await h.refresh(); expect(h.get("retry-job").textContent).toBe("Try showing the result again"); await h.click("retry-job");
     expect(h.posts.find(p => p.path === "/api/job/retry")!.body).toEqual({ jobId, expectedRevision: "b".repeat(64), expectedCandidateTree: "c".repeat(40) });
 });
+
+test("a source review on the page is accepted only on a stopped job, in its exact shape, with no value (alpha.46)", () => {
+    const review = { inventorySha256: "1".repeat(64), candidateCommit: "c".repeat(40), findings: [{ id: "2".repeat(64), rule: "provider-sk", objectType: "blob", path: "tests/domain.test.ts", carried: null }, { id: "3".repeat(64), rule: "provider-sk", objectType: "blob", path: null, carried: { reason: "A redaction canary in a test.", actor: "Marc", at: "2026-11-09T19:52:00.000Z" } }] };
+    const blocked = { ...fixture(), phase: "blocked" as const, sourceReview: review };
+    expect(validatePmJob(blocked)).toEqual(blocked);
+    for (const mutate of [
+        (j: any) => j.phase = "send", (j: any) => j.sourceReview.findings = [], (j: any) => j.sourceReview.findings[0].value = "sk-anything",
+        (j: any) => j.sourceReview.inventorySha256 = "main", (j: any) => j.sourceReview.findings[0].objectType = "file", (j: any) => j.sourceReview.findings[1].carried.approved = true,
+        (j: any) => j.sourceReview.approveAll = true,
+    ]) { const job = structuredClone(blocked); mutate(job); expect(() => validatePmJob(job)).toThrow(); }
+    const page = renderPmJobWorkspace();
+    expect(page).toContain('id="source-review-panel" hidden'); expect(page).toContain("there is no approve-all");
+    expect(pmJobClientScript()).toContain("/api/job/source-review");
+});

@@ -289,7 +289,7 @@ function displayRowsValid(measured: any, plan: ExecutionPlan, criterionId: strin
 const selectedPlaybook = (store: string, plan: ExecutionPlan, environment: EnvironmentMap) => plan.playbook?.files ? readPinnedPlaybookTree(store, plan, { environment }) : readPinnedPlaybook(store, plan, { environment });
 function expectedInventory(manifest: any, receiptIds: string[], plan: ExecutionPlan): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(["wringer.contained-delivery.v2", "wringer.contained-delivery.v3", "wringer.contained-delivery.v4"].includes(manifest.schema_version) ? ["view.json", "certificate.json", "board.html"] : []), ...(manifest.schema_version === "wringer.contained-delivery.v4" ? ["engineering.json"] : []), ...(manifest.researchPurpose ? ["research-purpose.json"] : []), ...(manifest.sourceReview ? ["source-inspection.json"] : []), ...visualInventory(plan, manifest.humanCriteria), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
 /** Direct operator CLI only; no provider call, publication or MCP approval. */
-export async function reviewContainedSource(options: { stateDir: string; policyDirectory?: string; decision?: SourceReviewDecision; decisionFile?: string; signal?: AbortSignal }) {
+export async function reviewContainedSource(options: { stateDir: string; policyDirectory?: string; decision?: SourceReviewDecision; decisionFile?: string; /** A finite batch given directly, as the job page sends it. */ decisions?: SourceReviewDecision[]; /** Also name each finding's path in the candidate's history. */ names?: boolean; signal?: AbortSignal }) {
     const stateDir = await realpath(options.stateDir);
     return withContainedJourneyLock(stateDir, async () => {
         const { state, plan } = await readValidatedContainedState(stateDir), candidate = state.candidate;
@@ -301,14 +301,21 @@ export async function reviewContainedSource(options: { stateDir: string; policyD
             await cloneBundle(bundle, store, candidate.source.commit, options.signal);
             const redactor = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(plan.runtime.env ?? [])]);
             const inspected = await inspectCandidateHistory(store, candidate.source.commit, redactor, { collectFindings: true, signal: options.signal }), inventory = inspected.inventory!;
-            if (options.decision || options.decisionFile) {
+            if (options.decision || options.decisionFile || options.decisions) {
                 if (!options.policyDirectory) throw new Error("Source review decisions require an explicit --policy-dir outside the target repository");
-                if (options.decision && options.decisionFile) throw new Error("Choose one exact decision or one finite decision file, not both");
-                const decisions = options.decision ? [options.decision] : await readSourceDecisionBatch(options.decisionFile!, stateDir, options.policyDirectory, inventory);
+                if ([options.decision, options.decisionFile, options.decisions].filter(Boolean).length > 1) throw new Error("Choose one exact decision, one finite decision file or one batch, not more");
+                const decisions = options.decision ? [options.decision] : options.decisions ?? await readSourceDecisionBatch(options.decisionFile!, stateDir, options.policyDirectory, inventory);
                 await approveSourceFindings(stateDir, inventory, { directory: options.policyDirectory, sourceUrl: plan.repository.url, sourcePaths: [store, dirname(bundle)], decisions, redactor });
             }
             const approvals = await readSourceApprovals(stateDir, inventory);
-            return { ...inspected, approvals, pending: inventory.findings.filter(f => !approvals.some(a => a.finding.id === f.id)), limitations: SOURCE_REVIEW_LIMITATIONS };
+            // Paths are named for the person reading the findings; the inventory stays bound to objects.
+            let paths: Record<string, string> | undefined;
+            if (options.names && inventory.findings.length) {
+                const wanted = new Set(inventory.findings.map(f => f.objectId)), listed = await processDriver.command(["git", "--no-replace-objects", "-c", "core.hooksPath=/dev/null", "--git-dir", store, "rev-list", "--objects", candidate.source.commit, "--"], { env: { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" } });
+                paths = {};
+                if (!listed.code) for (const line of listed.stdout.split("\n")) { const at = line.indexOf(" "), oid = at > 0 ? line.slice(0, at) : line; if (wanted.has(oid) && at > 0 && !paths[oid]) paths[oid] = line.slice(at + 1).slice(0, 4096); }
+            }
+            return { ...inspected, approvals, pending: inventory.findings.filter(f => !approvals.some(a => a.finding.id === f.id)), ...(paths ? { paths } : {}), limitations: SOURCE_REVIEW_LIMITATIONS };
         } finally { await rm(scratch, { recursive: true, force: true }); }
     });
 }

@@ -408,3 +408,28 @@ test("contained falsification challenges committed changes with distinct pinned 
         expect(wrong.record.attempts[0]!.reason).toContain(failure === "wrong-tree" ? "identity" : "changed its committed source");
     }
 }, 120000);
+
+test("the job page's source review: paths named, a batch decided, and an exact earlier decision offered again (alpha.46)", async () => {
+    // ZenJev, 2026-11-09: every job on that repository stops on the same fake key in its test history, and
+    // the only route was an internal command, a controller path and a hand-written private JSON file.
+    const f = await fixture(true, false, false, 0, true, true);
+    try {
+        const scan = await reviewContainedSource({ stateDir: f.stateDir, names: true });
+        expect(scan.pending).toHaveLength(2);
+        for (const finding of scan.pending) expect(typeof scan.paths?.[finding.objectId]).toBe("string");
+        expect(JSON.stringify(scan.paths)).not.toContain("fixture-not-a-real-secret");
+        const policy = join(f.root, "workspace-source-review"), inventory = scan.inventory!;
+        expect(await delivery.carriedSourceDecisions(policy, inventory)).toEqual([]);
+        await expect(reviewContainedSource({ stateDir: f.stateDir, policyDirectory: policy, decisions: [{ findingId: scan.pending[0]!.id, inventorySha256: inventory.sha256, actor: "Fixture operator", actorKind: "operator", reason: "A fixture value in a test." }], decision: { findingId: scan.pending[1]!.id, inventorySha256: inventory.sha256, actor: "Fixture operator", actorKind: "operator", reason: "A fixture value in a test." } })).rejects.toThrow("not more");
+        const decided = await reviewContainedSource({ stateDir: f.stateDir, policyDirectory: policy, decisions: scan.pending.map(finding => ({ findingId: finding.id, inventorySha256: inventory.sha256, actor: "Fixture operator", actorKind: "operator", reason: "A fixture value in a test." })) });
+        expect(decided.pending).toHaveLength(0);
+        // A later candidate whose history holds the same bytes: the decision is offered, not applied.
+        const later = { ...inventory, candidateCommit: "f".repeat(inventory.candidateCommit.length) }, { sha256, ...body } = later;
+        const relabelled = { ...body, sha256: hashValue(body) } as typeof inventory;
+        const carried = await delivery.carriedSourceDecisions(policy, relabelled);
+        expect(carried.map(row => row.findingId).sort()).toEqual(scan.pending.map(finding => finding.id).sort());
+        expect(carried.every(row => row.candidateCommit === inventory.candidateCommit && row.reason === "A fixture value in a test." && row.actorKind === "operator")).toBe(true);
+        // The current candidate never offers its own decisions as carried ones.
+        expect(await delivery.carriedSourceDecisions(policy, inventory)).toEqual([]);
+    } finally { await rm(f.root, { recursive: true, force: true }); }
+}, 120000);

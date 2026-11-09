@@ -10,6 +10,8 @@ import { readLoopInspection } from "../../application/src/loop-inspection";
 import { readCandidateChange, type CandidateChange } from "../../application/src/candidate-change";
 import { readValidatedContainedState } from "@wringer/workflow";
 import { retryAction } from "../../application/src/delegation-protocol";
+import { carriedSourceDecisions, reviewContainedSource } from "@wringer/delivery";
+import { join } from "node:path";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`; };
@@ -34,8 +36,30 @@ export function stopCard(status: { stop?: { reason?: string } | null; revisionAd
 /** A deterministic convenience layer, never a second workflow or model loop.
  * Only automatic start, declared showing and PREPARATION are scheduled. A
  * person's decision and sending require separate guarded POSTs. */
-export function createAssistantJobFlow(service: Service, options: ApplicationOptions & { isStopping?: () => boolean; autoAdvance?: boolean; beforeCommand?: (jobId: string) => Promise<void>; /** Construction-time seam for the page's own journal re-read. */ dependencies?: { status?: typeof controllerStatus } } = {}) {
+export function createAssistantJobFlow(service: Service, options: ApplicationOptions & { isStopping?: () => boolean; autoAdvance?: boolean; beforeCommand?: (jobId: string) => Promise<void>; /** Construction-time seam for the page's own journal re-read. */ dependencies?: { status?: typeof controllerStatus }; /** Where the person's source-review decisions are kept, outside every controller; one per workspace lets an exact decision be offered again in its later jobs. */ sourceReviewDirectory?: string } = {}) {
     const active = new Set<string>(), transient = new Map<string, string>();
+    // alpha.46: source-history review on the page. One inventory per candidate and preparation attempt.
+    const sourceReviewDirectory = options.sourceReviewDirectory ?? join(service.root, "source-review-policy");
+    const sourceReviews = new Map<string, Promise<PmJob["sourceReview"]>>();
+    function sourceReviewOf(jobId: string, candidateTree: string, attempt: number) {
+        const key = `${jobId}:${candidateTree}:${attempt}`;
+        let value = sourceReviews.get(key);
+        if (!value) {
+            value = (async () => {
+                const scan = await reviewContainedSource({ stateDir: stateOf(jobId), names: true });
+                const inventory = scan.inventory;
+                if (!inventory || !scan.pending.length) return undefined;
+                const carried = await carriedSourceDecisions(sourceReviewDirectory, inventory);
+                return { inventorySha256: inventory.sha256, candidateCommit: inventory.candidateCommit, findings: scan.pending.map(f => {
+                    const prior = carried.find(row => row.findingId === f.id);
+                    return { id: f.id, rule: f.rule, objectType: f.objectType, path: scan.paths?.[f.objectId] ?? null, carried: prior ? { reason: prior.reason, actor: prior.actor, at: prior.at } : null };
+                }) };
+            })();
+            value.catch(() => { if (sourceReviews.get(key) === value) sourceReviews.delete(key); });
+            sourceReviews.set(key, value);
+        }
+        return value;
+    }
     const cancellations = new Map<string, AbortController>();
     let stopped = false, sweeping = false;
     const assertRunning = () => { if (stopped || options.isStopping?.() || options.signal?.aborted) throw new Error("The owner is stopping. No new work or decision is allowed."); };
@@ -199,7 +223,10 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         if (revisionAdvanced && phase !== "sent") { phase = "working"; nextAction = ASSISTANT_REVISION_ADVANCED; error = null; }
         // --no-local streams a pack; a plain local clone copies loose objects that a detached gc may remove mid-copy.
         const publication = status.publication ? { ...status.publication, ...(destination && typeof destination.remote === "string" ? { cloneCommand: `git clone --no-local --branch ${quote(status.publication.sourceBranch)} -- ${quote(destination.remote)} 'reviewed-change'` } : {}) } : null;
-        const stop = phase === "blocked" && !revisionAdvanced ? stopCard(status) : undefined;
+        // A source-history stop is the person's to decide, here on the page (alpha.46).
+        const sourceReview = phase === "blocked" && !revisionAdvanced && status.candidateTree && preparation && ["failed", "uncertain"].includes(preparation.status) && String(preparation.error ?? "").startsWith("Source history needs review")
+            ? await sourceReviewOf(jobId, status.candidateTree, attempt).catch(() => undefined) : undefined;
+        const stop = phase === "blocked" && !revisionAdvanced ? (sourceReview ? { by: "person" as const, text: "Look at each match below. If it is a test value or an example, not a real credential, say so and Wringer prepares the handover again. If one is a real credential, do not send: remove it from the repository's history first." } : stopCard(status)) : undefined;
         // Preparing a handover sends nothing, so preparing again is safe however the last attempt ended
         // (ZenJev, 2026-11-09: a source-history stop left it uncertain, with no way to prepare again).
         const revision = status.revision, retryable = phase === "blocked" && !send && attempt < 3 && (failed?.status === "failed" || failed === preparation && preparation?.status === "uncertain" || failedDisplay) && !status.uncertainty && !!approval && Date.parse(approval.authority.expires_at) > Date.now();
@@ -214,7 +241,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
             }),
             budget: { sessions: p.plan?.budget.max_sessions ?? 0, wallSeconds: p.plan?.budget.wall_clock_seconds ?? 0, expiresAt: approval?.authority.expires_at ?? null }, actor: approval?.authority.actor ?? null,
             displays, destination: destination ? { remote: destination.remote, sourceBranch: destination.sourceBranch, targetBranch: destination.targetBranch } : null,
-            preparedId: phase === "send" ? prepareId : null, publication, nextAction: error ?? nextAction, error, ...(stop ? { stop } : {}), retryable, retryLabel: preparation && ["failed", "uncertain"].includes(preparation.status) ? "Retry handover preparation" : "Try showing the result again",
+            preparedId: phase === "send" ? prepareId : null, publication, nextAction: sourceReview ? `Source history needs your review: ${sourceReview.findings.length} credential-shaped ${sourceReview.findings.length === 1 ? "match" : "matches"} in the history this change would send. No value is shown.` : error ?? nextAction, error: sourceReview ? null : error, ...(stop ? { stop } : {}), ...(sourceReview ? { sourceReview } : {}), retryable, retryLabel: preparation && ["failed", "uncertain"].includes(preparation.status) ? "Retry handover preparation" : "Try showing the result again",
             limits: ["Cooperative-local preview: the recorded name is not proof of physical human presence.", "Only an actual click records a decision. An optional comment is retained only when the person supplied it.", "A changed result needs a fresh decision. Sending is separate from accepting, merging and deploying.", "Coding-app and managed development costs are unknown when not reported; session/time limits are not a cash ceiling.", ...(board?.limits ?? [])],
         }) as PmJob;
     }
@@ -254,6 +281,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         const body = input as Record<string, any>;
         const allowed: Record<string, string[]> = { approve: ["jobId", "expectedRevision", "actor"], decision: ["jobId", "expectedRevision", "expectedCandidateTree", "verdict", "note", "displayIds"], correction: ["jobId", "expectedRevision", "expectedCandidateTree", "note"], send: ["jobId", "expectedRevision", "expectedCandidateTree", "preparedId"], retry: ["jobId", "expectedRevision", "expectedCandidateTree"] };
         allowed.stop = ["jobId", "expectedRevision", "expectedCandidateTree"];
+        allowed["source-review"] = ["jobId", "expectedRevision", "expectedCandidateTree", "inventorySha256", "actor", "actorKind", "decisions"];
         if (!allowed[action] || Object.keys(body).some(k => !allowed[action]!.includes(k)) || !uuid.test(body.jobId)) throw new Error("The decision contains unexpected fields or an unknown job.");
         const jobId = body.jobId;
         if (active.has(jobId) && action !== "stop" || stopped || options.isStopping?.()) throw new Error("This job is advancing. Refresh its recorded state before deciding.");
@@ -281,6 +309,26 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
                 return await queue(jobId, purposeId(jobId, current.candidateTree, `send/${current.preparedId}`, 0), "publish", { preparedId: current.preparedId }, current, false);
             }
             const { approval } = await guardJob(jobId);
+            if (action === "source-review") {
+                // Each match gets the person's own exact decision; there is no approve-all. A decision is
+                // recorded outside every controller, then the handover is prepared again.
+                const review = current.sourceReview;
+                if (!review || body.inventorySha256 !== review.inventorySha256) throw new Error("This source review changed. Read the current matches before deciding.");
+                if (typeof body.actor !== "string" || !body.actor.trim() || body.actor.length > 200 || !["operator", "delegated-agent"].includes(body.actorKind)) throw new Error("Give your name, and say whether you are the person or a coding agent acting for them.");
+                const decisions = Array.isArray(body.decisions) ? body.decisions : [];
+                const ids = new Set(review.findings.map(f => f.id));
+                if (!decisions.length || decisions.length !== new Set(decisions.map((d: any) => d?.findingId)).size || decisions.some((d: any) => !d || Object.keys(d).sort().join() !== "findingId,reason" || !ids.has(d.findingId) || typeof d.reason !== "string" || !d.reason.trim() || d.reason.length > 2000))
+                    throw new Error("Decide each listed match with your own reason; unknown or repeated matches are refused.");
+                await reviewContainedSource({ stateDir: stateOf(jobId), policyDirectory: sourceReviewDirectory, decisions: decisions.map((d: any) => ({ findingId: d.findingId, inventorySha256: review.inventorySha256, actor: body.actor.trim(), actorKind: body.actorKind, reason: d.reason.trim() })) });
+                for (const key of [...sourceReviews.keys()]) if (key.startsWith(`${jobId}:`)) sourceReviews.delete(key);
+                const remaining = decisions.length === review.findings.length ? 0 : review.findings.length - decisions.length;
+                if (!remaining && current.retryable) {
+                    const recordId = id({ jobId, revision: current.readyRevision, action: "retry" });
+                    await writeAssistantRecord(service.root, `jobs/${jobId}/pm-retries/${recordId}.json`, { schema_version: "wringer.pm-retry.v1", candidateTree: current.candidateTree, expectedRevision: current.readyRevision, actor: approval.authority.actor });
+                    transient.delete(jobId);
+                }
+                return { outcome: "source-review-recorded", remaining, preparingAgain: !remaining && !!current.retryable };
+            }
             if (action === "retry") {
                 if (!current.retryable) throw new Error("No failed local step is eligible for retry. Uncertain work or publication is never replayed here.");
                 const recordId = id({ jobId, revision: current.readyRevision, action });

@@ -59,6 +59,8 @@ export interface PmJob {
     retryLabel?: string;
     /** Who acts on a stop, and how (alpha.44): the coding assistant retries, or the person runs what it names. */
     stop?: { by: "assistant" | "person"; text: string };
+    /** Credential-shaped matches in the history this change would send, for the person to decide (alpha.46). No value is ever included. */
+    sourceReview?: { inventorySha256: string; candidateCommit: string; findings: { id: string; rule: string; objectType: string; path: string | null; carried: { reason: string; actor: string; at: string } | null }[] };
     /** Which revision of the request this is, when it was revised (alpha.44); the job keeps its first ID. */
     proposalRevision?: number;
     limits: string[];
@@ -104,6 +106,8 @@ export function validatePmJob(value: unknown): PmJob {
         || !text(v.name, 1000) || !text(v.intent) || !text(v.nextAction, 16000) || !(v.error === null || text(v.error, 16000))
         || !(v.revisionAdvanced === undefined || typeof v.revisionAdvanced === "boolean") || v.revisionAdvanced === true && !["working", "sent"].includes(v.phase)
         || !(v.retryable === undefined || typeof v.retryable === "boolean") || !(v.retryLabel === undefined || text(v.retryLabel, 200)) || v.retryable === true && !id(v.retryLabel)
+        || !(v.sourceReview === undefined || v.phase === "blocked" && exact(v.sourceReview, ["inventorySha256", "candidateCommit", "findings"]) && hash(v.sourceReview.inventorySha256) && tree(v.sourceReview.candidateCommit)
+            && list(v.sourceReview.findings, 10000, (f: any) => exact(f, ["id", "rule", "objectType", "path", "carried"]) && hash(f.id) && id(f.rule) && ["blob", "commit", "tree", "tag"].includes(f.objectType) && (f.path === null || text(f.path, 4096)) && (f.carried === null || exact(f.carried, ["reason", "actor", "at"]) && text(f.carried.reason, 2000) && text(f.carried.actor, 200) && text(f.carried.at, 64))) && v.sourceReview.findings.length > 0)
         || !(v.proposalRevision === undefined || Number.isInteger(v.proposalRevision) && v.proposalRevision >= 2 && v.proposalRevision <= 65)
         || !(v.stop === undefined || v.phase === "blocked" && exact(v.stop, ["by", "text"]) && ["assistant", "person"].includes(v.stop.by) && text(v.stop.text, 4000) && v.stop.text.length > 0)
         || !(v.actor === null || id(v.actor)) || !list(v.limits, 100, x => text(x, 16000))

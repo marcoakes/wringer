@@ -35,7 +35,8 @@ function jobClientRuntime() {
     const say = (text: string, error = false) => { el("job-message").textContent = text; el("job-message").classList.toggle("error", error); };
     const current = () => !locked && connected && Date.now() - lastRead < 6500;
     const usable = () => current() && !busy && unresolvedRevision === null;
-    const actionButtons = ["approve-job", "accept-result", "request-correction", "submit-correction", "send-job", "retry-job", "stop-job"];
+    const actionButtons = ["approve-job", "accept-result", "request-correction", "submit-correction", "send-job", "retry-job", "stop-job", "record-source-review"];
+    const sourceReasons = () => Array.from(document.querySelectorAll("#source-review-findings textarea")) as HTMLTextAreaElement[];
     const controls = () => {
         el("job-connection").textContent = locked ? "Locked" : current() ? busy ? "Saving your decision…" : "Connected" : "Connecting · decisions paused";
         el("job-workspace").setAttribute("aria-busy", String(busy));
@@ -54,7 +55,9 @@ function jobClientRuntime() {
         button("submit-correction").disabled = !allowed || !field("correction-note").value.trim() || !(job.phase === "correction" || job.phase === "review" && canReview && chooseCorrection);
         button("send-job").disabled = !allowed || job.phase !== "send" || !job.candidateTree || !job.preparedId || !job.destination?.remote.trim() || !job.requirements.some(r => r.required) || !job.requirements.filter(r => r.required).every(r => r.state === "met");
         button("retry-job").disabled = !allowed || job.phase !== "blocked" || job.retryable !== true;
-        button("retry-job").hidden = job.phase !== "blocked" || job.retryable !== true;
+        button("retry-job").hidden = job.phase !== "blocked" || job.retryable !== true || !!job.sourceReview;
+        // alpha.46: each source-history match needs the person's own reason before Wringer prepares again.
+        button("record-source-review").disabled = !allowed || !job.sourceReview || !field("source-review-actor").value.trim() || !["operator", "delegated-agent"].includes(field("source-review-kind").value) || !sourceReasons().length || sourceReasons().some(area => !area.value.trim());
         button("retry-job").textContent = job.retryLabel || "Retry the recorded local step";
         el("review-unavailable").textContent = review.reason || (!imagesReady ? visualChecks.some(check => check.state === "failed") ? "A required image could not be displayed. Refresh to load the recorded reference and captures before deciding." : "Loading the recorded reference and captures. Decisions are paused until every required image is visible." : "");
         button("job-picker").disabled = busy;
@@ -166,6 +169,23 @@ function jobClientRuntime() {
         el("handover-panel").hidden = value.phase !== "sent";
         el("progress-panel").hidden = !["working", "preparing"].includes(value.phase);
         el("blocked-panel").hidden = value.phase !== "blocked";
+        el("source-review-panel").hidden = !value.sourceReview;
+        const findings = el("source-review-findings");
+        if (!value.sourceReview) { findings.replaceChildren(); delete findings.dataset.inventory; }
+        else if (findings.dataset.inventory !== value.sourceReview.inventorySha256) {
+            findings.replaceChildren(); findings.dataset.inventory = value.sourceReview.inventorySha256;
+            for (const finding of value.sourceReview.findings) {
+                const item = node("li"), heading = node("p");
+                heading.append(node("strong", finding.path ?? `An earlier ${finding.objectType} in the history`), document.createTextNode(` · looks like: ${finding.rule}`));
+                const area = document.createElement("textarea"); area.dataset.finding = finding.id; area.maxLength = 2000; area.id = `source-reason-${finding.id.slice(0, 16)}`;
+                const label = node("label", "Why this is not a real credential"); label.setAttribute("for", area.id);
+                item.append(heading, label, area);
+                if (finding.carried) { area.value = finding.carried.reason; item.append(node("p", `Decided before by ${finding.carried.actor} on ${new Date(finding.carried.at).toLocaleString()} for these exact bytes. Read it again before you accept it.`, "muted small-text")); }
+                area.addEventListener("input", () => controls());
+                findings.append(item);
+            }
+            if (!field("source-review-actor").value && value.actor) field("source-review-actor").value = value.actor;
+        }
         // W4 (alpha.44): say who acts on the stop and how, not only "retry the stopped step".
         el("blocked-title").textContent = value.stop?.by === "assistant" ? "Your coding assistant can retry this step" : value.stop?.by === "person" ? "This stop needs you" : "No decision can bypass this stop";
         el("blocked-step").textContent = `${value.stop ? value.stop.text : "Read the recorded next action above."} Existing evidence stays available; refreshing does not repeat a paid operation or renew approval.`;
@@ -370,6 +390,12 @@ function jobClientRuntime() {
     el("cancel-correction").addEventListener("click", () => { chooseCorrection = false; field("correction-note").value = ""; render(); });
     el("send-job").addEventListener("click", () => { if (job && !button("send-job").disabled) void submit("/api/job/send", { ...guards(), preparedId: job.preparedId }); });
     el("retry-job").addEventListener("click", () => { if (job && !button("retry-job").disabled) void submit("/api/job/retry", guards()); });
+    field("source-review-actor").addEventListener("input", () => controls());
+    field("source-review-kind").addEventListener("change", () => controls());
+    el("record-source-review").addEventListener("click", () => {
+        if (!job?.sourceReview || button("record-source-review").disabled) return;
+        void submit("/api/job/source-review", { ...guards(), inventorySha256: job.sourceReview.inventorySha256, actor: field("source-review-actor").value.trim(), actorKind: field("source-review-kind").value, decisions: sourceReasons().map(area => ({ findingId: area.dataset.finding!, reason: area.value.trim() })) });
+    });
     for (const id of ["approval-actor", "review-note", "correction-note"]) field(id).addEventListener("input", controls);
     el("refresh-job").addEventListener("click", () => { if (job && [...imageChecks.values()].some(check => check.state === "failed")) renderReports(job); void refresh(); });
     field("job-picker").addEventListener("change", () => {
@@ -442,7 +468,7 @@ export function renderPmJobWorkspace(options: { nonce?: string } = {}): string {
 <section id="review-panel" class="panel decision-panel" hidden><h2>Does this meet these requirements?</h2><ul id="review-requirements"></ul><p id="review-as" class="muted"></p><label for="review-note">Anything you want to add? <span class="muted">Optional</span></label><textarea id="review-note" maxlength="16000"></textarea><p class="note-help">Your click records your decision. An empty comment stays empty; no one writes an observation for you.</p><div class="buttons"><button id="accept-result" type="button" disabled>Yes, this is right</button><button id="request-correction" type="button" class="secondary" disabled>Request a correction</button></div><p id="review-unavailable" class="muted"></p><p class="note-help">This decision covers only the listed requirements and exact reports shown. Sending remains separate.</p></section>
 <section id="correction-panel" class="panel decision-panel" hidden><h2>What should change?</h2><label for="correction-note">Describe the correction in your own words</label><textarea id="correction-note" maxlength="16000" required></textarea><p class="note-help">The controller checks the remaining approval before more work. This cannot buy a larger allowance.</p><div class="buttons"><button id="submit-correction" type="button" disabled>Request this correction</button><button id="cancel-correction" type="button" class="secondary">Back to the result</button></div></section></div>
 <section id="handover-panel" class="panel" hidden><h2>Give your reviewer the handover</h2><p id="publication-description"></p><div class="buttons"><a id="review-request-link" target="_blank" rel="noopener noreferrer" hidden>Open the recorded review request ↗</a><button id="copy-review-link" type="button" class="secondary" hidden>Copy review link</button></div><h3>Verify the carried evidence</h3><p>These are the recorded delivery instructions, not a claim that someone has run the audit.</p><p id="audit-working-directory"></p><pre id="clone-command"></pre><pre id="change-directory-command" hidden></pre><pre id="audit-command"></pre><button id="copy-audit" type="button" class="secondary" disabled>Copy audit instructions</button></section>
-<section id="blocked-panel" class="panel" hidden><h2 id="blocked-title">No decision can bypass this stop</h2><p id="blocked-step">Read the recorded next action above. Existing evidence stays available; refreshing does not repeat a paid operation or renew approval.</p><button id="retry-job" type="button" disabled hidden>Retry the recorded local step</button></section>
+<section id="blocked-panel" class="panel" hidden><h2 id="blocked-title">No decision can bypass this stop</h2><p id="blocked-step">Read the recorded next action above. Existing evidence stays available; refreshing does not repeat a paid operation or renew approval.</p><section id="source-review-panel" hidden><h3>Matches that look like credentials</h3><p class="muted">Wringer found text shaped like a key or token in the history this change would send. No value is shown here. Decide each one; there is no approve-all.</p><ol id="source-review-findings"></ol><label for="source-review-actor">Your name</label><input id="source-review-actor" autocomplete="name" maxlength="200"><label for="source-review-kind">Who is deciding</label><select id="source-review-kind"><option value="">Choose</option><option value="operator">I am the person this work is for</option><option value="delegated-agent">I am a coding agent acting for the person</option></select><button id="record-source-review" type="button" disabled>These are not credentials: prepare the handover again</button></section><button id="retry-job" type="button" disabled hidden>Retry the recorded local step</button></section>
 <details id="job-engineering" open hidden><summary>Loop history, checks and remaining allowance</summary><div id="engineering-approach"></div><h3>Recorded attempts and decisions</h3><ul id="engineering-history"></ul><h3>What the checks establish</h3><ul id="engineering-checks"></ul><ul id="engineering-limits" class="muted"></ul></details>
 <details id="job-evidence"><summary>Requirements, evidence and original request</summary><div id="job-requirements"></div><h3>Your original request</h3><blockquote id="job-intent"></blockquote></details>
 <details><summary>Budget, identity and access limits</summary><p>Recorded decision name: <span id="job-actor"></span>. A supplied name is not authenticated human presence.</p><div class="two-lanes"><p>Coding-app usage and cost: unknown to this page.</p><p>Development and independent review cost: unknown. Session/time ceilings are not an invoice guarantee.</p></div><pre id="job-record"></pre><ul id="job-limits"></ul></details>

@@ -34,7 +34,9 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
         const capability = capabilities.get(context.id);
         if (!capability) throw new Error("This prepared context could not be connected. Inspect its retained records; reads never start a runner");
         const controller = await createAssistantService(await delegationControllerRoot(root, workspaceId, context.id));
-        const flow = createAssistantJobFlow(controller, { isStopping: () => closed, autoAdvance: false });
+        // One source-review folder per workspace, outside every controller, so a decision about exact
+        // bytes can be offered again in the workspace's later jobs (alpha.46).
+        const flow = createAssistantJobFlow(controller, { isStopping: () => closed, autoAdvance: false, sourceReviewDirectory: join(root, "source-review", workspaceId) });
         controller.setPresentation(async jobId => { const shown = await flow.read(jobId); return { phase: shown.phase, nextAction: shown.nextAction, eventId: shown.readyRevision, observedRevision: shown.revision, observedCandidateTree: shown.candidateTree, pageUrl: `${origin}/?jobId=${(await proposalIdentity(controller, jobId)).rootJobId}` }; });
         return { context, controller, flow, capability, protocol: createDelegationProtocol(controller, { workspaceId }) };
     }
@@ -202,7 +204,7 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
                     if (action === "collect") return json(await collections.collect(current.controller.root, profile, decision as any), 202);
                     return json(await decideImprovement(current.controller.root, profile, action as "promote" | "rollback", decision as any));
                 }
-                if (closed || request.method !== "POST" || url.search || !/^\/api\/job\/(approve|retry|decision|correction|stop|send)$/.test(url.pathname) || request.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new Error("Use the current operator page action");
+                if (closed || request.method !== "POST" || url.search || !/^\/api\/job\/(approve|retry|decision|correction|stop|send|source-review)$/.test(url.pathname) || request.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new Error("Use the current operator page action");
                 const text = await request.text(); if (Buffer.byteLength(text) > 16384) throw new Error("Decision too large");
                 // The page names the job by its root (W7); the decision binds the current revision, whose
                 // exact state expectedRevision still pins: a newer revision refuses it.
