@@ -58,6 +58,12 @@ export function describeRoleStop(role: "planner" | "worker" | "judge", result: P
         const printed = diagnostic(typeof result.stderr === "string" ? result.stderr : "").slice(-400);
         return `The ${role}'s coding agent ${reason === "timeout" ? "did not start in time" : "could not start"}${printed ? `: ${printed}` : ""}. Check that Node, npx and the network can reach its adapter on this computer, then ${retry}. No change was made.`;
     }
+    // The session finished; Wringer could not keep what it changed (alpha.45, found on ZenJev).
+    if (reason === "change-capture-failed" || reason === "change-refused-credential") {
+        const captured = [...(result.events ?? [])].reverse().find((event): event is Record<string, any> => object(event) && event.type === "runtime.change-capture-failed");
+        const printed = diagnostic(typeof captured?.message === "string" ? captured.message : "").slice(0, 600);
+        return `The ${role} finished, but Wringer could not keep its change${printed ? `: ${printed}` : ""}. That session was charged and its edits are gone; ${retry}. No change was made.`;
+    }
     const failure = [...(result.events ?? [])].reverse().find((event): event is Record<string, any> => object(event) && event.type === "acp.response.error") as Record<string, any> | undefined;
     const reported = diagnostic(typeof failure?.error?.message === "string" ? failure.error.message : "").replace(/^Internal error: /, "").slice(0, 600);
     const agent = typeof result.agentInfo?.name === "string" ? ` (${diagnostic(result.agentInfo.name).slice(0, 120)})` : "";

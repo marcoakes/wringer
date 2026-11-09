@@ -35,14 +35,14 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
   wring setup --repo PATH --prepare-acceptance INPUT.json --apply --expected HASH --actor NAME
   wring setup --repo PATH --client CLIENT --mode delegation --runtime trusted-local
       --worker-adapter claude-agent-acp|codex-acp --judge-adapter claude-agent-acp|codex-acp
-      --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
+      --source local|remote [--source-remote NAME] --dependencies none|bun-frozen|npm-ci
       [--writable PATH] [--output-dir PATH] [--acceptance UUID] [--remote NAME --base BRANCH] --dry-run --json
       Trusted-local runs your coding agents on this computer under your account,
       each role in a fresh clone; nothing is contained and protected mode refuses it.
   wring setup --repo PATH --client CLIENT --mode delegation --provision UUID
       --worker-provider openai|anthropic --worker-model MODEL
       --judge-provider openai|anthropic --judge-model MODEL
-      --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
+      --source local|remote [--source-remote NAME] --dependencies none|bun-frozen|npm-ci
       --network deny|allowlist [--egress CIDR@PORT,PORT] [--dns IPV4]
       [--writable PATH] [--output-dir PATH] [--readiness UUID] [--acceptance UUID] [--remote NAME --base BRANCH] --dry-run --json
   Repeat the same contained selections with --apply --expected IDENTITY

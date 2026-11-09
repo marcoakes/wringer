@@ -20,7 +20,7 @@ export interface DelegationSelection {
     runtime?: "trusted-local";
     provisionId?: string; readinessId?: string; acceptanceId?: string; worker: RoleChoice | AdapterChoice; judge: RoleChoice | AdapterChoice;
     source: { kind: "local" } | { kind: "remote"; remote: string };
-    dependencies: "none" | "bun-frozen"; network?: NetworkPolicy;
+    dependencies: "none" | "bun-frozen" | "npm-ci"; network?: NetworkPolicy;
     writable?: string[]; outputDirectories?: string[]; gates?: string[];
     budget?: Partial<ExecutionBudget>;
 }
@@ -31,8 +31,9 @@ function adapter(choice: AdapterChoice) {
     return { protocol: "acp" as const, command: "npx", args: ["-y", ACP_ADAPTERS[choice.adapter]], env: [] as string[] };
 }
 /** Versions measured on this computer, for tools a trusted-local check may use. */
-function hostTools() {
-    const probes = [{ name: "bun", probe: ["bun", "--version"] }, { name: "node", probe: ["node", "-p", "process.versions.node"] }];
+function hostTools(npm = false) {
+    // npm is probed only when it prepares dependencies, so other profiles keep their identity.
+    const probes = [{ name: "bun", probe: ["bun", "--version"] }, { name: "node", probe: ["node", "-p", "process.versions.node"] }, ...(npm ? [{ name: "npm", probe: ["npm", "--version"] }] : [])];
     return probes.flatMap(tool => {
         if (!Bun.which(tool.probe[0]!)) return [];
         const result = Bun.spawnSync(tool.probe, { stdout: "pipe", stderr: "ignore", timeout: 10000 }), version = result.stdout.toString().trim();
@@ -120,11 +121,13 @@ export async function inspectDelegationProfile(root: string, repoPath: string, s
         throw new EngineError(`Name what the worker may change with --writable PATH, once per path${selection.writable ? "" : " (this repository has no src, app or lib folder to propose)"}. Setup never widens scope to the whole repository.${candidates.length ? ` Tracked here: ${candidates.join(", ")}.` : ""}`, 2, "wring setup --help");
     }
     for (const path of writable) if (!files.some(file => file === path || file.startsWith(path + "/"))) throw new Error(`Writable path ${path} is absent from committed source; prepare it explicitly first`);
-    const outputs = selection.outputDirectories ?? (selection.dependencies === "bun-frozen" ? ["node_modules"] : []);
+    const outputs = selection.outputDirectories ?? (["bun-frozen", "npm-ci"].includes(selection.dependencies) ? ["node_modules"] : []);
     if (outputs.some(path => files.some(file => file === path || file.startsWith(path + "/")))) throw new Error("Output directories must be empty/untracked and separate from delivered source");
     const scope = parseWorkerScope({ writable, protected: protectedPaths, writableDirectories: outputs });
-    if (!["none", "bun-frozen"].includes(selection.dependencies)) throw new Error("Select dependency preparation explicitly");
+    if (!["none", "bun-frozen", "npm-ci"].includes(selection.dependencies)) throw new Error("Select dependency preparation explicitly: --dependencies none, bun-frozen or npm-ci");
     if (selection.dependencies === "bun-frozen" && (!tracked.has("bun.lock") || !outputs.includes("node_modules"))) throw new Error("Frozen Bun preparation needs a committed bun.lock and an explicitly writable node_modules directory");
+    // npm ci installs exactly the committed lockfile and fails rather than change it; scripts never run.
+    if (selection.dependencies === "npm-ci" && (!(tracked.has("package-lock.json") || tracked.has("npm-shrinkwrap.json")) || !outputs.includes("node_modules"))) throw new EngineError("npm preparation needs a committed package-lock.json (or npm-shrinkwrap.json) and an explicitly writable node_modules directory. Commit the lockfile npm install wrote, or choose --dependencies none.", 2, "npm install --package-lock-only, then commit package-lock.json");
     let packageRequirements: unknown = null;
     if (tracked.has("package.json")) {
         const bytes = await readFile(join(repo, "package.json")); if (bytes.length > 1024 ** 2) throw new Error("Project package manifest exceeds its inspection bound");
@@ -145,17 +148,17 @@ export async function inspectDelegationProfile(root: string, repoPath: string, s
         if (readiness?.report.runtime?.kind !== "gvisor-kubernetes" || readiness.report.runtime.context !== provision.context || readiness.report.runtime.namespace !== provision.namespace || readiness.report.runtime.runtimeClass !== provision.runtimeClass) throw new Error("Runtime readiness was measured in another cluster boundary");
     }
     const runtime = trustedLocal ? parseRuntimePolicy({ kind: "trusted-local", network: { policy: "unenforced" }, env }) : parseRuntimePolicy({ ...runtimeSelection, image: provision!.image, cpus: 2, memoryMiB: 2048, network: selection.network, env });
-    const tools = trustedLocal ? hostTools() : [{ name: "bun", version: inventory.bun, probe: ["bun", "--version"] }, { name: "node", version: inventory.node, probe: ["node", "-p", "process.versions.node"] }];
+    const tools = trustedLocal ? hostTools(selection.dependencies === "npm-ci") : [{ name: "bun", version: inventory.bun, probe: ["bun", "--version"] }, { name: "node", version: inventory.node, probe: ["node", "-p", "process.versions.node"] }];
     const budget = { ...ceilings, ...selection.budget };
     for (const [key, value] of Object.entries(budget)) if (!(key in ceilings) || value > ceilings[key as keyof ExecutionBudget]) throw new Error("Requested budgets exceed this catalogue's finite ceilings");
     const intent = criteria.map(row => row.quote).join("\n");
-    const plan = compileDeclaration({ version: trustedLocal ? 5 : selection.source.kind === "local" ? 4 : 3, name: "Reviewed repository check profile", intent, repository: { url, commit: source.head_sha }, runtime, agents, environment: { context: ["README.md", "package.json"].filter(path => tracked.has(path)), tools, setup: selection.dependencies === "bun-frozen" ? [{ id: "dependencies", argv: ["bun", "install", "--frozen-lockfile", "--ignore-scripts"], cwd: ".", timeout_seconds: 300 }] : [], baseline: [], writable_directories: outputs }, scope: { writable: scope.writable }, acceptance: { criteria, checks, protected_paths: protectedPaths }, budget, loop: { repeatCandidate: "stop", repeatedOutcomeWarning: 2 } });
+    const plan = compileDeclaration({ version: trustedLocal ? 5 : selection.source.kind === "local" ? 4 : 3, name: "Reviewed repository check profile", intent, repository: { url, commit: source.head_sha }, runtime, agents, environment: { context: ["README.md", "package.json"].filter(path => tracked.has(path)), tools, setup: selection.dependencies === "bun-frozen" ? [{ id: "dependencies", argv: ["bun", "install", "--frozen-lockfile", "--ignore-scripts"], cwd: ".", timeout_seconds: 300 }] : selection.dependencies === "npm-ci" ? [{ id: "dependencies", argv: ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"], cwd: ".", timeout_seconds: 900 }] : [], baseline: [], writable_directories: outputs }, scope: { writable: scope.writable }, acceptance: { criteria, checks, protected_paths: protectedPaths }, budget, loop: { repeatCandidate: "stop", repeatedOutcomeWarning: 2 } });
     const after = await safeWorkspaceSnapshot(repo);
     if (after.fingerprint !== source.fingerprint || after.head_sha !== source.head_sha || after.dirty) throw new Error("Source changed during setup inspection; review a fresh proposal");
     if (prepared && (await safeWorkspaceSnapshot(originalRepo)).fingerprint !== originalSource.fingerprint) throw new Error("Original source changed during prepared profile inspection");
     const safe = new Redactor(); if (safe.scrub(JSON.stringify({ plan, packageRequirements })) !== JSON.stringify({ plan, packageRequirements })) throw new Error("A detected credential was refused from the setup proposal");
     const identity = hashValue({ repo: originalRepo, selection, plan });
-    return { schema_version: "wringer.delegation-profile-preview.v1", identity, repo: originalRepo, sourceRepo: repo, selection, plan, packageRequirements, source: { commit: source.head_sha, fingerprint: source.fingerprint, transport: selection.source.kind, bundleLimitBytes: 64 * 1024 ** 2, remoteCommitAvailable: "unmeasured" }, authority: "none", readiness: trustedLocal ? { hostTools: "observed on this computer", containment: "none: trusted-local runs on this computer under the operator's account", providerAcceptance: "unmeasured" } : { imageInventory: "observed", containment: readiness ? "measured-with-stated-limits" : "unmeasured", providerAcceptance: "unmeasured" }, eligibility: { productAcceptance: "needs-job-requirements" }, limits: ["This reusable profile records existing check behavior, not proof of a new product requirement. A job needs original words, requirement/check mappings and supported human displays before approval.", "Declared check inputs are measured; transitive dependencies are not inferred from script names. Review this coverage.", trustedLocal ? "No source bundle, setup command, check, key retrieval or model prompt occurred. Tool versions were read by running bun --version and node on this computer; no repository code ran." : "No source bundle, setup command, check, key retrieval, runtime allocation or model prompt occurred.", "Acceptance and policy paths plus their parents remain read-only. New tests go in a commit of their own before the job, or through --prepare-acceptance."] };
+    return { schema_version: "wringer.delegation-profile-preview.v1", identity, repo: originalRepo, sourceRepo: repo, selection, plan, packageRequirements, source: { commit: source.head_sha, fingerprint: source.fingerprint, transport: selection.source.kind, bundleLimitBytes: 64 * 1024 ** 2, remoteCommitAvailable: "unmeasured" }, authority: "none", readiness: trustedLocal ? { hostTools: "observed on this computer", containment: "none: trusted-local runs on this computer under the operator's account", providerAcceptance: "unmeasured" } : { imageInventory: "observed", containment: readiness ? "measured-with-stated-limits" : "unmeasured", providerAcceptance: "unmeasured" }, eligibility: { productAcceptance: "needs-job-requirements" }, limits: ["This reusable profile records existing check behavior, not proof of a new product requirement. A job needs original words, requirement/check mappings and supported human displays before approval.", "Declared check inputs are measured; transitive dependencies are not inferred from script names. Review this coverage.", trustedLocal ? `No source bundle, setup command, check, key retrieval or model prompt occurred. Tool versions were read by running bun --version and node${selection.dependencies === "npm-ci" ? " and npm --version" : ""} on this computer; no repository code ran.` : "No source bundle, setup command, check, key retrieval, runtime allocation or model prompt occurred.", "Acceptance and policy paths plus their parents remain read-only. New tests go in a commit of their own before the job, or through --prepare-acceptance."] };
 }
 type Preview = Awaited<ReturnType<typeof inspectDelegationProfile>>;
 /** Explicit setup only: source transport is Git objects, never a checkout or

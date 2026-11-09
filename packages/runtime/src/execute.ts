@@ -87,7 +87,9 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
                 "set -eu", `cd ${quote(REPO)}`, `${git} fsck --no-reflogs >/dev/null`,
                 `${git} add -u -- . ${excludeOutputs}`,
                 "capture_paths=$(mktemp)", "trap 'rm -f -- \"$capture_paths\"' EXIT",
-                `${git} ls-files --cached --others --exclude-standard -z -- . ${excludeOutputs} > "$capture_paths"`,
+                // Only new, unignored files: add -u staged the tracked ones, and Git refuses add -A on a
+                // tracked file inside an ignored folder.
+                `${git} ls-files --others --exclude-standard -z -- . ${excludeOutputs} > "$capture_paths"`,
                 `if test -s "$capture_paths"; then ${git} --literal-pathspecs add -A --pathspec-from-file="$capture_paths" --pathspec-file-nul; fi`,
                 `${git} diff --cached --no-ext-diff --no-textconv --binary --full-index ${quote(request.repo.commit)} --`,
             ].join("; ")]);

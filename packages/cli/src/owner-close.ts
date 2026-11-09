@@ -8,6 +8,16 @@ import { assistantId, assistantInventory, delegationJobStatus, readDelegationJob
  * same stop as Ctrl-C on `wring job serve`, refused while a job of the workspace still works. */
 type Workspace = { id: string; mode: string };
 type Working = { jobId: string; state: "accepted" | "running" | "uncertain" };
+/** A live or uncertain operation is the owner's to finish; anything else is records the owner only shows. */
+const LIVE_OPERATIONS = ["accepted", "running", "cancel-requested", "uncertain"];
+/** Whether a delegation job holds its owner open. ZenJev, 2026-11-09: a step left uncertain after its
+ * operation completed kept every owner from closing, and recovery could not settle it. Only a live or
+ * uncertain operation holds the owner; a recorded uncertain step stays exactly as it is. */
+export function ownerHeldBy(status: { outcome: string; operationStates?: { status: string }[] }): Working["state"] | null {
+    const live = (status.operationStates ?? []).filter(operation => LIVE_OPERATIONS.includes(operation.status));
+    if (live.some(operation => operation.status === "uncertain")) return "uncertain";
+    return live.length || status.outcome === "accepted" || status.outcome === "running" ? (status.outcome === "accepted" ? "accepted" : "running") : null;
+}
 
 /** The command line of a live process, or null when it cannot be read. */
 export function processCommand(pid: number): string | null {
@@ -27,8 +37,11 @@ async function workingJobs(root: string, workspace: Workspace): Promise<Working[
             const job = await readDelegationJob(root, name.slice(0, -5));
             if (job.workspaceId !== workspace.id) continue;
             const status = await delegationJobStatus(root, job.id);
-            if (status.uncertainty) working.push({ jobId: job.id, state: "uncertain" });
-            else if (status.outcome === "accepted" || status.outcome === "running") working.push({ jobId: job.id, state: status.outcome });
+            // ZenJev, 2026-11-09: a step left uncertain after its operation completed kept every
+            // owner from closing, and recovery could not settle it. Only a live or uncertain
+            // operation holds the owner; a recorded uncertain step stays exactly as it is.
+            const held = ownerHeldBy(status);
+            if (held) working.push({ jobId: job.id, state: held });
         }
     } else {
         for (const name of await assistantInventory(root, "verification-jobs")) {

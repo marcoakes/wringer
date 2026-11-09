@@ -207,3 +207,31 @@ test("a worker that cannot start: the assistant is told to retry with wringer.co
     expect((await flow.read(proposed.jobId)).stop).toBeUndefined();
     await flow.stop();
 }, 120000);
+
+test("a worker whose change Git cannot keep is a known stop the assistant retries, not an uncertain effect", async () => {
+    // ZenJev, 2026-11-09: capture failed after a completed, charged session; the effect became uncertain,
+    // and nothing could retry it, recover it or close its owner.
+    const f = await fixture(scratch => ["worker-unstageable-once", join(scratch, "unstageable-once")]);
+    const flow = createAssistantJobFlow(f.service, { autoAdvance: false });
+    f.service.setPresentation(async jobId => { const shown = await flow.read(jobId); return { phase: shown.phase, nextAction: shown.nextAction, eventId: shown.readyRevision, observedRevision: shown.revision, observedCandidateTree: shown.candidateTree, pageUrl: `http://127.0.0.1:1/?jobId=${jobId}` }; });
+    const protocol = createDelegationProtocol(f.service), status = async (jobId: string) => validateDelegationOutput("wringer.get_status", await protocol.call(f.capability.token, "wringer.get_status", { jobId })) as any;
+    const proposed = await f.call("propose", { workspaceId: f.workspace.id, idempotencyKey: crypto.randomUUID(), intent: f.plan.intent, plan: f.plan });
+    const approval = await f.call("get_approval_request", { jobId: proposed.jobId });
+    await approveAssistantProposal(f.root, { jobId: proposed.jobId, expectedRevision: approval.revision, actor: "Scripted engineering fixture (not a human verdict)", expiresAt: new Date(Date.now() + 600000).toISOString(), confirmExecution: true });
+    const settled = async (id: string) => { for (let n = 0; n < 1200; n++) { const operation = await f.service.runner.read(id); if (["completed", "failed", "uncertain"].includes(operation.status)) return operation; await Bun.sleep(50); } throw new Error("Operation did not settle"); };
+    const guard = (view: any) => ({ jobId: proposed.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: view.revision, expectedCandidateIdentity: view.candidateIdentity });
+    const begin = guard(await status(proposed.jobId));
+    expect(["accepted", "running"]).toContain((await protocol.call(f.capability.token, "wringer.start", begin)).outcome);
+    await f.service.runner.start(); await settled(begin.idempotencyKey);
+    const stopped = await status(proposed.jobId);
+    expect(stopped.uncertainty).toBe(false);
+    expect(stopped.nextAction.code).toBe("continue"); expect(stopped.nextAction.actor).toBe("assistant");
+    expect(stopped.nextAction.reason).toContain("The worker finished, but Wringer could not keep its change");
+    expect(stopped.nextAction.reason).toContain("unreadable.txt");
+    expect(validatePmJob(await flow.read(proposed.jobId)).stop?.by).toBe("assistant");
+    const retry = { ...guard(stopped), action: "retry-stopped" };
+    expect(["accepted", "running"]).toContain((await protocol.call(f.capability.token, "wringer.continue", retry)).outcome);
+    await settled(retry.idempotencyKey);
+    expect((await status(proposed.jobId)).outcome).toBe("review-ready");
+    await flow.stop();
+}, 120000);

@@ -126,15 +126,27 @@ export async function executeTrustedLocalRole(request: RoleExecutionRequest, pol
         const snapshot = async () => {
             const excluded = (request.scope?.writableDirectories ?? []).map(path => `:(exclude,literal)${path}`);
             await git(workspace.repo, ["add", "-u", "--", ".", ...excluded]);
-            const paths = await git(workspace.repo, ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ".", ...excluded]);
+            // Only new, unignored files go to add -A: add -u has staged every tracked change, and
+            // Git refuses add -A on a tracked file inside an ignored folder (ZenJev, 2026-11-09).
+            const paths = await git(workspace.repo, ["ls-files", "--others", "--exclude-standard", "-z", "--", ".", ...excluded]);
             if (paths) await git(workspace.repo, ["--literal-pathspecs", "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"], 120000, paths);
             return git(workspace.repo, ["diff", "--cached", "--no-ext-diff", "--no-textconv", "--binary", "--full-index", request.repo.commit, "--"]);
         };
         if (!input.probeOnly && request.role === "worker" && turn.status !== "completed" && turn.authentication.sessionOpened)
             result.stoppedEdits = await keepStoppedEdits(request.repo.commit, async () => ({ patch: await snapshot(), paths: namesFromGit(await git(workspace.repo, ["diff", "--cached", "--name-only", "-z", request.repo.commit, "--"])) }), input.redact);
         if (!input.probeOnly && request.role === "worker" && turn.status === "completed" && turn.authentication.sessionOpened) {
-            const patch = await snapshot();
-            if (input.redact(patch) !== patch) throw new RuntimeError("Worker patch contains a credential; publication refused instead of silently changing product bytes", "secret-in-change");
+            let patch: string;
+            try { patch = await snapshot(); }
+            catch (error) {
+                // ZenJev, 2026-11-09: a completed, charged session whose change Git would not stage
+                // became an "uncertain" effect that nothing could retry, recover or close. The agent's
+                // process group has already ended, so this is known: its edits are gone, and the step
+                // can be retried like any stopped one.
+                if (!(error instanceof RuntimeError) || error.code !== "workspace-git-failed") throw error;
+                return { ...result, status: "failed", stopReason: "change-capture-failed", events: [...result.events, { type: "runtime.change-capture-failed", message: input.redact(error.message).slice(0, 2000) }] };
+            }
+            // Refused, not uncertain: the session ended, and its change is withheld rather than kept.
+            if (input.redact(patch) !== patch) return { ...result, status: "failed", stopReason: "change-refused-credential", events: [...result.events, { type: "runtime.change-capture-failed", message: "The change contains text that looks like a credential, so it was not kept. Remove the credential from the request or the repository's inputs before retrying." }] };
             result.change = { baseCommit: request.repo.commit, patch, sha256: digest(patch) };
         }
         return result;

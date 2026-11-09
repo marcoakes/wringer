@@ -300,7 +300,12 @@ export async function queueWorkspaceCommand(stateDirectory: string, input: unkno
             // including native optional fields omitted by JSON serialization.
             const retainedResult = JSON.parse(JSON.stringify(clean.deep(result) ?? null));
             outcome = { commandId: command.idempotencyKey, status: "completed", result: retainedResult };
-        } catch (error) { outcome = { commandId: command.idempotencyKey, status: began ? "uncertain" : "failed", error: clean.scrub(error instanceof Error ? error.message : String(error)) }; }
+        } catch (error) {
+            // Preparing a handover builds records on this computer and sends nothing, so a refusal there
+            // is a failure to retry, not an uncertain effect. ZenJev, 2026-11-09: a source-history review
+            // stop left the preparation uncertain, and the page could no longer offer to prepare again.
+            outcome = { commandId: command.idempotencyKey, status: began && command.action !== "prepare-delivery" ? "uncertain" : "failed", error: clean.scrub(error instanceof Error ? error.message : String(error)) };
+        }
         const body = { schema_version: "wringer.workspace-command-result.v2", requestSha256: hashValue(command), at: new Date().toISOString(), ...outcome };
         await immutableControllerFile(await safePath(state, join(directory, "result.json")), { ...body, sha256: hashValue(body) });
         await releaseOwner(state, owner);

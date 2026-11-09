@@ -11,7 +11,7 @@ import { callAssistantConnection } from "../src/assistant-transport";
 import { applyClientConnection, previewClientConnection, type ClientSelection } from "../src/client-adapters";
 import { createDelegationOwner } from "../src/delegation-owner";
 import { installedLauncher } from "../src/adoption-cli";
-import { closeOwner } from "../src/owner-close";
+import { closeOwner, ownerHeldBy } from "../src/owner-close";
 import { dispatch } from "../src/app";
 
 const cleanup: (() => Promise<unknown>)[] = [];
@@ -116,3 +116,13 @@ test("removing a connection removes what connect made, keeps the rest, and says 
     expect(await present(join(home, ".agents/skills/wringer"))).toBe(false);
     expect(await Bun.file(join(home, ".agents/skills/another/SKILL.md")).exists()).toBe(true);
 }, 30000);
+
+test("only a live or uncertain operation holds an owner open, not a recorded uncertain step (alpha.45)", () => {
+    // ZenJev, 2026-11-09: the operation had completed, one step was recorded uncertain, and close refused forever.
+    expect(ownerHeldBy({ outcome: "stopped", operationStates: [{ status: "completed" }] })).toBeNull();
+    expect(ownerHeldBy({ outcome: "stopped", operationStates: [] })).toBeNull();
+    expect(ownerHeldBy({ outcome: "stopped", operationStates: [{ status: "completed" }, { status: "uncertain" }] })).toBe("uncertain");
+    expect(ownerHeldBy({ outcome: "stopped", operationStates: [{ status: "running" }] })).toBe("running");
+    expect(ownerHeldBy({ outcome: "running", operationStates: [] })).toBe("running");
+    expect(ownerHeldBy({ outcome: "accepted" })).toBe("accepted");
+});

@@ -11,7 +11,7 @@ afterEach(async () => {
     for (const root of scratch.splice(0))
         await rm(root, { recursive: true, force: true });
 });
-async function fixture() {
+async function fixture(prepare?: (repo: string) => Promise<void>) {
     const root = await mkdtemp(join(tmpdir(), "wringer-delivery-test-"));
     scratch.push(root);
     const repo = join(root, "work"), origin = join(root, "origin.git");
@@ -26,6 +26,7 @@ async function fixture() {
     await writeFile(join(repo, "check.mjs"), "import {enabled} from './product.js'; import assert from 'node:assert/strict'; assert.equal(enabled(), true, 'feature must be enabled');\n");
     await writeFile(join(repo, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "enabled", run: "node check.mjs", proves: "enabled" }], deliver: { base: "main", remote: "origin" } }));
     await writeFile(join(repo, "wringer.spec.yaml"), JSON.stringify({ schema_version: "wringer.spec.v1", approved: true, title: "An enabled feature", intent: "Enable the feature.", criteria: [{ id: "enabled", title: "Feature is enabled", required: true, human: false }], open_questions: [], tasks: [{ id: "enable", brief: "brief.md", objective: "Enable the feature" }], gates: [] }));
+    await prepare?.(repo);
     await git(repo, ["add", "."]);
     await git(repo, ["commit", "-m", "red baseline"]);
     await git(repo, ["remote", "add", "origin", origin]);
@@ -54,6 +55,16 @@ test("dry delivery carries every red receipt and leaves index, checkout and refs
     const report = await audit(repo, result.delivery_id);
     expect(report.uncheckable).toBe(1);
     expect(report.failed).toBe(0);
+}, 20000);
+test("a repository that tracks a file inside an ignored folder still prepares its delivery", async () => {
+    // ZenJev, 2026-11-09: Git refuses add --all on a tracked file inside an ignored folder.
+    const { repo } = await fixture(async repo => {
+        await writeFile(join(repo, ".gitignore"), ".wringer/\nwork/\n"); await mkdir(join(repo, "evidence/run/work"), { recursive: true });
+        await writeFile(join(repo, "evidence/run/work/ci.log"), "kept\n"); await git(repo, ["add", "-f", "evidence/run/work/ci.log"]);
+    });
+    const result = await deliver(repo);
+    expect(result.mode).toBe("dry_run");
+    expect((await audit(repo, result.delivery_id)).failed).toBe(0);
 }, 20000);
 test.each(["fingerprint", "tree", "remoteURL", "baseCommit"] as const)("T10 Send refuses changed prepared %s before creating a branch", async key => {
         const { repo, origin } = await fixture(), prepared = await deliver(repo), anchor = await json(join(prepared.directory, "anchor.json"));

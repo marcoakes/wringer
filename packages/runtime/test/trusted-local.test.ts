@@ -16,12 +16,13 @@ function git(cwd: string, ...args: string[]) {
     if (result.exitCode) throw new Error(result.stderr.toString());
     return result.stdout.toString().trim();
 }
-async function repository() {
+async function repository(prepare?: (repo: string) => Promise<void>) {
     const root = await mkdtemp(join(tmpdir(), "wringer-tl-test-")); directories.push(root);
     const repo = join(root, "source"); await mkdir(join(repo, "src"), { recursive: true });
     git(root, "init", "--initial-branch=main", repo);
     await writeFile(join(repo, "src/value.js"), "export const expected = false;\n");
     await writeFile(join(repo, "check.sh"), "test \"$(sed -n '1p' src/value.js)\" = 'export const expected = true;'\n");
+    await prepare?.(repo);
     git(repo, "add", "."); git(repo, "commit", "-m", "Fixture baseline");
     const commit = git(repo, "rev-parse", "HEAD"), bundlePath = join(root, "source.bundle");
     git(repo, "bundle", "create", bundlePath, "HEAD", "main");
@@ -54,6 +55,27 @@ test("a worker runs in a fresh clone on this computer; its change is captured an
     expect(p.image).toBeUndefined(); expect(p.clonedInside).toBeUndefined();
     // The temporary clone's location is never recorded (the agent's own command path may be anywhere).
     expect(JSON.stringify(p)).not.toContain(report.cwd); expect(JSON.stringify(p)).not.toContain(report.cwd.split("/").at(-2));
+});
+test("a repository that tracks a file inside an ignored folder still has its worker's change captured", async () => {
+    // ZenJev, 2026-11-09: evidence/ci/*/work/ is ignored but tracked, and capture's git add -A refused it.
+    const fixture = await repository(async repo => {
+        await writeFile(join(repo, ".gitignore"), "work/\n"); await mkdir(join(repo, "evidence/run/work"), { recursive: true });
+        await writeFile(join(repo, "evidence/run/work/ci.log"), "kept\n"); git(repo, "add", "-f", ".gitignore", "evidence/run/work/ci.log");
+    });
+    const result = await executeAgentRole(request(fixture.source));
+    expect(result.status).toBe("completed");
+    expect(result.change!.patch).toContain("+export const expected = true;");
+    expect(result.change!.patch).toContain("NEW_FILE.md");
+    expect(result.change!.patch).not.toContain("evidence/run/work");
+});
+test("a completed worker whose change looks like it holds a credential stops, known, with nothing kept", async () => {
+    // Before alpha.45 this threw after the paid turn, and the effect became uncertain: nothing could retry it.
+    const fixture = await repository();
+    const result = await executeAgentRole(request(fixture.source, "worker", stoppingWorker(["--secret-edit"])));
+    expect(result.status).toBe("failed"); expect(result.stopReason).toBe("change-refused-credential");
+    expect(result.change).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("fixturefixture");
+    expect(result.events.some((event: any) => event.type === "runtime.change-capture-failed" && /looks like a credential/.test(event.message))).toBeTrue();
 });
 test("a trusted-local record matches only a trusted-local runtime, and only when it says nothing was contained", async () => {
     const fixture = await repository();

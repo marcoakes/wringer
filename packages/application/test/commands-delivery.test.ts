@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createExecutionAuthority } from "@wringer/plan";
 import { deliverContained } from "@wringer/delivery";
 import { controllerStatus, resumeController, reviewControllerCandidate } from "../src/controller";
-import { latestWorkspacePublication, queueWorkspaceCommand } from "../src/commands";
+import { latestWorkspacePublication, queueWorkspaceCommand, readWorkspaceCommand } from "../src/commands";
 import { readPmWorkspace } from "../../cli/src/workspace";
 
 // Real controller, bare Git publication and offline audit. The existing fixture
@@ -49,5 +49,32 @@ test("a direct delivery through the shared domain appears on the workspace witho
         await expect(queueWorkspaceCommand(state, { ...guard, idempotencyKey: crypto.randomUUID(), action: "prepare-delivery", payload: publication })).rejects.toThrow("already been sent");
         await expect(queueWorkspaceCommand(state, { ...guard, idempotencyKey: crypto.randomUUID(), action: "publish", payload: { preparedId: crypto.randomUUID() } })).rejects.toThrow("already been sent");
         expect(await latestWorkspacePublication(state)).toEqual(observed);
+    } finally { await rm(directory, { recursive: true, force: true }); }
+}, 90000);
+
+test("a refused handover preparation is recorded as a failure to retry, not uncertain (alpha.45)", async () => {
+    // ZenJev, 2026-11-09: a source-history review stop during preparation was recorded uncertain, and the
+    // page could no longer offer to prepare again. Preparation sends nothing.
+    const directory = await realpath(await mkdtemp(join(tmpdir(), "wringer-command-refusal-"))), state = join(directory, "state"), driver = fileURLToPath(new URL("../../../scripts/fixtures/contained-driver.ts", import.meta.url));
+    const fixture = async (action: string) => {
+        const child = Bun.spawn([process.execPath, driver, action, directory], { stdout: "pipe", stderr: "pipe" });
+        const [out, err, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+        if (code !== 0) throw new Error(`Synthetic fixture ${action} failed: ${err}`);
+        return JSON.parse(out);
+    };
+    try {
+        await fixture("prepare");
+        const plan = JSON.parse(await readFile(join(directory, "plan.canonical.json"), "utf8"));
+        await writeFile(join(directory, "authority.json"), JSON.stringify(createExecutionAuthority(plan, { actor: "Fixture reviewer", actions: ["build", "verify", "judge"], expiresAt: new Date(Date.now() + 3600000).toISOString() })));
+        await fixture("run"); await fixture("display");
+        const display = JSON.parse(await readFile(join(directory, "display.json"), "utf8")), before = await controllerStatus(state);
+        await reviewControllerCandidate(state, { criterionId: "readable", displayId: display.id, verdict: "met", by: "Fixture reviewer", note: "I reviewed this synthetic display and its expected value is readable.", expectedRevision: before.revision, expectedCandidateTree: before.candidateTree });
+        await resumeController(state, { executeRole: async () => { throw new Error("No further agent should run"); }, runCommands: async () => { throw new Error("No repeated verification should run"); } });
+        const ready = await controllerStatus(state), guard = { expectedRevision: ready.revision, expectedCandidateTree: ready.candidateTree };
+        const refuse = { execute: async () => { throw new Error("Source history needs review"); } };
+        const publication = { remote: join(directory, "origin.git"), sourceBranch: "review/refused", targetBranch: "main" };
+        const settle = async (queued: Promise<any>) => { const { commandId } = await queued; for (let n = 0; n < 400; n++) { const read: any = await readWorkspaceCommand(state, commandId); if (read.status !== "running") return read; await Bun.sleep(25); } throw new Error("Command did not settle"); };
+        const prepared = await settle(queueWorkspaceCommand(state, { ...guard, idempotencyKey: crypto.randomUUID(), action: "prepare-delivery", payload: publication }, {}, refuse));
+        expect(prepared.status).toBe("failed"); expect(prepared.error).toContain("Source history needs review");
     } finally { await rm(directory, { recursive: true, force: true }); }
 }, 90000);

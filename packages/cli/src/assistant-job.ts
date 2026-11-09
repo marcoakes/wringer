@@ -200,7 +200,9 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         // --no-local streams a pack; a plain local clone copies loose objects that a detached gc may remove mid-copy.
         const publication = status.publication ? { ...status.publication, ...(destination && typeof destination.remote === "string" ? { cloneCommand: `git clone --no-local --branch ${quote(status.publication.sourceBranch)} -- ${quote(destination.remote)} 'reviewed-change'` } : {}) } : null;
         const stop = phase === "blocked" && !revisionAdvanced ? stopCard(status) : undefined;
-        const revision = status.revision, retryable = phase === "blocked" && !send && attempt < 3 && (failed?.status === "failed" || failedDisplay) && !status.uncertainty && !!approval && Date.parse(approval.authority.expires_at) > Date.now();
+        // Preparing a handover sends nothing, so preparing again is safe however the last attempt ended
+        // (ZenJev, 2026-11-09: a source-history stop left it uncertain, with no way to prepare again).
+        const revision = status.revision, retryable = phase === "blocked" && !send && attempt < 3 && (failed?.status === "failed" || failed === preparation && preparation?.status === "uncertain" || failedDisplay) && !status.uncertainty && !!approval && Date.parse(approval.authority.expires_at) > Date.now();
         const readyRevision = hashValue({ jobId, revision, candidateTree: status.candidateTree, phase, attempt, displays: displays.map(d => ({ id: d.displayId, success: d.success })), preparedId: phase === "send" ? prepareId : null, publication });
         const trustedLocal = (p.plan ?? service.workspace.profile).runtime.kind === "trusted-local";
         const change = status.candidateTree && p.plan && ["review", "correction", "preparing", "send", "sent"].includes(phase) ? await changeOf(jobId, status.candidateTree, p.plan.repository.commit) : null;
@@ -212,7 +214,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
             }),
             budget: { sessions: p.plan?.budget.max_sessions ?? 0, wallSeconds: p.plan?.budget.wall_clock_seconds ?? 0, expiresAt: approval?.authority.expires_at ?? null }, actor: approval?.authority.actor ?? null,
             displays, destination: destination ? { remote: destination.remote, sourceBranch: destination.sourceBranch, targetBranch: destination.targetBranch } : null,
-            preparedId: phase === "send" ? prepareId : null, publication, nextAction: error ?? nextAction, error, ...(stop ? { stop } : {}), retryable, retryLabel: preparation?.status === "failed" ? "Retry handover preparation" : "Try showing the result again",
+            preparedId: phase === "send" ? prepareId : null, publication, nextAction: error ?? nextAction, error, ...(stop ? { stop } : {}), retryable, retryLabel: preparation && ["failed", "uncertain"].includes(preparation.status) ? "Retry handover preparation" : "Try showing the result again",
             limits: ["Cooperative-local preview: the recorded name is not proof of physical human presence.", "Only an actual click records a decision. An optional comment is retained only when the person supplied it.", "A changed result needs a fresh decision. Sending is separate from accepting, merging and deploying.", "Coding-app and managed development costs are unknown when not reported; session/time limits are not a cash ceiling.", ...(board?.limits ?? [])],
         }) as PmJob;
     }

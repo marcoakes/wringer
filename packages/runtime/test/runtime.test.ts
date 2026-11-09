@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { PassThrough } from "node:stream";
-import { mkdtemp, writeFile, readFile, mkdir, readdir, unlink, rmdir, symlink } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile, mkdir, readdir, unlink, rmdir, symlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runAcpTurn } from "@wringer/acp";
@@ -626,4 +626,28 @@ test("a command that finished alone returns at once, and a descendant it left ru
         catch { alive = false; }
     }
     expect(alive).toBe(false);
+});
+
+test("the contained capture keeps a worker's change in a repository that tracks a file inside an ignored folder", async () => {
+    // ZenJev, 2026-11-09: Git refuses add -A on a tracked file inside an ignored folder. The capture script
+    // the contained role runs is replayed here against a real local repository in place of /workspace/repo.
+    const root = await mkdtemp(join(tmpdir(), "wringer-contained-capture-")), repo = join(root, "repo");
+    try {
+        const cmd = async (args: string[]) => { const out = await processDriver.command(args); if (out.code !== 0) throw new Error(out.stderr); return out.stdout.trim(); };
+        await cmd(["git", "init", repo]); for (const [key, value] of [["user.name", "Fixture"], ["user.email", "fixture@example.invalid"], ["commit.gpgsign", "false"]]) await cmd(["git", "-C", repo, "config", key!, value!]);
+        await mkdir(join(repo, "src")); await mkdir(join(repo, "evidence/run/work"), { recursive: true });
+        await writeFile(join(repo, ".gitignore"), "work/\n"); await writeFile(join(repo, "src/value.txt"), "before\n"); await writeFile(join(repo, "evidence/run/work/ci.log"), "kept\n");
+        await cmd(["git", "-C", repo, "add", ".gitignore", "src/value.txt"]); await cmd(["git", "-C", repo, "add", "-f", "evidence/run/work/ci.log"]); await cmd(["git", "-C", repo, "commit", "-m", "baseline"]);
+        const baseCommit = await cmd(["git", "-C", repo, "rev-parse", "HEAD"]);
+        await writeFile(join(repo, "src/value.txt"), "after\n"); await writeFile(join(repo, "src/new.txt"), "new\n");
+        const fake = fakeDriver("");
+        await executeAgentRole({ ...request, repo: { ...source, commit: baseCommit } }, { driver: fake.driver });
+        const script = fake.calls.map(call => call.argv.at(-1) ?? "").find(text => text.includes("--pathspec-from-file") && text.includes("ls-files"))!;
+        expect(script).toBeDefined();
+        const local = script.replaceAll("'/workspace/repo'", `'${repo}'`).replace(/^set -eu; cd [^;]+; [^;]*fsck[^;]*;/, `set -eu; cd '${repo}';`);
+        const replay = await processDriver.command(["/bin/sh", "-c", local]);
+        expect(replay.stderr).not.toContain("ignored by one of your .gitignore files");
+        expect(replay.code).toBe(0);
+        expect(replay.stdout).toContain("+after"); expect(replay.stdout).toContain("src/new.txt"); expect(replay.stdout).not.toContain("evidence/run/work");
+    } finally { await rm(root, { recursive: true, force: true }); }
 });

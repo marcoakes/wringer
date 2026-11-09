@@ -115,9 +115,15 @@ export async function deliver(repo: string, options: DeliveryOptions = {}): Prom
         await git(repo, ["read-tree", before.head_sha], { env });
         // Passing an ignored directory in an exclusion pathspec makes some Git versions
         // fail add. Enumerate source paths instead; NUL framing also preserves odd names.
-        const stagePaths = (await git(repo, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], { env, raw: true })).split("\0").filter(path => path && path !== ".wringer" && !path.startsWith(".wringer/"));
-        if (stagePaths.length)
-            await git(repo, ["add", "--all", "--pathspec-from-file=-", "--pathspec-file-nul"], { env, input: [...new Set(stagePaths)].map(path => `:(literal)${path}\0`).join("") });
+        // Tracked paths are updated with add -u and only new, unignored ones get add --all: Git refuses
+        // add --all on a tracked file inside an ignored folder, which real repositories have.
+        const listed = async (args: string[]) => (await git(repo, ["ls-files", ...args, "-z"], { env, raw: true })).split("\0").filter(path => path && path !== ".wringer" && !path.startsWith(".wringer/"));
+        const pathspecs = (paths: string[]) => [...new Set(paths)].map(path => `:(literal)${path}\0`).join("");
+        const tracked = await listed(["--cached"]), created = await listed(["--others", "--exclude-standard"]);
+        if (tracked.length)
+            await git(repo, ["add", "-u", "--pathspec-from-file=-", "--pathspec-file-nul"], { env, input: pathspecs(tracked) });
+        if (created.length)
+            await git(repo, ["add", "--all", "--pathspec-from-file=-", "--pathspec-file-nul"], { env, input: pathspecs(created) });
         const tree = await git(repo, ["write-tree"], { env });
         if (options.expected && tree !== options.expected.tree) throw new Refusal("The prepared tree changed; prepare and review this handover again.", nextVerify, "prepared-tree-changed");
         if (tree === await git(repo, ["rev-parse", `${before.head_sha}^{tree}`]))

@@ -66,6 +66,11 @@ wring setup --repo /absolute/project --client claude-code --mode delegation \
   --source local --dependencies none --writable src --remote origin --base main --dry-run --json
 ```
 
+`--dependencies` says how each fresh clone gets the project's packages before its
+checks run: `none`, `bun-frozen` (a committed `bun.lock`) or `npm-ci` (a committed
+`package-lock.json`; runs `npm ci --ignore-scripts`, so install scripts never run).
+`node_modules` is then writable for setup and never part of the change.
+
 `--writable` names what the worker may change; repeat it for each path. `--remote`
 and `--base` name where a finished job can be sent; without them the work can be
 accepted but not sent. Review the profile it prints: the adapters, the checks, the

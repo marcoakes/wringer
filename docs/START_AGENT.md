@@ -16,7 +16,9 @@ wring setup --repo /absolute/project --client CLIENT --mode delegation \
   --source local --dependencies none --writable src --remote origin --base main --dry-run --json
 ```
 
-`--writable` names what the worker may change; repeat it for each path.
+`--dependencies` prepares packages in each fresh clone: `none`, `bun-frozen` or
+`npm-ci` (from a committed lockfile, install scripts off). `--writable` names what
+the worker may change; repeat it for each path.
 `--remote` and `--base` name where a finished job can be sent; without them the
 work can be accepted but not sent. For verification only, use
 `--mode verification`. Show the person what setup proposes and apply it only with

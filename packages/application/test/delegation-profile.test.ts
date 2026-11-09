@@ -126,3 +126,22 @@ test("R-1 a trusted-local profile names pinned ACP adapters, no provision or net
     const status = await (application as any).delegationJobStatus(f.app, job.id);
     expect(status.outcome).toBe("needs-decision"); expect(status.boundary).toEqual({ approval: "cooperative-local", execution: "trusted-local" });
 }, 30000);
+
+test("an npm project prepares its dependencies with npm ci from its committed lockfile, scripts off (npm-ci)", async () => {
+    // ZenJev, like most JavaScript repositories, installs with npm: none and bun-frozen left its checks without node_modules.
+    const f = await fixture(), selection = { runtime: "trusted-local", worker: { adapter: "claude-agent-acp" }, judge: { adapter: "claude-agent-acp" }, source: { kind: "local" }, dependencies: "npm-ci" };
+    const refused: any = await application.inspectDelegationProfile(f.app, f.repo, selection as any).then(() => new Error("Accepted"), error => error);
+    expect(refused.message).toContain("npm preparation needs a committed package-lock.json");
+    expect(refused.next_move).toBe("npm install --package-lock-only, then commit package-lock.json");
+    await writeFile(join(f.repo, "package-lock.json"), JSON.stringify({ name: "fixture", lockfileVersion: 3, requires: true, packages: { "": { name: "fixture" } } }, null, 2) + "\n");
+    await git(f.repo, ["add", "package-lock.json"]); await git(f.repo, ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "commit", "-m", "lockfile"]);
+    const preview = await application.inspectDelegationProfile(f.app, f.repo, selection as any);
+    expect(preview.plan.environment.setup).toEqual([{ id: "dependencies", argv: ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"], cwd: ".", timeout_seconds: 900 }]);
+    expect(preview.plan.environment.writable_directories).toEqual(["node_modules"]);
+    if (Bun.which("npm")) expect(preview.plan.environment.tools.map(tool => tool.name)).toContain("npm");
+    // Other profiles keep the tools they recorded: npm is probed only when it prepares dependencies.
+    const plain = await application.inspectDelegationProfile(f.app, f.repo, { ...selection, dependencies: "none" } as any);
+    expect(plain.plan.environment.tools.map(tool => tool.name)).not.toContain("npm");
+    expect(plain.plan.environment.setup).toEqual([]);
+    await expect(application.inspectDelegationProfile(f.app, f.repo, { ...selection, dependencies: "yarn" } as any)).rejects.toThrow("none, bun-frozen or npm-ci");
+});
