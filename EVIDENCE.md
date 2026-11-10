@@ -1,8 +1,28 @@
 # Current product evidence — 9 November 2026
 
 The current verified public release is
-[1.0.0-alpha.44](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.44),
-commit `f758b0f55636dbafc9564efc074e039276d88350`. It fixes what the 2026-11-09
+[1.0.0-alpha.45](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.45),
+commit `af53f93b8275fe1979ee31508d6c3f528095b3f1`. It fixes what the first real change
+through Wringer found ([its record](docs/adoption/evidence/alpha45/REAL_CHANGE_ZENJEV_2026-11-09.md)).
+On 9 November 2026 Wringer carried a real multi-file feature for the first time, on
+ZenJev, an npm repository, with live Claude worker and judge sessions. Claude ran it
+acting for Marc, and nothing was contained. The change, 4 files and +47 −4, was sent to
+a local bare origin and passed an audit from a fresh clone, and ZenJev's own lint,
+typecheck and 90 tests pass on it. Four stops on the way are fixed here:
+`--dependencies npm-ci`; capture and delivery that Git refused on tracked files inside
+ignored folders; a finished session whose change could not be kept, which had left the
+job stuck and `wring job close` refusing forever; and a handover preparation that could
+not be retried. Eleven guards, each undone alone, turned their tests red
+([record](docs/rebuild/evidence/alpha45-guards/reversions.json)). CI on the commit
+passed its ten test jobs and the DAC run on the first attempt, and each of the 19
+published releases, alpha.23 to alpha.44, upgraded on Linux and macOS 15
+([`ciHistory`](docs/adoption/evidence/alpha45/release.json)). All 14 public assets
+matched the clean source, both archives' signed provenance verified, public macOS
+extraction and installation passed 17/13 checks, and the published macOS binary still
+needs only macOS 13.0. Local `bun run check` passed 1582 tests (1 skipped). No job has
+run on the published alpha.45.
+
+[1.0.0-alpha.44](docs/adoption/evidence/alpha44/release.json) (commit `f758b0f`) fixed what the 2026-11-09
 end-to-end review found at the two doors, walked with no model, and adds no capability.
 A private-folder refusal names the folder and `chmod 700`. A project connection keeps
 its files out of `git status`. The MCP tool list fell from 166,286 to 17,542 compact
