@@ -145,3 +145,13 @@ test("a revised request stays one job under the ID job new printed; a stopped wo
     expect((await controller.destination(revised.jobId))?.sourceBranch).toBe(`wringer/job/${prepared.id}`);
     expect(await readFile(join(f.repo, "src/value.ts"), "utf8")).toBe("export const value = 1;\n");
 }, 120000);
+
+test("a file where the application directory should be is named and refused, not a raw EEXIST (alpha.47)", async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-alpha47-"))); cleanup.push(() => rm(root, { recursive: true, force: true }));
+    const repo = await repository(root), file = join(root, "not-a-directory"); await writeFile(file, "");
+    const preview: any = await dispatch([...setupArgs(file, repo), "--dry-run"]).catch(error => error);
+    const refused: any = preview instanceof Error ? preview : await dispatch([...setupArgs(file, repo), "--apply", "--expected", preview.value.identity, "--actor", "Automated fixture operator", "--cooperative-local"]).then(() => new Error("Setup applied"), error => error);
+    expect(refused.message).toContain(`${file} is not a directory`);
+    expect(refused.message).not.toContain("EEXIST");
+    expect(refused.next_move).not.toContain("chmod");
+}, 30000);

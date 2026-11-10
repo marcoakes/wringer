@@ -37,7 +37,9 @@ export async function readAssistantDirectory(root: string) {
 }
 export async function createAssistantDirectory(root: string) {
     const path = await assistantPath(root, ".");
-    await mkdir(path, { recursive: true, mode: 0o700 });
+    // A file where the directory should be is named and refused, not reported as a raw EEXIST.
+    try { await mkdir(path, { recursive: true, mode: 0o700 }); }
+    catch (error: any) { if (error?.code !== "EEXIST" && error?.code !== "ENOTDIR") throw error; throw privateDirectoryRefusal(path, await lstat(path)); }
     const info = await lstat(path);
     if (!info.isDirectory() || (info.mode & 0o077) !== 0 || info.uid !== process.getuid?.()) throw privateDirectoryRefusal(path, info);
     const parent = await open(dirname(path), "r"); try { await parent.sync(); } finally { await parent.close(); }

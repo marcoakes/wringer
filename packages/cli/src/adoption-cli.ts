@@ -281,7 +281,8 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         const value = await createVerificationJob(root, required(a, "workspace"), { intent: required(a, "intent"), ...(selection !== undefined ? { selection } : {}), repetitions: number(a, "repetitions", 3), runSeconds: number(a, "run-seconds", 300), elapsedSeconds: number(a, "elapsed-seconds", 3600), ...(parentJobId !== undefined ? { parentJobId } : {}), idempotencyKey: string(a, "idempotency-key", crypto.randomUUID())! });
         return { value, text: `Prepared unapproved verification job ${value.id}.\nOpen: wring job open --workspace ${value.workspaceId} --job ${value.id}` };
     }
-    if (verb === "improvements") { allowed(a, ["app-dir", "job"]); return { value: await inspectDelegationImprovements(root, assistantId(required(a, "job"))) }; }
+    // The job under the ID wring job new printed, read in its current revision (alpha.44's W7).
+    if (verb === "improvements") { allowed(a, ["app-dir", "job"]); const id = assistantId(required(a, "job")); return { value: await inspectDelegationImprovements(root, await assistantExists(root, `delegation-jobs/${id}.json`) ? (await delegationJobIdentity(root, id)).currentJobId : id) }; }
     if (verb === "loop") {
         allowed(a, ["app-dir", "job", "trajectory", "effect"]);
         if (string(a, "effect") !== undefined && !flag(a, "trajectory")) throw new Error("--effect selects one session's trajectory; add --trajectory");
