@@ -4,6 +4,33 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.46 — source review on the job page
+
+The first real change through Wringer stopped at source-history review on a fake key
+in the repository's own redaction test. Getting past it took an internal
+`wringer-drive` command, a controller path and a hand-written private JSON file in a
+separate folder, and every later job on that repository would stop the same way. The
+second real change, a CSV export an hour later with Codex as worker and Claude as judge
+([record](docs/adoption/evidence/alpha46/REAL_CHANGE_2_ZENJEV_2026-11-09.md)), cleared
+the same stop on the page in about 30 seconds.
+
+- **The job page lists each credential-shaped match** in the history the change would
+  send: its file and the kind of match, never the value. The person gives each match
+  their own reason and says whether they are the person or a coding agent acting for
+  them. One button records the decisions and prepares the handover again. There is no
+  approve-all, and a real credential is still a reason not to send.
+- **An exact earlier decision is offered again.** Decisions are kept per workspace in
+  the application directory, outside every job. A finding's ID is the hash of its
+  object, rule and matching bytes, so a later job whose history holds the same bytes
+  shows the earlier reason, who gave it and when, for the person to confirm. It is
+  never applied by itself.
+- `reviewContainedSource` accepts a direct batch and can name each finding's path;
+  `carriedSourceDecisions` reads earlier exact decisions. Configured secret values
+  stay non-overridable.
+- `docs/START_PM.md` says what to do at this stop.
+- 6 guards (`scripts/alpha46-guards.ts`), each undone alone, turned their tests red.
+- No schema changed. The page's `sourceReview` field is in a record that is not frozen.
+
 ## 1.0.0-alpha.45 — what the first real change found
 
 Wringer carried its first real multi-file feature on 9 November 2026: per-team routing

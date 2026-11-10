@@ -23,6 +23,13 @@ stops it and keeps your jobs.
 4. **Send separately:** review the exact prepared source and destination. Declining
    leaves it prepared. A successful branch push is not a hosted PR, merge or deploy.
 
+If Wringer finds text shaped like a key or token in the history it would send, it
+stops before Send and lists each match by file, never by value. Decide each one on
+the page: give your reason when it is a test value or an example, and Wringer
+prepares the handover again. If one is a real credential, do not send; remove it
+from the repository's history first. A later job that finds the same exact bytes
+shows your earlier reason for you to confirm.
+
 Reload and multiple tabs observe the same job. Use Stop if you want further work
 halted; an uncertain remote response must be reconciled before retry. If the owner
 is gone, follow [recovery](MIGRATION.md); never delete evidence to regain a button.
