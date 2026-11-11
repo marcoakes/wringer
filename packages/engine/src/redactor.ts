@@ -14,7 +14,10 @@ export class Redactor {
             // A URL-valued credential/metadata entry can include a sensitive
             // address or query. Its transport scheme alone is public syntax,
             // not a credential fragment shared by every repository URL.
-            const schemeLength = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.exec(value)?.[0].length ?? 0;
+            // A token's published type prefix is public syntax in the same way (alpha.47): a GitHub
+            // fine-grained token's "github" is not a fragment of it, or every record naming
+            // github.com, or a forge of kind "github", would read as holding a credential.
+            const schemeLength = /^(?:[A-Za-z][A-Za-z0-9+.-]*:\/\/|github_pat_|gh[pousr]_|gl(?:pat|dt|rt|ptt|ft|cbt|imt|oas|soat)-|sk-(?:proj-|ant-)?)/.exec(value)?.[0].length ?? 0;
             if (value.length >= 12)
                 for (let n = 6; n < Math.min(value.length, 512); n++) {
                     if (n > schemeLength) parts.add(value.slice(0, n));
