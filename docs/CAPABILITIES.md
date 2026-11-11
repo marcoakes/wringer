@@ -1,6 +1,6 @@
 # Capabilities and their evidence
 
-Updated for 1.0.0-alpha.46, 10 November 2026. Source implementation,
+Updated for 1.0.0-alpha.47, 11 November 2026. Source implementation,
 fixture coverage, live qualification and comparative benefit are separate facts.
 The [release notes](https://github.com/marcoakes/wringer/releases) identify the
 exact published commit and native artifact measurements.
@@ -10,6 +10,7 @@ exact published commit and native artifact measurements.
 | Bounded contained loops | Worker/check/judge/repair, repeat stops, outcome warnings and durable reservations | Fixtures establish controller behavior. Live convergence is task/model dependent and unmeasured here. |
 | First-class loop inspection | `wring job loop`, `wringer.inspect_loop`, job-page history from a shared validated reader | Observation supplies no execution or human authority. Published in alpha.24; exact release evidence is linked above. |
 | Portable evidence | Contained delivery v1–v4, offline audit/falsification, standalone verification sets; new export envelope and Node-only reader | The independent reader checks integrity. Wringer's audit validates carried semantics. Neither proves the author honest or reruns behavior. |
+| Evidence on the pull request | `wring setup … --forge github\|gitlab --forge-repo --forge-token-env`: a job's Send pushes the branch and opens a pull or merge request whose description is the delivery's `mr.md`; a missing token is refused before any push; Send again when only the request failed (alpha.47) | Fixture-proved against a local stand-in for GitHub. No request has been opened on GitHub or GitLab itself; GitLab's request path is covered by forge unit tests only. |
 | Prediction-gated playbook improvement | Fixed comparisons, bounded collection, development patterns, inert proposals, future-only adoption/rollback | Ordinary-job CLI/PM/MCP integration and future typed proposal selection are published in alpha.25. No general improvement percentage has been established. |
 | ACP / MCP | Agent lifecycle and restricted assistant tools | A protocol is not containment; end-to-end client journeys need separate live evidence. |
 | Apple Container / gVisor Kubernetes | Both execution adapters exist | Native operating-system binaries, sandbox backends and workflow durability are different dimensions. Live isolation claims require platform-specific measurements. |

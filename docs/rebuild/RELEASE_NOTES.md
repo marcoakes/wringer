@@ -1,40 +1,47 @@
-Wringer 1.0.0-alpha.46 moves source-history review onto the job page. Before sending, Wringer
-checks the history a change would carry for text shaped like a key or token. In the
-first real change, on 9 November 2026, it rightly stopped on a fake key in the
-repository's own redaction test. Getting past it took an internal command, a controller
-path and a hand-written private file, and every later job on that repository would
-stop the same way.
+Wringer 1.0.0-alpha.47 opens the pull request. Until now a finished job's Send pushed a
+branch and stopped there: someone still had to open the pull request and paste the
+evidence in. Now the evidence rides the pull request itself.
 
-**Decide on the page.** The job page lists each match by file and kind, never by value.
-Give each one your reason when it is a test value or an example, and say whether you
-are the person or a coding agent acting for them. One button records the decisions and
-prepares the handover again. There is no approve-all. If a match is a real credential,
-do not send: remove it from the history first.
+**Choose a forge at setup.** Add `--forge github --forge-repo OWNER/NAME
+--forge-token-env NAME` beside `--remote` and `--base` (or `--forge gitlab`, with
+`--forge-endpoint URL` for a self-hosted GitLab). The preview says what Send will open
+and which variable holds the token. Setup checks that the remote is that repository
+and refuses a mismatch before anything is kept.
 
-**Your earlier decision comes back.** Decisions are kept per workspace. When a later job
-finds the same exact bytes, the page shows your earlier reason, who gave it and when,
-for you to confirm. It is never applied by itself.
+**Send opens it.** The page's Send pushes the branch and opens a pull request (GitHub)
+or merge request (GitLab) whose description is the job's evidence, the delivery's
+`mr.md`. Wringer looks for an existing request first, and the page links the one it
+opened. An HTTPS remote is pushed with the same token.
 
-**Proved on a real change.** The second real change through Wringer, a CSV export for
-ZenJev's evaluation lab, had Codex as the worker and Claude as an independent judge from
-another vendor. It hit the same stop and cleared it on the page in about 30 seconds.
-It was then sent, passed an audit from a fresh clone, and passes ZenJev's own lint,
-typecheck and 94 tests.
-[The run's record](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.46/docs/adoption/evidence/alpha46/REAL_CHANGE_2_ZENJEV_2026-11-09.md).
-Claude ran it acting for Marc; no independent human approved or reviewed it.
+**The token is never kept.** Wringer reads it from the named variable at Send, in the
+terminal you ran `wring job open` from, and never stores or prints it. Without it,
+Send is refused before anything is pushed, and the page names the variable. If the
+branch went but the forge refused the request, for example a token that cannot open
+pull requests, fix that and Send again: nothing new is pushed and only one request is
+opened.
 
-**How it was tested.** Six guards were each undone alone in a scratch copy, and each
-turned its test red. No schema changed.
+**A fix for GitHub fine-grained tokens.** With a `github_pat_…` token in a variable
+whose name holds TOKEN, Wringer read the word "github" as part of a credential, so any
+record naming GitHub was refused. Token prefixes like `github_pat_` and `glpat-` are
+now treated as public, and the tokens themselves are still redacted.
 
-**Not measured:** a job on the published alpha.46; an earlier decision offered again
-in a live job. The second run's matches had no earlier page decisions to offer. A
-trusted-local delivery is still named `contained-…` in its records.
+**How it was tested.** A trusted-local job ran end to end against a local stand-in for
+GitHub, its SSH remote reaching a local bare repository. Its pull request's description
+was byte-for-byte the `mr.md` in a fresh clone of the pushed branch, that clone passed
+its audit, and the token appeared in no record. Twenty-two guards were each undone
+alone in a scratch copy, and each turned its test red. No published schema changed.
+
+**Not measured:** a pull or merge request opened on GitHub or GitLab itself. Every
+forge request in this release went to a local stand-in, and the HTTPS push credential
+was checked through Git's credential protocol, not against a live server. A job run on
+the published alpha.47. A trusted-local delivery is still named `contained-…` in its
+records.
 
 Native macOS arm64 and Linux x64 archives retain checksums, inventories, signed
 provenance and exact-artifact claim reports. GitHub publication does not itself
 publish an npm package, Homebrew tap or MCP registry listing. The documented
 cooperative-local operator boundary remains.
 
-[Review a Wringer job](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.46/docs/START_PM.md)
-· [The second real change](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.46/docs/adoption/evidence/alpha46/REAL_CHANGE_2_ZENJEV_2026-11-09.md)
-· [Previous release: what the first real change found](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.45)
+[Review a Wringer job](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.47/docs/START_PM.md)
+· [Set up a job for a coding agent](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.47/docs/START_AGENT.md)
+· [Previous release: source review on the job page](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.46)

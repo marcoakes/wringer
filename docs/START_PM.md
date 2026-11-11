@@ -21,7 +21,13 @@ stops it and keeps your jobs.
    exhausted work needs separate reviewed authority. Accept only the source you
    inspected; a stale tab cannot apply that decision to a later candidate.
 4. **Send separately:** review the exact prepared source and destination. Declining
-   leaves it prepared. A successful branch push is not a hosted PR, merge or deploy.
+   leaves it prepared. Without a forge, Send pushes a branch only. With one chosen
+   at setup, Send also opens a pull (GitHub) or merge (GitLab) request whose
+   description is the job's evidence, and the page links it. Neither is a merge or
+   deploy. Send needs the token variable the page names, set in the terminal you
+   ran `wring job open` from; without it nothing is pushed. If the branch went but
+   the request was refused (for example the token cannot open pull requests), fix
+   that and Send again: nothing new is pushed and only one request is opened.
 
 If Wringer finds text shaped like a key or token in the history it would send, it
 stops before Send and lists each match by file, never by value. Decide each one on

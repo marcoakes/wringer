@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.46
+Wringer · Bun/TypeScript · 1.0.0-alpha.47
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -213,6 +213,14 @@ Wringer workspace setup and retained jobs
       [--writable PATH] [--output-dir PATH] [--acceptance UUID] [--remote NAME --base BRANCH] --dry-run --json
       Trusted-local runs your coding agents on this computer under your account,
       each role in a fresh clone; nothing is contained and protected mode refuses it.
+  ... --remote NAME --base BRANCH --forge github|gitlab --forge-repo OWNER/NAME
+      --forge-token-env NAME [--forge-endpoint URL]
+      A delegation workspace's Send then also opens a pull (GitHub) or merge (GitLab)
+      request on that repository, its description the job's evidence. Send reads the
+      token from the named variable in the environment of wring job open; Wringer
+      never stores or prints it, and refuses Send before any push when it is missing.
+      An HTTPS remote is pushed with the same token. --forge-endpoint names a
+      self-hosted GitLab or GitHub Enterprise API; the kind's public API otherwise.
   wring setup --repo PATH --client CLIENT --mode delegation --provision UUID
       --worker-provider openai|anthropic --worker-model MODEL
       --judge-provider openai|anthropic --judge-model MODEL
@@ -307,7 +315,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.46
+Wringer assistant entry point — 1.0.0-alpha.47
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.

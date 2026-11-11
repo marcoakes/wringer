@@ -4,6 +4,46 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.47 — the evidence rides the pull request
+
+The narrowed product's promise is the evidence layer riding the PR, but a job's Send
+only pushed a branch: the person then opened a pull request by hand and pasted the
+evidence in, or did not.
+
+- **Setup chooses a forge for the destination.** `wring setup … --remote NAME --base
+  BRANCH --forge github|gitlab --forge-repo OWNER/NAME --forge-token-env NAME
+  [--forge-endpoint URL]`. The preview says what Send will open and which variable it
+  reads the token from, and whether that variable is set in this terminal (presence
+  only, never the value). Setup checks that the remote's URL is that repository, so a
+  mismatch, a missing remote or a URL holding a credential is refused before anything
+  is kept. A verification workspace sends a branch only and refuses `--forge`.
+- **Send opens the request, and the page links it.** Every new job of that workspace
+  carries the forge. Send pushes the branch and opens a pull (GitHub) or merge
+  (GitLab) request whose description is the delivery's `mr.md`, after looking for an
+  existing one; the handover panel links it. An HTTPS remote is pushed with the same
+  token, through a credential helper that answers only that host; delivery's Git reads
+  no global configuration, so an HTTPS push had no credential at all.
+- **A missing token stops Send before anything is pushed**, and names the variable:
+  at the page (before the click, and on it), at the recorded-command layer and in
+  delivery itself. Nothing is recorded, so the same Send works once the token is set.
+- **Send again when only the request failed.** If the branch went but the forge
+  refused the request (for example a token that cannot open pull requests), the page
+  says why and offers Send again: nothing new is pushed, the forge is searched before
+  a request is created, and Send stops being offered once it is open.
+- **A GitHub fine-grained token no longer poisons every record naming GitHub.** The
+  redactor treated a token's public `github_pat_` prefix as a fragment of it, so with
+  one in a `*TOKEN*` variable, "github" read as a credential everywhere (a forge
+  request intent was refused, a job's approval became unreadable). Published token
+  prefixes are now public syntax, as a URL scheme was; the token and its truncations
+  are still redacted.
+- Carried from `work/alpha47`: `--app-dir`/`WRINGER_HOME` naming a file is refused by
+  name, not as a raw `EEXIST`; `wring job improvements --job` reads the request's
+  current revision, now by its recorded supersessions only.
+- New sibling records `wringer.workspace.v3` and `wringer.delegation-context.v2` carry
+  the forge; a workspace or job without one keeps its v2/v1 bytes. No published
+  schema changed, so no upgrade is held.
+- 22 guards (`scripts/alpha47-guards.ts`), each undone alone, turned their tests red.
+
 ## 1.0.0-alpha.46 — source review on the job page
 
 The first real change through Wringer stopped at source-history review on a fake key

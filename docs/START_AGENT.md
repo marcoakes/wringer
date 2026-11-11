@@ -20,7 +20,13 @@ wring setup --repo /absolute/project --client CLIENT --mode delegation \
 `npm-ci` (from a committed lockfile, install scripts off). `--writable` names what
 the worker may change; repeat it for each path.
 `--remote` and `--base` name where a finished job can be sent; without them the
-work can be accepted but not sent. For verification only, use
+work can be accepted but not sent. To have Send also open a pull request whose
+description is the job's evidence, add `--forge github --forge-repo OWNER/NAME
+--forge-token-env NAME` (or `--forge gitlab`, with `--forge-endpoint URL` for a
+self-hosted GitLab). Setup checks that the remote is that repository. The token
+is read from the named variable when the person presses Send, in the terminal
+they run `wring job open` from; Wringer never stores or prints it, and Send is
+refused before any push while it is missing. For verification only, use
 `--mode verification`. Show the person what setup proposes and apply it only with
 their agreement (`--apply --expected IDENTITY --actor NAME --cooperative-local`).
 Setup approves no work.
