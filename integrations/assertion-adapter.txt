@@ -7041,6 +7041,7 @@ var SCHEMA_VERSIONS = Object.freeze({
   "decisions-v2.schema.json": "wringer.decisions.v2",
   "decisions.schema.json": "wringer.decisions.v1",
   "delegation-context-v1.schema.json": "wringer.delegation-context.v1",
+  "delegation-context-v2.schema.json": "wringer.delegation-context.v2",
   "delegation-job-v1.schema.json": "wringer.delegation-job.v1",
   "delegation-recovery-decision-v1.schema.json": "wringer.delegation-recovery-decision.v1",
   "delegation-recovery-preview-v1.schema.json": "wringer.delegation-recovery-preview.v1",
@@ -7207,7 +7208,8 @@ var SCHEMA_VERSIONS = Object.freeze({
   "workspace-recovery-preview-v1.schema.json": "wringer.workspace-recovery-preview.v1",
   "workspace-recovery-request-v1.schema.json": "wringer.workspace-recovery-request.v1",
   "workspace-recovery-result-v1.schema.json": "wringer.workspace-recovery-result.v1",
-  "workspace-v2.schema.json": "wringer.workspace.v2"
+  "workspace-v2.schema.json": "wringer.workspace.v2",
+  "workspace-v3.schema.json": "wringer.workspace.v3"
 });
 var SCHEMA_BY_VERSION = Object.freeze({
   "wringer.acceptance-input.v1": "acceptance-input-v1.schema.json",
@@ -7275,6 +7277,7 @@ var SCHEMA_BY_VERSION = Object.freeze({
   "wringer.decisions.v2": "decisions-v2.schema.json",
   "wringer.decisions.v1": "decisions.schema.json",
   "wringer.delegation-context.v1": "delegation-context-v1.schema.json",
+  "wringer.delegation-context.v2": "delegation-context-v2.schema.json",
   "wringer.delegation-job.v1": "delegation-job-v1.schema.json",
   "wringer.delegation-recovery-decision.v1": "delegation-recovery-decision-v1.schema.json",
   "wringer.delegation-recovery-preview.v1": "delegation-recovery-preview-v1.schema.json",
@@ -7434,7 +7437,8 @@ var SCHEMA_BY_VERSION = Object.freeze({
   "wringer.workspace-recovery-preview.v1": "workspace-recovery-preview-v1.schema.json",
   "wringer.workspace-recovery-request.v1": "workspace-recovery-request-v1.schema.json",
   "wringer.workspace-recovery-result.v1": "workspace-recovery-result-v1.schema.json",
-  "wringer.workspace.v2": "workspace-v2.schema.json"
+  "wringer.workspace.v2": "workspace-v2.schema.json",
+  "wringer.workspace.v3": "workspace-v3.schema.json"
 });
 // packages/records/src/read.ts
 var import_ajv_formats = __toESM(require_dist(), 1);
@@ -7464,7 +7468,7 @@ class Redactor {
     this.values = [...new Set([...Object.entries(env).filter(([k, v]) => v && matchers.some((r) => r.test(k))).map(([, v]) => v), ...extra].filter((v) => v.length >= 4))].sort((a, b) => b.length - a.length);
     const parts = new Set;
     for (const value of this.values) {
-      const schemeLength = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.exec(value)?.[0].length ?? 0;
+      const schemeLength = /^(?:[A-Za-z][A-Za-z0-9+.-]*:\/\/|github_pat_|gh[pousr]_|gl(?:pat|dt|rt|ptt|ft|cbt|imt|oas|soat)-|sk-(?:proj-|ant-)?)/.exec(value)?.[0].length ?? 0;
       if (value.length >= 12)
         for (let n = 6;n < Math.min(value.length, 512); n++) {
           if (n > schemeLength)
