@@ -42,6 +42,11 @@ jobs:
         with:
           node-version: '24'
       - run: bun install --frozen-lockfile
+      - name: Reach Ubuntu's security packages through the runner's Azure archive mirror
+        # 2026-11-11: GitHub's Ubuntu runners could not resolve security.ubuntu.com for hours, so every
+        # Linux job failed installing the browser's fonts. The same -security packages are on this mirror.
+        if: runner.os == 'Linux'
+        run: sudo sed -i -E 's#https?://security\.ubuntu\.com/ubuntu#http://azure.archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
       - name: Install the pinned engineering-test browser (not a product runtime)
         run: bun node_modules/playwright/cli.js install --with-deps chromium
       - run: bun scripts/release.ts check-tag
@@ -118,6 +123,11 @@ jobs:
         with:
           node-version: '24'
       - run: bun install --frozen-lockfile
+      - name: Reach Ubuntu's security packages through the runner's Azure archive mirror
+        # 2026-11-11: GitHub's Ubuntu runners could not resolve security.ubuntu.com for hours, so every
+        # Linux job failed installing the browser's fonts. The same -security packages are on this mirror.
+        if: runner.os == 'Linux'
+        run: sudo sed -i -E 's#https?://security\.ubuntu\.com/ubuntu#http://azure.archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
       - name: Install the pinned engineering-test browser (not a product runtime)
         run: bun node_modules/playwright/cli.js install --with-deps chromium
       - run: bun scripts/release.ts check-tag
