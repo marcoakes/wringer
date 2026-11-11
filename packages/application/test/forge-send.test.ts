@@ -14,9 +14,11 @@ import { queueWorkspaceCommand, readWorkspaceCommand } from "../src/commands";
 import { createMcpSession } from "../../mcp/src/server";
 import { createAssistantJobFlow } from "../../cli/src/assistant-job";
 import { validatePmJob } from "../../board/src/job-model";
+import { createDelegationProtocol } from "../src/delegation-protocol";
+import { validateDelegationOutput } from "../../mcp/src/delegation-contract";
 
 // Shaped like a GitHub fine-grained token, whose public "github_pat_" prefix once made every record naming github read as a credential.
-const TOKEN = "WRINGER_FORGE_SEND_FIXTURE_TOKEN", SECRET = "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0Vw4Xy8";
+const TOKEN = "WRINGER_FORGE_SEND_FIXTURE_TOKEN", SECRET = "github_pat_11FIXTUREFORGESEND0Xk7Lm2Zr9Kt4Wb8Nc3Vh6Jd1Pq5Ys0";
 const roots: string[] = [], services: Awaited<ReturnType<typeof createAssistantService>>[] = [], servers: { stop(force?: boolean): void }[] = [];
 const path = process.env.PATH;
 afterEach(async () => {
@@ -99,7 +101,7 @@ async function fixture(rejectCreates = 0) {
     expect((await call("get_status", { jobId: proposed.jobId })).outcome).toBe("review-ready");
     const flow = createAssistantJobFlow(service, { autoAdvance: false });
     await flow.tick(); // Prepares the handover: builds the evidence branch here, sends nothing.
-    return { scratch, root, origin, service, flow, jobId: proposed.jobId as string, state: assistantControllerState(root, proposed.jobId), destination, requests: forgeServer.requests, endpoint: forgeServer.endpoint };
+    return { scratch, root, origin, service, flow, capability, jobId: proposed.jobId as string, state: assistantControllerState(root, proposed.jobId), destination, requests: forgeServer.requests, endpoint: forgeServer.endpoint };
 }
 const remoteBranches = (origin: string) => git(origin, "for-each-ref", "--format=%(refname)", "refs/heads/wringer");
 
@@ -161,6 +163,10 @@ test("a branch sent whose pull request was refused can be sent again once the ca
     // The branch went; GitHub refused the request. The page says why and offers Send again.
     expect(page.phase).toBe("send");
     expect(page.nextAction).toBe("The branch was sent, but its GitHub pull request was not opened: Forge create returned HTTP 403. Fix that (for example the token's permissions), then Send again: nothing new is pushed, and Wringer looks for an existing request before it opens one.");
+    // The coding assistant, reading through the page as the owner serves it, is told the next move is the person's Send.
+    f.service.setPresentation(async jobId => { const shown = await f.flow.read(jobId); return { phase: shown.phase, nextAction: shown.nextAction, eventId: shown.readyRevision, observedRevision: shown.revision, observedCandidateTree: shown.candidateTree, pageUrl: `http://127.0.0.1:1/?jobId=${jobId}` }; });
+    const status = validateDelegationOutput("wringer.get_status", await createDelegationProtocol(f.service).call(f.capability.token, "wringer.get_status", { jobId: f.jobId })) as any;
+    expect(status.nextAction).toEqual({ code: "send", actor: "operator", eligible: true, reason: page.nextAction }); expect(status.decision.kind).toBe("send");
     const tip = git(f.origin, "rev-parse", `refs/heads/${f.destination.sourceBranch}`);
     expect(f.requests.map(r => r.method)).toEqual(["GET", "POST"]);
     await f.flow.post("send", { jobId: f.jobId, expectedRevision: page.readyRevision, expectedCandidateTree: page.candidateTree, preparedId: page.preparedId });
