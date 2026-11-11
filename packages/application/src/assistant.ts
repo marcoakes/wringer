@@ -363,7 +363,7 @@ export async function createAssistantService(root: string, options: { dependenci
             : busy ? "Work is running or uncertain. Inspect its recorded operation; do not restart it."
             : publicationStatus === "uncertain" ? "The handover outcome is uncertain. Inspect the existing publication record; do not send it again."
             // alpha.47: the forge's own recorded reason, and whether the branch already went.
-            : publicationStatus === "blocked" ? `${publication!.pushed ? "The branch was sent, but its review request was not opened" : "Handover is blocked"}${publication!.forge?.reason ? `: ${publication!.forge.reason}` : "."} Inspect the recorded reason before any separate recovery.`
+            : publicationStatus === "blocked" ? `${publication!.pushed ? "The branch was sent, but its review request was not opened" : "Handover is blocked"}${publication!.forge?.reason ? `: ${publication!.forge.reason.replace(/(?<![.!?])$/, ".")}` : "."} ${publication!.pushed ? "Once its cause is fixed, the person can Send again from the job page: nothing new is pushed, and an existing request is found before one is opened." : "Inspect the recorded reason before any separate recovery."}`
             : publicationStatus === "branch-pushed" ? "The branch was sent. Audit its handover record from a fresh clone. No hosted review request or merge is implied."
             : publicationStatus && ["published", "recovered", "closed", "merged"].includes(publicationStatus) ? `The hosted handover is ${publicationStatus === "recovered" ? "recorded as open" : publicationStatus}. Inspect its recorded link and audit the handover evidence.`
             : !view.approval ? isPreparedJob(p.questions) ? PREPARED_JOB_NEXT : p.questions.length ? "Answer the recorded questions; submit a revised unapproved proposal." : "Review and approve the plan in the operator console."
@@ -389,7 +389,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 operationId: op.id, status: op.status, message: op.error ?? null,
                 reconciliation: op.reconciliation ?? null,
             })),
-            publication: publication ? { status: publicationStatus, deliveryId: publication.deliveryId, codeCommit: publication.codeCommit, evidenceCommit: publication.evidenceCommit, sourceBranch: publication.sourceBranch, targetBranch: publication.targetBranch, auditCommand: publication.auditCommand, ...(publication.forge?.url ? { url: publication.forge.url } : {}) } : null,
+            publication: publication ? { status: publicationStatus, deliveryId: publication.deliveryId, codeCommit: publication.codeCommit, evidenceCommit: publication.evidenceCommit, sourceBranch: publication.sourceBranch, targetBranch: publication.targetBranch, auditCommand: publication.auditCommand, ...(publication.forge?.url ? { url: publication.forge.url } : {}), ...(publication.forge?.reason && ["blocked", "uncertain"].includes(publication.forge.status) ? { reason: publication.forge.reason } : {}) } : null,
             usage: {
                 codingApp: { cost: null, tokens: null, note: "Coding-app usage: not available to Wringer" },
                 development: {
@@ -671,6 +671,8 @@ export async function createAssistantService(root: string, options: { dependenci
         destination: async (jobId: string) => proposalDestination(root, await proposal(root, jobId, workspace), workspace),
         setPresentation(reader: typeof presentation) { presentation = reader; },
         async inspectApproval(jobId: string) { return approval(root, await proposal(root, jobId, workspace)); },
-        async list() { return Promise.all((await assistantInventory(root, "jobs")).map(id => status(assistantId(id)))); }, async inspectProposal(jobId: string) { return proposal(root, jobId, workspace); }, async assertJobActive(jobId: string) { const p = await proposal(root, jobId, workspace); insist(!await lifecycleMarker(root, p, "cancelled"), "cancelled", "This job was cancelled; no further execution or publication is allowed."); },
+        async list() { return Promise.all((await assistantInventory(root, "jobs")).map(id => status(assistantId(id)))); }, async inspectProposal(jobId: string) { return proposal(root, jobId, workspace); },
+        /** The current revision of a proposal, by its validated supersession records only; no status of its run is read. */
+        async currentRevision(jobId: string) { let p = await proposal(root, jobId, workspace); for (let depth = 0; depth < 64; depth++) { const next = await readSupersession(p); if (!next) return p.id; p = await proposal(root, assistantId(next.successor.id), workspace); } insist(false, "lineage-changed", "Proposal lineage exceeds its bound"); return p.id; }, async assertJobActive(jobId: string) { const p = await proposal(root, jobId, workspace); insist(!await lifecycleMarker(root, p, "cancelled"), "cancelled", "This job was cancelled; no further execution or publication is allowed."); },
     };
 }

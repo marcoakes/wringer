@@ -212,8 +212,18 @@ export function workspacePublicationBlocksHandover(publication: Pick<ContainedDe
     return publication !== null && (publication.pushed || !!publication.forge && ["uncertain", "published", "recovered", "closed", "merged"].includes(publication.forge.status));
 }
 export const WORKSPACE_HANDOVER_RECORDED = "This candidate has already been sent, or its publication outcome is uncertain. Inspect the recorded handover; a new preparation or send is not allowed from this workspace.";
+/** A branch already sent whose review request was not opened (alpha.47): the forge refused it, or
+ * could not be reached. Its own preparation may be sent again; nothing new is pushed, and the forge is
+ * searched for an existing request before one is created, so a request is never opened twice. */
+export function workspaceRequestRetryable(publication: Pick<ContainedDeliveryResult, "pushed" | "forge"> | null): boolean {
+    return !!publication?.pushed && !!publication.forge && ["blocked", "uncertain"].includes(publication.forge.status);
+}
 async function assertFreshHandover(state: string, command: WorkspaceCommand, deps: WorkspaceCommandDependencies) {
-    if (["prepare-delivery", "publish"].includes(command.action) && workspacePublicationBlocksHandover(await latestWorkspacePublication(state, deps))) throw new Error(WORKSPACE_HANDOVER_RECORDED);
+    if (!["prepare-delivery", "publish"].includes(command.action)) return;
+    const latest = await latestWorkspacePublication(state, deps);
+    if (!workspacePublicationBlocksHandover(latest)) return;
+    if (command.action === "publish" && workspaceRequestRetryable(latest) && await preparationRecord(state, field(command.payload, "preparedId")).then(saved => saved.deliveryId === latest!.deliveryId, () => false)) return;
+    throw new Error(WORKSPACE_HANDOVER_RECORDED);
 }
 /** alpha.47: a Send that opens a pull or merge request is refused before its request is recorded when
  * the token is missing, so nothing is pushed and the same Send can run once the token is set. */

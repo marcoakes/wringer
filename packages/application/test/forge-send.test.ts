@@ -32,7 +32,7 @@ function git(cwd: string, ...args: string[]) {
     return result.stdout.toString().trim();
 }
 /** A GitHub that keeps what it is asked: the lookup Wringer sends first, then the creation. */
-function fakeGitHub(origin: string) {
+function fakeGitHub(origin: string, rejectCreates = 0) {
     const requests: { method: string; path: string; search: URLSearchParams; authorization: string | null; body: any }[] = [], pulls: any[] = [];
     let port = 0;
     const server: { port?: number; stop(force?: boolean): void } = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request): Promise<Response> {
@@ -40,6 +40,7 @@ function fakeGitHub(origin: string) {
         requests.push({ method: request.method, path: url.pathname, search: url.searchParams, authorization: request.headers.get("authorization"), body });
         if (url.pathname !== "/repos/acme/example/pulls") return Response.json({ message: "Not Found" }, { status: 404 });
         if (request.method === "GET") return Response.json(pulls);
+        if (rejectCreates-- > 0) return Response.json({ message: "Resource not accessible by personal access token" }, { status: 403 });
         // GitHub reports the head the branch has on the server, so the pushed branch must exist.
         const sha = git(origin, "rev-parse", `refs/heads/${body.head}`), number = pulls.length + 7;
         const row: Record<string, unknown> = { number, html_url: `http://127.0.0.1:${port}/acme/example/pull/${number}`, title: body.title, body: body.body, state: "open", merged: false, head: { ref: body.head, sha, repo: { full_name: "acme/example" } }, base: { ref: body.base, repo: { full_name: "acme/example" } } };
@@ -49,7 +50,7 @@ function fakeGitHub(origin: string) {
     servers.push(server); port = server.port!;
     return { endpoint: `http://127.0.0.1:${port}`, requests };
 }
-async function fixture() {
+async function fixture(rejectCreates = 0) {
     const scratch = await realpath(await mkdtemp(join(tmpdir(), "wringer-forge-send-"))); roots.push(scratch);
     const repo = join(scratch, "source"); await mkdir(join(repo, "src"), { recursive: true });
     git(scratch, "init", "--initial-branch=main", repo);
@@ -60,10 +61,10 @@ async function fixture() {
     const origin = join(scratch, "origin.git"); git(scratch, "init", "--bare", "--initial-branch=main", origin); git(repo, "push", origin, "main");
     // ssh://git@127.0.0.1/acme/example.git reaches the bare origin; anything else is refused.
     const bin = join(scratch, "bin"); await mkdir(bin);
-    await writeFile(join(bin, "ssh"), `#!/bin/sh\nfor last; do :; done\ncase "$last" in\n  "git-upload-pack '/acme/example.git'") exec git upload-pack '${origin}' ;;\n  "git-receive-pack '/acme/example.git'") exec git receive-pack '${origin}' ;;\nesac\necho "fixture ssh refused: $last" >&2; exit 1\n`);
+    await writeFile(join(bin, "ssh"), `#!/bin/sh\nfor last; do :; done\necho "$last" >> '${join(scratch, "ssh.log")}'\ncase "$last" in\n  "git-upload-pack '/acme/example.git'") exec git upload-pack '${origin}' ;;\n  "git-receive-pack '/acme/example.git'") exec git receive-pack '${origin}' ;;\nesac\necho "fixture ssh refused: $last" >&2; exit 1\n`);
     await chmod(join(bin, "ssh"), 0o755);
     process.env.PATH = `${bin}:${path}`;
-    const forgeServer = fakeGitHub(origin);
+    const forgeServer = fakeGitHub(origin, rejectCreates);
     const commit = git(repo, "rev-parse", "HEAD"), bundle = join(scratch, "profile.json.source.bundle");
     const source = await createLocalSourceBundle(repo, commit, bundle);
     const plan = compileDeclaration({ version: 5, name: "Make the value true", intent: "Set expected to true.", repository: { url: source.url, commit },
@@ -147,5 +148,30 @@ test("Send pushes the branch and opens a pull request whose description is the d
     // The token is in no record, on this computer or in what was sent.
     for (const where of [f.root, clone]) expect(Bun.spawnSync(["grep", "-r", "-l", SECRET, where]).stdout.toString()).toBe("");
     expect(JSON.stringify(f.requests.map(r => r.body))).not.toContain(SECRET);
+    await f.flow.stop();
+}, 180000);
+
+test("a branch sent whose pull request was refused can be sent again once the cause is fixed: nothing new is pushed, one request is opened", async () => {
+    const f = await fixture(1);
+    process.env[TOKEN] = SECRET;
+    const ready = validatePmJob(await f.flow.read(f.jobId));
+    await f.flow.post("send", { jobId: f.jobId, expectedRevision: ready.readyRevision, expectedCandidateTree: ready.candidateTree, preparedId: ready.preparedId });
+    let page = ready;
+    for (let n = 0; n < 600; n++) { await Bun.sleep(50); page = validatePmJob(await f.flow.read(f.jobId)); if (page.phase !== "working" && page.readyRevision !== ready.readyRevision) break; }
+    // The branch went; GitHub refused the request. The page says why and offers Send again.
+    expect(page.phase).toBe("send");
+    expect(page.nextAction).toBe("The branch was sent, but its GitHub pull request was not opened: Forge create returned HTTP 403. Fix that (for example the token's permissions), then Send again: nothing new is pushed, and Wringer looks for an existing request before it opens one.");
+    const tip = git(f.origin, "rev-parse", `refs/heads/${f.destination.sourceBranch}`);
+    expect(f.requests.map(r => r.method)).toEqual(["GET", "POST"]);
+    await f.flow.post("send", { jobId: f.jobId, expectedRevision: page.readyRevision, expectedCandidateTree: page.candidateTree, preparedId: page.preparedId });
+    for (let n = 0; n < 600 && page.phase !== "sent"; n++) { await Bun.sleep(50); page = validatePmJob(await f.flow.read(f.jobId)); }
+    expect(page.phase).toBe("sent"); expect(page.publication?.url).toBe(`${f.endpoint}/acme/example/pull/7`);
+    // One push in all: the second Send found the branch already at the evidence commit. The forge was searched again first.
+    expect(git(f.origin, "rev-parse", `refs/heads/${f.destination.sourceBranch}`)).toBe(tip);
+    expect((await readFile(join(f.scratch, "ssh.log"), "utf8")).split("\n").filter(line => line.startsWith("git-receive-pack")).length).toBe(1);
+    expect(f.requests.map(r => r.method)).toEqual(["GET", "POST", "GET", "POST"]);
+    // Once open, Send is not offered again, and a further publish is refused.
+    const queued = await queueWorkspaceCommand(f.state, { idempotencyKey: crypto.randomUUID(), expectedRevision: page.revision, expectedCandidateTree: page.candidateTree, action: "publish", payload: { preparedId: ready.preparedId } }).then(() => null, error => error as Error);
+    expect(queued?.message).toContain("already been sent");
     await f.flow.stop();
 }, 180000);

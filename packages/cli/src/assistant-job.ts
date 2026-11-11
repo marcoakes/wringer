@@ -18,6 +18,9 @@ const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const redactor = new Redactor();
+/** Sends of one prepared handover: the first, and two more only while its review request was not opened. */
+const MAX_SENDS = 3;
+const sentence = (text: string) => /[.!?]$/.test(text) ? text : `${text}.`;
 /** A missing forge token, as the page says it (alpha.47): the process serving the page sends, so it needs the variable. */
 const sendNeedsToken = (refusal: string, forge: { token_env: string }) => `${refusal} Set ${forge.token_env} in a terminal, restart this page from it (wring job close, then wring job open, for this workspace), and Send again.`;
 /** What a person can do about a stop, where the recorded message is written for the record. */
@@ -182,9 +185,11 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         }
         const prepareId = purposeId(jobId, status.candidateTree, "prepare", attempt);
         const preparation = status.candidateTree ? await recorded(stateOf(jobId), prepareId) : null;
-        const sendId = purposeId(jobId, status.candidateTree, `send/${prepareId}`, 0);
-        const send = status.candidateTree ? await recorded(stateOf(jobId), sendId) : null;
-        return { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send, sendId };
+        // Each Send of this preparation has its own command; a later one only after the request was not opened (alpha.47).
+        let send: WorkspaceCommandResult | null = null, sends = 0;
+        for (; status.candidateTree && sends < MAX_SENDS; sends++) { const found = await recorded(stateOf(jobId), purposeId(jobId, status.candidateTree, `send/${prepareId}`, sends)); if (!found) break; send = found; }
+        const sendId = purposeId(jobId, status.candidateTree, `send/${prepareId}`, sends);
+        return { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send, sendId, sends };
     }
     async function read(jobId: string): Promise<PmJob> {
         // One read derives its phase from ONE observation, including the observation error. This
@@ -194,7 +199,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         // without anything about the job changing. The same principle as `revisionAdvanced`
         // below: a read reports what was true when it began, and the next read reports the rest.
         const observedTransient = transient.get(jobId) ?? null;
-        const { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send } = await details(jobId);
+        const { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send, sends } = await details(jobId);
         const loop = p.plan ? await readLoopInspection(p.plan, status.stage === "intake" ? undefined : stateOf(jobId)) : undefined;
         const engineering = loop?.engineering ?? undefined;
         // An observation never refuses because work advanced while it was read: the page says so and offers no decision.
@@ -207,7 +212,10 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         const failedDisplay = displays.some(d => !d.success);
         const needCorrection = board?.criteria.some(c => c.required && c.kind === "human" && c.state === "not-met");
         let phase: PmJob["phase"] = "working", nextAction = "The approved work is running. No decision is needed right now.", error: string | null = null;
-        if (status.publication && ["branch-pushed", "published", "recovered", "closed", "merged"].includes(status.publication.status)) { phase = "sent"; nextAction = status.publication.url && ["published", "recovered"].includes(status.publication.status) ? `The reviewed change was sent and its ${forge?.kind === "gitlab" ? "merge" : "pull"} request is open, its description this job's evidence. Share the link with your reviewer; the fresh-clone audit route is below.` : "The reviewed change was sent. Share its handover record and fresh-clone audit route."; }
+        // The branch went, but the forge did not open its request: Send again once the cause is fixed (alpha.47).
+        const requestNotOpened = !!forge && send?.status === "completed" && preparation?.status === "completed" && !!status.publication && ["blocked", "uncertain"].includes(status.publication.status);
+        if (requestNotOpened && sends < MAX_SENDS) { phase = "send"; nextAction = `The branch was sent, but its ${forgeRequestName(forge!.kind)} was not opened${status.publication!.reason ? `: ${sentence(status.publication!.reason)}` : "."} ${missingToken ? sendNeedsToken(missingToken, forge!) : "Fix that (for example the token's permissions), then Send again: nothing new is pushed, and Wringer looks for an existing request before it opens one."}`; }
+        else if (status.publication && ["branch-pushed", "published", "recovered", "closed", "merged"].includes(status.publication.status)) { phase = "sent"; nextAction = status.publication.url && ["published", "recovered"].includes(status.publication.status) ? `The reviewed change was sent and its ${forge?.kind === "gitlab" ? "merge" : "pull"} request is open, its description this job's evidence. Share the link with your reviewer; the fresh-clone audit route is below.` : "The reviewed change was sent. Share its handover record and fresh-clone audit route."; }
         else if (send && ["uncertain", "failed"].includes(send.status)) { phase = "blocked"; error = `Sending did not establish a completed handover. ${send.error ?? "Inspect the recorded publication outcome."} No send was repeated; reconcile the retained operation before continuing.`; }
         else if (send?.status === "running") { phase = "working"; nextAction = "Sending the accepted handover. This exact command is recorded; do not send it again."; }
         else if (status.outcome === "awaiting-approval" && !p.questions.length) { phase = "approval"; nextAction = `Approve this request and its finite limits once. Work will start automatically.${destination ? "" : " No handover destination is registered, so the finished result cannot be sent from here. To keep one, repeat wring setup with --remote NAME --base BRANCH before approving a new job."}`; }
@@ -313,7 +321,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
                 // alpha.47: refused before anything is recorded or pushed, so the same Send works once the token is set.
                 const forge = (await service.inspectApproval(jobId))?.destination?.forge, refusal = forge ? forgeCredentialRefusal(parseForgeConfiguration(forge)) : null;
                 if (refusal) throw new Error(sendNeedsToken(refusal, parseForgeConfiguration(forge)));
-                return await queue(jobId, purposeId(jobId, current.candidateTree, `send/${current.preparedId}`, 0), "publish", { preparedId: current.preparedId }, current, false);
+                return await queue(jobId, (await details(jobId)).sendId, "publish", { preparedId: current.preparedId }, current, false);
             }
             const { approval } = await guardJob(jobId);
             if (action === "source-review") {

@@ -9,6 +9,8 @@ import { join } from "node:path";
 import { createAssistantService, createDelegationJob, delegationControllerRoot, listWorkspaces, readAssistantRecord, readWorkspace } from "@wringer/application";
 import { git } from "@wringer/engine";
 import { dispatch } from "../src/app";
+import { callAssistantConnection } from "../src/assistant-transport";
+import { createDelegationOwner } from "../src/delegation-owner";
 
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const action of cleanup.splice(0).reverse()) await action(); });
@@ -115,6 +117,19 @@ test("GitLab: a nested group over SSH, with a self-hosted endpoint or gitlab.com
     // The endpoint names the host: gitlab.com's API is not the self-hosted remote's.
     expect((await refusal([...setupArgs(f.app, f.repo, args.slice(0, -2)), "--dry-run"])).message).toContain("which is not group/sub/example on gitlab.com");
 }, 30000);
+
+test("job improvements follows the ID job new printed to the request's current revision (carried from work/alpha47)", async () => {
+    const f = await fixture(), preview: any = await dispatch([...setupArgs(f.app, f.repo), "--dry-run"]);
+    const applied: any = await dispatch([...setupArgs(f.app, f.repo), "--apply", "--expected", preview.value.identity, "--actor", "Automated fixture operator", "--cooperative-local"]);
+    const owner = await createDelegationOwner(f.app, applied.value.workspace.id); cleanup.push(() => owner.stop());
+    const intent = "Return the value as 5.", prepared = await createDelegationJob(f.app, applied.value.workspace.id, { intent, idempotencyKey: crypto.randomUUID() });
+    const pending: any = await callAssistantConnection(owner.connectionPath, "wringer.get_status", { jobId: prepared.id });
+    const proposal = { intent, title: "Return five", criteria: [{ id: "test", title: "The test passes", quote: intent, kind: "check", required: true }], checks: [{ id: "test", criteria: ["test"] }] };
+    const revised: any = await callAssistantConnection(owner.connectionPath, "wringer.revise_proposal", { jobId: prepared.id, idempotencyKey: crypto.randomUUID(), expectedRevision: pending.revision, proposal });
+    expect(revised.jobId).not.toBe(prepared.id);
+    const shown: any = await dispatch(["job", "improvements", "--app-dir", f.app, "--job", prepared.id]);
+    expect(shown.value.jobId).toBe(revised.jobId);
+}, 60000);
 
 test("the help names the forge flags and that the token is never stored or printed", async () => {
     const help: any = await dispatch(["setup", "--help"]);

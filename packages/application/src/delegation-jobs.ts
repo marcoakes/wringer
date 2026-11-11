@@ -127,6 +127,12 @@ export async function delegationJobIdentity(root: string, jobId: string) {
     if (first.workspaceId !== job.workspaceId || first.contextId !== job.contextId) throw new Error("Proposal lineage crosses a prepared job");
     return { job: first, service, ...named };
 }
+/** The job's current revision for a read of its research evidence (alpha.47): only its recorded
+ * supersessions are followed, so a run whose status cannot be read still shows its improvements. */
+export async function delegationCurrentRevision(root: string, jobId: string) {
+    const job = await readDelegationJob(root, jobId);
+    return (await createAssistantService(await delegationControllerRoot(root, job.workspaceId, job.contextId))).currentRevision(jobId);
+}
 export async function delegationJobStatus(root: string, requested: string) {
     // W7 (alpha.44): the job under the ID wring job new printed, in its current revision.
     const { job, service, rootJobId, currentJobId: jobId, revision } = await delegationJobIdentity(root, requested);
