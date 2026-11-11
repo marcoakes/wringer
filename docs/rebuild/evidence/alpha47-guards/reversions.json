@@ -1,0 +1,170 @@
+{
+  "baseline": "0c15f44b7d3be5e4f6fe004a09c3eb44e3829df2",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "setup-forge-flags-ignored",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "preview-forge-hidden",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "remote-binding-unchecked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "credential-url-echoed",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "verification-forge-admitted",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "workspace-forge-dropped",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "job-forge-dropped",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "page-token-unchecked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "page-token-unnamed-before-click",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "queue-token-unchecked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "delivery-token-unchecked",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "page-opens-hidden",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "request-link-dropped",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "request-retry-refused",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "page-retry-not-offered",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "retry-reuses-first-send",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "https-push-uncredentialed",
+      "exit": 1,
+      "assertions": false,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "push-credential-unscoped",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "token-prefix-fragment",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "token-prefix-fragment-blocks-send",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "app-dir-file-raw-eexist",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "improvements-superseded-revision",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}
