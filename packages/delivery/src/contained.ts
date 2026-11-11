@@ -9,7 +9,7 @@ import { assertContainedDisplayVisuals, readPinnedDesignSnapshot } from "@wringe
 import { observeAssertionReport, validateCheckEvidence, assertAssertionRed, assertAssertionPair, buildRepairPacket, validateRepairPacket } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import { inside, files, seal, checkSealIdentity, quote } from "./io";
-import { publishMergeRequest, assertForgeRepositoryBinding, type ForgeConfiguration, type MergeRequestPublication } from "./forge";
+import { publishMergeRequest, assertForgeRepositoryBinding, forgeCredentialRefusal, forgePushCredential, type ForgeConfiguration, type MergeRequestPublication } from "./forge";
 import { containedViewContracts, containedViewContractsV3, containedViewContractsV4, deriveContainedDeliveryProjection, containedProjectionDigest, renderContainedCertificate, renderContainedBoard, renderContainedBoardV2, renderContainedBoardV3, renderContainedDocuments, renderContainedDocumentsV3, renderContainedDocumentsV4, type ContainedDeliveryProjection } from "./projection";
 import { engineeringEvidence, summarizeEngineering } from "./engineering";
 import { openReader, SCHEMA_BY_VERSION } from "@wringer/records";
@@ -82,8 +82,10 @@ async function git(store: string, args: string[], options: {
     input?: string | Uint8Array;
     signal?: AbortSignal;
     allowFailure?: boolean;
+    /** Only a forge push credential (alpha.47): configuration and environment for one remote command. */
+    credential?: { config: string[]; env: Record<string, string> } | null;
 } = {}) {
-    const r = await processDriver.command(["git", "--no-replace-objects", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "uploadpack.packObjectsHook=", "-c", "commit.gpgsign=false", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=always", "--git-dir", store, ...args], { input: options.input, signal: options.signal, env: gitEnv, timeoutMs: 60000 });
+    const r = await processDriver.command(["git", "--no-replace-objects", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "uploadpack.packObjectsHook=", "-c", "commit.gpgsign=false", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=always", ...(options.credential?.config ?? []), "--git-dir", store, ...args], { input: options.input, signal: options.signal, env: { ...gitEnv, ...options.credential?.env }, timeoutMs: 60000 });
     if (r.code !== 0 && !options.allowFailure)
         throw new Error(`Contained delivery Git operation failed (${r.code}): ${new Redactor().scrub(r.stderr)}`);
     return r;
@@ -329,6 +331,9 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     const stateDir = await realpath(options.stateDir), validated = await readValidatedContainedState(stateDir), { plan, authority, environment, state, result, events } = validated;
     const researchPurpose = await assertResearchPublication(stateDir, plan, authority.actor, options.publication);
     await validatePublication(options.publication);
+    // alpha.47: a Send that opens a review request needs its token before anything is pushed.
+    const credentialRefusal = options.send && options.publication.forge ? forgeCredentialRefusal(options.publication.forge) : null;
+    if (credentialRefusal) throw new Error(credentialRefusal);
     const v4 = measuredLoopPlan(plan);
     if (options.expectedRevision !== undefined && options.expectedRevision !== events.at(-1)!.sha256 || options.expectedCandidateTree !== undefined && options.expectedCandidateTree !== state.candidate?.tree)
         throw new Error("Delivery selection is stale; reload the current journal and candidate before authorizing publication");
@@ -456,7 +461,8 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         output.forge = await publishMergeRequest(stateDir, { ...forgeOptions, send: false });
     if (options.send) {
         options.signal?.throwIfAborted();
-        const heads = (await git(store, ["ls-remote", "--symref", options.publication.remote, "HEAD", `refs/heads/${options.publication.sourceBranch}`, `refs/heads/${options.publication.targetBranch}`], { signal: options.signal })).stdout;
+        const credential = options.publication.forge ? forgePushCredential(options.publication.remote, options.publication.forge) : null;
+        const heads = (await git(store, ["ls-remote", "--symref", options.publication.remote, "HEAD", `refs/heads/${options.publication.sourceBranch}`, `refs/heads/${options.publication.targetBranch}`], { signal: options.signal, credential })).stdout;
         const defaultBranch = /^ref: refs\/heads\/([^\t\r\n]+)\tHEAD$/m.exec(heads)?.[1];
         if (!defaultBranch)
             throw new Error("Remote default branch could not be established; no push was sent");
@@ -468,8 +474,8 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         if (!heads.split("\n").some(line => line.endsWith(`\trefs/heads/${options.publication.targetBranch}`)))
             throw new Error("Publication target branch does not exist on the remote");
         if (!current)
-            await git(store, ["push", "--porcelain", options.publication.remote, `${evidenceCommit}:refs/heads/${options.publication.sourceBranch}`], { signal: options.signal });
-        const confirmed = (await git(store, ["ls-remote", options.publication.remote, `refs/heads/${options.publication.sourceBranch}`], { signal: options.signal })).stdout.trim().split(/\s+/)[0];
+            await git(store, ["push", "--porcelain", options.publication.remote, `${evidenceCommit}:refs/heads/${options.publication.sourceBranch}`], { signal: options.signal, credential });
+        const confirmed = (await git(store, ["ls-remote", options.publication.remote, `refs/heads/${options.publication.sourceBranch}`], { signal: options.signal, credential })).stdout.trim().split(/\s+/)[0];
         if (confirmed !== evidenceCommit)
             throw new Error("Publication outcome is uncertain; the remote branch did not confirm the exact evidence commit");
         output.status = "delivered";

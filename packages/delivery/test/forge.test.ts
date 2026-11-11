@@ -221,3 +221,23 @@ test("cancellation during POST records uncertainty and resume only reconciles", 
     expect(resumed.status).toBe("recovered");
     expect(posts).toBe(1);
 });
+
+// alpha.47: an HTTPS push to the forge authenticates with the same token, through Git's own credential protocol.
+test("the HTTPS push credential answers only its host, only for get, from the environment; SSH keeps its keys", async () => {
+    const { forgePushCredential, forgeCredentialRefusal } = await import("../src/forge");
+    const token = "github_pat_11PUSHFIXTURE0Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk9Lz8Xc7Vb6Nm5", forge = { kind: "github" as const, endpoint: "https://api.github.com", repo: "acme/example", token_env: "FIXTURE_PUSH_TOKEN" };
+    const fill = (credential: { config: string[]; env: Record<string, string> }, host: string) => Bun.spawnSync(["git", ...credential.config, "credential", "fill"], { stdin: Buffer.from(`protocol=https\nhost=${host}\npath=acme/example.git\n\n`), env: { PATH: process.env.PATH!, HOME: "/nonexistent", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "/bin/false", SSH_ASKPASS: "/bin/false", ...credential.env } });
+    const github = forgePushCredential("https://github.com/acme/example.git", forge, { FIXTURE_PUSH_TOKEN: token })!;
+    expect(JSON.stringify(github.config)).not.toContain(token);
+    const answered = fill(github, "github.com");
+    expect(answered.exitCode).toBe(0); expect(answered.stdout.toString()).toContain(`username=x-access-token\npassword=${token}\n`);
+    const elsewhere = fill(github, "elsewhere.example");
+    expect(elsewhere.exitCode).not.toBe(0); expect(elsewhere.stdout.toString()).not.toContain(token);
+    const gitlab = forgePushCredential("https://gitlab.example.com/group/sub/example.git", { ...forge, kind: "gitlab", endpoint: "https://gitlab.example.com/api/v4", repo: "group/sub/example" }, { FIXTURE_PUSH_TOKEN: "glpat-" + "Zx9Qw8Er7Ty6Ui5Op4As" })!;
+    expect(fill(gitlab, "gitlab.example.com").stdout.toString()).toContain("username=oauth2\npassword=glpat-" + "Zx9Qw8Er7Ty6Ui5Op4As\n");
+    expect(forgePushCredential("ssh://git@github.com/acme/example.git", forge, {})).toBeNull();
+    expect(forgePushCredential("git@github.com:acme/example.git", forge, {})).toBeNull();
+    expect(() => forgePushCredential("https://github.com/acme/example.git", forge, {})).toThrow("FIXTURE_PUSH_TOKEN is not set in the environment of the process that sends. Nothing was pushed or sent.");
+    expect(forgeCredentialRefusal(forge, { FIXTURE_PUSH_TOKEN: "two\nlines" })).toContain("FIXTURE_PUSH_TOKEN is not a single line");
+    expect(forgeCredentialRefusal(forge, { FIXTURE_PUSH_TOKEN: token })).toBeNull();
+});

@@ -10,7 +10,7 @@ import { readLoopInspection } from "../../application/src/loop-inspection";
 import { readCandidateChange, type CandidateChange } from "../../application/src/candidate-change";
 import { readValidatedContainedState } from "@wringer/workflow";
 import { retryAction } from "../../application/src/delegation-protocol";
-import { carriedSourceDecisions, reviewContainedSource } from "@wringer/delivery";
+import { carriedSourceDecisions, forgeCredentialRefusal, forgeRequestName, parseForgeConfiguration, reviewContainedSource } from "@wringer/delivery";
 import { join } from "node:path";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
@@ -18,6 +18,8 @@ const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const redactor = new Redactor();
+/** A missing forge token, as the page says it (alpha.47): the process serving the page sends, so it needs the variable. */
+const sendNeedsToken = (refusal: string, forge: { token_env: string }) => `${refusal} Set ${forge.token_env} in a terminal, restart this page from it (wring job close, then wring job open, for this workspace), and Send again.`;
 /** What a person can do about a stop, where the recorded message is written for the record. */
 export function stopForPerson(reason: string | undefined) {
     return reason === "acceptance-born-green" ? "The checks chosen for this request already pass, so they cannot show that the change worked. Nothing was changed and no agent ran. Ask your coding app to add a test that fails today, commit it, and propose the work again." : null;
@@ -198,12 +200,14 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         // An observation never refuses because work advanced while it was read: the page says so and offers no decision.
         const revisionAdvanced = status.revisionAdvanced === true || !!loop && status.stage !== "intake" && (loop.journalRevision !== status.revision || (await (options.dependencies?.status ?? controllerStatus)(stateOf(jobId))).revision !== status.revision);
         const destination = approval?.destination ?? await service.destination(jobId);
+        // alpha.47: a destination with a forge opens a pull or merge request at Send; its token is named, never read.
+        const forge = destination?.forge ? parseForgeConfiguration(destination.forge) : null, missingToken = forge ? forgeCredentialRefusal(forge) : null;
         const human = p.plan?.acceptance.criteria.filter(c => c.kind === "human" && c.required) ?? [];
         const failed = commands.find(c => ["failed", "uncertain"].includes(c.status)) ?? (preparation && ["failed", "uncertain"].includes(preparation.status) ? preparation : null);
         const failedDisplay = displays.some(d => !d.success);
         const needCorrection = board?.criteria.some(c => c.required && c.kind === "human" && c.state === "not-met");
         let phase: PmJob["phase"] = "working", nextAction = "The approved work is running. No decision is needed right now.", error: string | null = null;
-        if (status.publication && ["branch-pushed", "published", "recovered", "closed", "merged"].includes(status.publication.status)) { phase = "sent"; nextAction = "The reviewed change was sent. Share its handover record and fresh-clone audit route."; }
+        if (status.publication && ["branch-pushed", "published", "recovered", "closed", "merged"].includes(status.publication.status)) { phase = "sent"; nextAction = status.publication.url && ["published", "recovered"].includes(status.publication.status) ? `The reviewed change was sent and its ${forge?.kind === "gitlab" ? "merge" : "pull"} request is open, its description this job's evidence. Share the link with your reviewer; the fresh-clone audit route is below.` : "The reviewed change was sent. Share its handover record and fresh-clone audit route."; }
         else if (send && ["uncertain", "failed"].includes(send.status)) { phase = "blocked"; error = `Sending did not establish a completed handover. ${send.error ?? "Inspect the recorded publication outcome."} No send was repeated; reconcile the retained operation before continuing.`; }
         else if (send?.status === "running") { phase = "working"; nextAction = "Sending the accepted handover. This exact command is recorded; do not send it again."; }
         else if (status.outcome === "awaiting-approval" && !p.questions.length) { phase = "approval"; nextAction = `Approve this request and its finite limits once. Work will start automatically.${destination ? "" : " No handover destination is registered, so the finished result cannot be sent from here. To keep one, repeat wring setup with --remote NAME --base BRANCH before approving a new job."}`; }
@@ -213,7 +217,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         else if (status.outcome === "review-ready") {
             // With no requirement for a person to review, nobody accepted it: the checks and the independent review agreed.
             const settled = human.length ? "Your result is accepted." : "Every requirement was checked: its checks passed and the independent review agreed. No one has reviewed it for you; look at what changed.";
-            if (preparation?.status === "completed") { phase = "send"; nextAction = `${settled} Send this exact prepared change to the destination below?`; }
+            if (preparation?.status === "completed") { phase = "send"; nextAction = missingToken ? `${settled} ${sendNeedsToken(missingToken, forge!)}` : `${settled} Send this exact prepared change to the destination below${forge ? ` and open its ${forgeRequestName(forge.kind)}` : ""}?`; }
             else if (!destination) { phase = "blocked"; error = "No handover destination was selected during setup, so nothing can be sent. The result and its evidence are retained. To send a later job, repeat wring setup with --remote NAME --base BRANCH."; }
             else { phase = "preparing"; nextAction = `${settled} Preparing its handover proof; nothing is being sent.`; }
         } else if (status.outcome === "human-hold" && human.length && displays.length === human.length && displays.every(d => d.success) && board?.actions.some(a => a.id === "review" && a.enabled)) { phase = "review"; nextAction = "Your result is ready. Does it meet the requirements shown below?"; }
@@ -240,7 +244,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
                 return { id: c.id, title: c.title, quote: c.quote, kind: c.kind, required: c.required, state: board?.criteria.find(r => r.id === c.id)?.state ?? "unknown", note: board?.criteria.find(r => r.id === c.id)?.note ?? null, by: board?.criteria.find(r => r.id === c.id)?.by ?? null, ...(visual ? { visualReview: { snapshotSha256: p.plan!.design!.snapshotSha256, referenceAssetIds: visual.referenceIds, captureIds: visual.captures.map(capture => capture.id) } } : {}) };
             }),
             budget: { sessions: p.plan?.budget.max_sessions ?? 0, wallSeconds: p.plan?.budget.wall_clock_seconds ?? 0, expiresAt: approval?.authority.expires_at ?? null }, actor: approval?.authority.actor ?? null,
-            displays, destination: destination ? { remote: destination.remote, sourceBranch: destination.sourceBranch, targetBranch: destination.targetBranch } : null,
+            displays, destination: destination ? { remote: destination.remote, sourceBranch: destination.sourceBranch, targetBranch: destination.targetBranch, ...(forge ? { opens: { request: forgeRequestName(forge.kind), repository: forge.repo, tokenEnv: forge.token_env } } : {}) } : null,
             preparedId: phase === "send" ? prepareId : null, publication, nextAction: sourceReview ? `Source history needs your review: ${sourceReview.findings.length} credential-shaped ${sourceReview.findings.length === 1 ? "match" : "matches"} in the history this change would send. No value is shown.` : error ?? nextAction, error: sourceReview ? null : error, ...(stop ? { stop } : {}), ...(sourceReview ? { sourceReview } : {}), retryable, retryLabel: preparation && ["failed", "uncertain"].includes(preparation.status) ? "Retry handover preparation" : "Try showing the result again",
             limits: ["Cooperative-local preview: the recorded name is not proof of physical human presence.", "Only an actual click records a decision. An optional comment is retained only when the person supplied it.", "A changed result needs a fresh decision. Sending is separate from accepting, merging and deploying.", "Coding-app and managed development costs are unknown when not reported; session/time limits are not a cash ceiling.", ...(board?.limits ?? [])],
         }) as PmJob;
@@ -306,6 +310,9 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
             }
             if (action === "send") {
                 if (current.phase !== "send" || body.preparedId !== current.preparedId) throw new Error("Inspect the exact prepared handover before sending.");
+                // alpha.47: refused before anything is recorded or pushed, so the same Send works once the token is set.
+                const forge = (await service.inspectApproval(jobId))?.destination?.forge, refusal = forge ? forgeCredentialRefusal(parseForgeConfiguration(forge)) : null;
+                if (refusal) throw new Error(sendNeedsToken(refusal, parseForgeConfiguration(forge)));
                 return await queue(jobId, purposeId(jobId, current.candidateTree, `send/${current.preparedId}`, 0), "publish", { preparedId: current.preparedId }, current, false);
             }
             const { approval } = await guardJob(jobId);

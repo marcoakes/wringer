@@ -64,6 +64,30 @@ export function parseForgeConfiguration(value: unknown): ForgeConfiguration {
         throw new Error("GitHub repository must be owner/name");
     return { kind: value.kind, repo: value.repo, token_env: value.token_env, endpoint: endpoint(value.endpoint).href.replace(/\/$/, "") };
 }
+/** The public API of each kind, used when setup names none. A self-hosted GitLab or a GitHub
+ * Enterprise server names its own endpoint. The kind itself is always the person's choice. */
+export const FORGE_PUBLIC_ENDPOINTS = { github: "https://api.github.com", gitlab: "https://gitlab.com/api/v4" } as const;
+export const forgeRequestName = (kind: ForgeConfiguration["kind"]) => kind === "github" ? "GitHub pull request" : "GitLab merge request";
+/** Presence only (alpha.47): the token is never read into a record, a message or an argument.
+ * Send checks this before anything is pushed, so a missing token leaves nothing half-sent. */
+export function forgeCredentialRefusal(forge: ForgeConfiguration, environment: Record<string, string | undefined> = process.env): string | null {
+    const value = environment[forge.token_env];
+    if (value && !/[\r\n\0]/.test(value)) return null;
+    return `Send opens a ${forgeRequestName(forge.kind)} with the token in ${forge.token_env}, and ${forge.token_env} is ${value ? "not a single line" : "not set"} in the environment of the process that sends. Nothing was pushed or sent.`;
+}
+/** An HTTPS push to the forge authenticates with the same token, through a helper that answers
+ * only `get` for that one host. The value travels in the Git process's environment; it is never
+ * written, logged or put in an argument. Delivery's Git reads no global or system configuration,
+ * so without this an HTTPS push has no credential at all (alpha.47). SSH keeps its own keys. */
+export function forgePushCredential(remote: string, forge: ForgeConfiguration, environment: Record<string, string | undefined> = process.env): { config: string[]; env: Record<string, string> } | null {
+    let url: URL;
+    try { url = new URL(remote); } catch { return null; }
+    if (url.protocol !== "https:") return null;
+    const token = environment[forge.token_env];
+    if (!token || /[\r\n\0]/.test(token)) throw new Error(forgeCredentialRefusal(forge, environment)!);
+    const user = forge.kind === "github" ? "x-access-token" : "oauth2";
+    return { config: ["-c", "credential.helper=", "-c", `credential.${url.origin}.helper=!f() { test "$1" = get || exit 0; printf 'username=%s\\npassword=%s\\n' ${user} "$WRINGER_FORGE_PUSH_TOKEN"; }; f`], env: { WRINGER_FORGE_PUSH_TOKEN: token } };
+}
 /** Bind transport and API identities without contacting either service. */
 export function assertForgeRepositoryBinding(remote: string, input: ForgeConfiguration): string {
     const forge = parseForgeConfiguration(input), apiHost = new URL(forge.endpoint).hostname;

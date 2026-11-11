@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/delegation-context-v2.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.delegation-context.v2"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "profileId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384
+    },
+    "parentJobId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36,
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "destination": {
+      "type": "object",
+      "properties": {
+        "remote": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "sourceBranch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "targetBranch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "forge": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "github",
+                "gitlab"
+              ]
+            },
+            "endpoint": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "repo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$"
+            },
+            "token_env": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            }
+          },
+          "required": [
+            "kind",
+            "endpoint",
+            "repo",
+            "token_env"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "remote",
+        "sourceBranch",
+        "targetBranch",
+        "forge"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "workspaceId",
+    "profileId",
+    "intent",
+    "parentJobId",
+    "createdAt",
+    "destination"
+  ],
+  "additionalProperties": false
+}

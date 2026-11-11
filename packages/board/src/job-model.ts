@@ -50,7 +50,8 @@ export interface PmJob {
     assumptions?: string[];
     actor: string | null;
     displays: { criterionId: string; title: string; displayId: string; candidateTree: string; success: boolean; output: string; error?: string | null; parts?: { title: string; text: string }[]; visuals?: { snapshotSha256: string; referenceAssets: PmVisualAsset[]; captures: PmVisualAsset[] } }[];
-    destination: { remote: string; sourceBranch: string; targetBranch: string } | null;
+    /** `opens` (alpha.47): Send also opens this pull or merge request; the token is named, never shown. */
+    destination: { remote: string; sourceBranch: string; targetBranch: string; opens?: { request: string; repository: string; tokenEnv: string } } | null;
     preparedId: string | null;
     publication: { status: string; deliveryId: string; url?: string; auditCommand: string; cloneCommand?: string } | null;
     nextAction: string;
@@ -116,7 +117,7 @@ export function validatePmJob(value: unknown): PmJob {
         || !(v.questions === undefined || list(v.questions, 100, x => text(x, 16000))) || !(v.assumptions === undefined || list(v.assumptions, 100, x => text(x, 16000)))
         || !list(v.requirements, 1000, r => r && id(r.id) && text(r.title, 4000) && text(r.quote) && ["check", "human"].includes(r.kind) && typeof r.required === "boolean" && ["met", "not-met", "unknown"].includes(r.state) && optional(r.note) && optional(r.by, 200) && (r.visualReview === undefined || r.kind === "human" && visualReview(r.visualReview)))
         || !list(v.displays, 1000, d => d && id(d.criterionId) && uuid(d.displayId) && text(d.title, 4000) && tree(d.candidateTree) && typeof d.success === "boolean" && text(d.output, 524288) && optional(d.error, 16000) && (d.parts === undefined || list(d.parts, 100, p => p && text(p.title, 4000) && text(p.text, 524288))) && (d.visuals === undefined || visuals(d.visuals)))
-        || !(v.destination === null || v.destination && text(v.destination.remote, 4096) && id(v.destination.sourceBranch) && id(v.destination.targetBranch))
+        || !(v.destination === null || v.destination && text(v.destination.remote, 4096) && id(v.destination.sourceBranch) && id(v.destination.targetBranch) && (v.destination.opens === undefined || exact(v.destination.opens, ["repository", "request", "tokenEnv"]) && ["GitHub pull request", "GitLab merge request"].includes(v.destination.opens.request) && text(v.destination.opens.repository, 512) && /^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(v.destination.opens.tokenEnv)))
         || !(v.preparedId === null || uuid(v.preparedId))
         || !(v.publication === null || v.publication && id(v.publication.status) && id(v.publication.deliveryId) && optional(v.publication.url, 4096) && text(v.publication.auditCommand, 16000) && optional(v.publication.cloneCommand, 16000)))
         throw new Error("The job record is incomplete or unreadable. Decisions remain paused.");

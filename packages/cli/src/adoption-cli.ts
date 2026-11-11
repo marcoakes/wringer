@@ -24,6 +24,8 @@ import { inspectOwnedStorage, previewPreparationArchive, archivePreparation, pre
 import { inspectDelegationRecovery, applyDelegationRecovery } from "@wringer/application";
 import { inspectLockRecovery, applyLockRecovery, type LockSelection } from "@wringer/application";
 import { previewDiagnostics, exportDiagnostics } from "@wringer/application";
+import { inspectWorkspaceDestination, type WorkspaceDestination } from "@wringer/application";
+import { FORGE_PUBLIC_ENDPOINTS, parseForgeConfiguration } from "@wringer/delivery";
 import { previewClientConnection, applyClientConnection, detectClient, probeRestrictedConnection, type ClientSelection } from "./client-adapters";
 import { closeOwner } from "./owner-close";
 
@@ -39,6 +41,14 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
       [--writable PATH] [--output-dir PATH] [--acceptance UUID] [--remote NAME --base BRANCH] --dry-run --json
       Trusted-local runs your coding agents on this computer under your account,
       each role in a fresh clone; nothing is contained and protected mode refuses it.
+  ... --remote NAME --base BRANCH --forge github|gitlab --forge-repo OWNER/NAME
+      --forge-token-env NAME [--forge-endpoint URL]
+      A delegation workspace's Send then also opens a pull (GitHub) or merge (GitLab)
+      request on that repository, its description the job's evidence. Send reads the
+      token from the named variable in the environment of wring job open; Wringer
+      never stores or prints it, and refuses Send before any push when it is missing.
+      An HTTPS remote is pushed with the same token. --forge-endpoint names a
+      self-hosted GitLab or GitHub Enterprise API; the kind's public API otherwise.
   wring setup --repo PATH --client CLIENT --mode delegation --provision UUID
       --worker-provider openai|anthropic --worker-model MODEL
       --judge-provider openai|anthropic --judge-model MODEL
@@ -93,13 +103,35 @@ async function ownerLocation(root: string, workspace: string) {
     try { process.kill(owner.pid, 0); } catch { throw new Error("The recorded owner is not running. Explicit recovery must preserve uncertain operations before restart."); }
     return owner as { pid: number; url: string };
 }
+/** The destination these flags select, checked as data only (alpha.47 adds the forge). */
+function selectedDestination(a: Args): WorkspaceDestination | undefined {
+    const remote = string(a, "remote"), base = string(a, "base"), kind = string(a, "forge"), repo = string(a, "forge-repo"), tokenEnv = string(a, "forge-token-env"), endpoint = string(a, "forge-endpoint");
+    if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
+    if ([kind, repo, tokenEnv, endpoint].every(value => value === undefined)) return remote && base ? { remote, base } : undefined;
+    if (!remote || !base) throw new Error("A pull or merge request is opened on the destination: select --remote NAME --base BRANCH with --forge");
+    if (kind !== "github" && kind !== "gitlab") throw new Error("Choose --forge github or --forge gitlab explicitly");
+    if (!repo || !tokenEnv) throw new Error(`Name the repository and the variable that holds its token: --forge-repo ${kind === "github" ? "OWNER/NAME" : "GROUP/NAME"} --forge-token-env NAME. Send reads the token from that variable; Wringer never stores or prints it.`);
+    try { return { remote, base, forge: parseForgeConfiguration({ kind, endpoint: endpoint ?? FORGE_PUBLIC_ENDPOINTS[kind], repo, token_env: tokenEnv }) }; }
+    catch (error) { throw new Error(`${error instanceof Error ? error.message : String(error)}. Use --forge-repo ${kind === "github" ? "OWNER/NAME" : "GROUP/…/NAME"}, a --forge-token-env variable name (letters, digits, underscores) and an https --forge-endpoint.`); }
+}
+type ShownDestination = { remote: string; base: string; recorded: string; forge?: { request: string; repository: string; endpoint: string; tokenEnv: string; tokenSetHere: boolean; remoteUrl: string } };
 /** A destination is chosen beside the reviewed profile, not inside it: its absence is only felt at Send, after the work is done.
  * The preview shows the destination apply will record on the workspace (N1), outside the profile's identity. */
-function withDestinationLimit<T extends { limits: string[] }>(preview: T, a: Args): T & { destination: { remote: string; base: string; recorded: string } | null } {
-    const remote = string(a, "remote"), base = string(a, "base");
-    return remote && base ? { ...preview, destination: { remote, base, recorded: `Applying records this on the workspace: a finished job can be sent to remote ${remote}, base ${base}, only after the person's Send.` } } : { ...preview, destination: null, limits: [...preview.limits, "No handover destination is selected, so a finished job could not be sent. Repeat with --remote NAME --base BRANCH to keep one."] };
+async function shownDestination(a: Args, repo: string, mode: RegisteredWorkspace["mode"] | undefined): Promise<ShownDestination | null> {
+    const selected = selectedDestination(a);
+    if (!selected) return null;
+    const checked = await inspectWorkspaceDestination(repo, mode, selected), recorded = `Applying records this on the workspace: a finished job can be sent to remote ${checked.remote}, base ${checked.base}, only after the person's Send.`;
+    if (!("forge" in checked) || !checked.forge) return { remote: checked.remote, base: checked.base, recorded };
+    // Presence only: the token's value is never read into the preview.
+    const forge = checked.forge, set = !!process.env[forge.token_env];
+    return { remote: checked.remote, base: checked.base, recorded: `${recorded} That Send also opens a ${checked.opens} on ${forge.repo} whose description is the job's evidence, with the token in ${forge.token_env}: set it in the terminal you run wring job open from. Wringer never stores or prints it, and refuses Send before any push without it.`, forge: { request: checked.opens!, repository: forge.repo, endpoint: forge.endpoint, tokenEnv: forge.token_env, tokenSetHere: set, remoteUrl: checked.remoteUrl! } };
 }
-const destinationLine = (preview: { destination: { remote: string; base: string } | null }) => preview.destination ? `Destination: remote ${preview.destination.remote}, base ${preview.destination.base}; a finished job is sent there only after the person's Send.` : "Destination: none selected, so a finished job could be accepted but not sent.";
+async function withDestinationLimit<T extends { limits: string[] }>(preview: T, a: Args, repo: string, mode: RegisteredWorkspace["mode"] | undefined): Promise<T & { destination: ShownDestination | null }> {
+    const destination = await shownDestination(a, repo, mode);
+    return destination ? { ...preview, destination } : { ...preview, destination: null, limits: [...preview.limits, "No handover destination is selected, so a finished job could not be sent. Repeat with --remote NAME --base BRANCH to keep one."] };
+}
+const destinationLine = (preview: { destination: ShownDestination | null }) => !preview.destination ? "Destination: none selected, so a finished job could be accepted but not sent."
+    : `Destination: remote ${preview.destination.remote}, base ${preview.destination.base}; a finished job is sent there only after the person's Send.${preview.destination.forge ? ` Send also opens a ${preview.destination.forge.request} on ${preview.destination.forge.repository}, described by the job's evidence, with the token in ${preview.destination.forge.tokenEnv} (${preview.destination.forge.tokenSetHere ? "set in this terminal" : "not set in this terminal: set it before wring job open, or Send will refuse"}).` : ""}`;
 export async function adoptionCommand(a: Args, context: DispatchContext): Promise<Answer> {
     if (flag(a, "help")) return { text: ADOPTION_HELP };
     const root = applicationDirectory(string(a, "app-dir")), repo = resolve(string(a, "repo", process.cwd())!);
@@ -141,7 +173,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         return { value: flag(a, "apply") ? await applyWorkspaceRecovery(root, workspace, { expectedIdentity: required(a, "expected"), actor: required(a, "actor") }) : await inspectWorkspaceRecovery(root, workspace) };
     }
     if (a.command === "setup") {
-        allowed(a, ["app-dir", "client", "mode", "dry-run", "apply", "remote", "base", "profile", "runtime", "worker-adapter", "judge-adapter", "provision", "readiness", "acceptance", "prepare-acceptance", "worker-provider", "worker-model", "judge-provider", "judge-model", "source", "source-remote", "dependencies", "network", "egress", "dns", "writable", "output-dir", "gate", "expected", "actor", "cooperative-local"]); positionals(a, 0);
+        allowed(a, ["app-dir", "client", "mode", "dry-run", "apply", "remote", "base", "forge", "forge-repo", "forge-token-env", "forge-endpoint", "profile", "runtime", "worker-adapter", "judge-adapter", "provision", "readiness", "acceptance", "prepare-acceptance", "worker-provider", "worker-model", "judge-provider", "judge-model", "source", "source-remote", "dependencies", "network", "egress", "dns", "writable", "output-dir", "gate", "expected", "actor", "cooperative-local"]); positionals(a, 0);
         if (flag(a, "apply") && flag(a, "dry-run")) throw new Error("Choose preview or apply, not both");
         if (string(a, "prepare-acceptance")) {
             const input = await readFile(resolve(required(a, "prepare-acceptance")), "utf8");
@@ -157,11 +189,11 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
             if (["provision", "readiness", "network", "egress", "dns", "worker-provider", "worker-model", "judge-provider", "judge-model"].some(key => string(a, key) !== undefined || values(a, key) !== undefined)) throw new Error("A trusted-local profile names ACP adapters, not providers, models, a provision or a network policy: it runs on this computer under your account, where none of those is enforced");
             const source = required(a, "source"); if (!["local", "remote"].includes(source)) throw new Error("Choose --source local or remote explicitly");
             const selection: DelegationSelection = { runtime: "trusted-local", ...(string(a, "acceptance") ? { acceptanceId: string(a, "acceptance") } : {}), worker: { adapter: required(a, "worker-adapter") as any }, judge: { adapter: required(a, "judge-adapter") as any }, source: source === "local" ? { kind: "local" } : { kind: "remote", remote: required(a, "source-remote") }, dependencies: required(a, "dependencies") as any, ...(values(a, "writable") ? { writable: values(a, "writable") } : {}), ...(values(a, "output-dir") ? { outputDirectories: values(a, "output-dir") } : {}), ...(values(a, "gate") ? { gates: values(a, "gate") } : {}) };
-            const reviewed = await inspectDelegationProfile(root, repo, selection), trusted = withDestinationLimit(reviewed, a);
+            const reviewed = await inspectDelegationProfile(root, repo, selection), trusted = await withDestinationLimit(reviewed, a, repo, mode);
             if (!flag(a, "apply")) return { value: trusted, text: `${JSON.stringify(trusted, null, 2)}\nIts roles and checks will run on this computer under your account; nothing is contained.\n${destinationLine(trusted)}\nRepeat with --apply --expected ${trusted.identity} --actor NAME --cooperative-local to keep this profile.` };
-            const remote = string(a, "remote"), base = string(a, "base"); if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
+            const destination = selectedDestination(a); if (destination) await inspectWorkspaceDestination(repo, mode, destination);
             const profile = await applyDelegationProfile(root, reviewed, { expectedIdentity: required(a, "expected"), actor: required(a, "actor"), cooperativeLocal: flag(a, "cooperative-local") });
-            const workspace = await registerWorkspace(root, { repo, mode, client, execution: "trusted-local", applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(remote && base ? { destination: { remote, base } } : {}) });
+            const workspace = await registerWorkspace(root, { repo, mode, client, execution: "trusted-local", applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(destination ? { destination } : {}) });
             return { value: { workspace, profile }, text: `Registered trusted-local workspace ${workspace.id} and reviewed profile ${profile.id}.\nIts roles and checks will run on this computer under your account; nothing is contained.\nNo work or Send was approved. Next: wring job check --workspace ${workspace.id}, then wring job new --workspace ${workspace.id} --intent 'YOUR REQUEST'` };
         }
         if (mode === "delegation") {
@@ -175,20 +207,19 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
             const allow = (values(a, "egress") ?? []).map(value => { const [cidr, ports, extra] = value.split("@"); if (!cidr || !ports || extra !== undefined || !/^\d+(,\d+)*$/.test(ports)) throw new Error("Use --egress IPv4_CIDR@PORT,PORT with explicit ports"); return { cidr, ports: ports.split(",").map(Number) }; });
             const selection: DelegationSelection = { provisionId: required(a, "provision"), ...(string(a, "acceptance") ? { acceptanceId: string(a, "acceptance") } : {}), ...(string(a, "readiness") ? { readinessId: string(a, "readiness") } : {}), worker: { provider: required(a, "worker-provider") as any, model: required(a, "worker-model") }, judge: { provider: required(a, "judge-provider") as any, model: required(a, "judge-model") }, source: source === "local" ? { kind: "local" } : { kind: "remote", remote: required(a, "source-remote") }, dependencies: required(a, "dependencies") as any, network: { policy: network as any, allow, dns: values(a, "dns") ?? [] }, ...(values(a, "writable") ? { writable: values(a, "writable") } : {}), ...(values(a, "output-dir") ? { outputDirectories: values(a, "output-dir") } : {}), ...(values(a, "gate") ? { gates: values(a, "gate") } : {}) };
             const contained = await inspectDelegationProfile(root, repo, selection);
-            if (!flag(a, "apply")) return { value: withDestinationLimit(contained, a) };
-            const remote = string(a, "remote"), base = string(a, "base"); if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
+            if (!flag(a, "apply")) return { value: await withDestinationLimit(contained, a, repo, mode) };
+            const destination = selectedDestination(a); if (destination) await inspectWorkspaceDestination(repo, mode, destination);
             const profile = await applyDelegationProfile(root, contained, { expectedIdentity: required(a, "expected"), actor: required(a, "actor"), cooperativeLocal: flag(a, "cooperative-local") });
-            const workspace = await registerWorkspace(root, { repo, mode, client, applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(remote && base ? { destination: { remote, base } } : {}) });
+            const workspace = await registerWorkspace(root, { repo, mode, client, applyChecks: false, profileId: profile.id, credentialReferences: profile.plan.runtime.env, ...(destination ? { destination } : {}) });
             return { value: { workspace, profile }, text: `Registered contained workspace ${workspace.id} and reviewed profile ${profile.id}.\nNo work or Send was approved. Next: wring job new --workspace ${workspace.id} --intent 'YOUR REQUEST'` };
         }
         if (!flag(a, "apply")) {
-            const remote = string(a, "remote"), base = string(a, "base"), shown = { ...preview, destination: remote && base ? { remote, base, recorded: `Applying records this on the workspace: a finished job can be sent to remote ${remote}, base ${base}, only after the person's Send.` } : null };
+            const shown = { ...preview, destination: await shownDestination(a, repo, mode) };
             return { value: shown, text: JSON.stringify(shown, null, 2) + `\n${destinationLine(shown)}\nReview these changes; repeat with the chosen --mode and --apply to register.` };
         }
         if (!mode) throw new Error("Choose verification or delegation explicitly before applying setup");
-        const remote = string(a, "remote"), base = string(a, "base");
-        if (!!remote !== !!base) throw new Error("Select both --remote and --base, or neither");
-        const value = await registerWorkspace(root, { repo, mode, client, applyChecks: true, ...(remote && base ? { destination: { remote, base } } : {}), profileId: string(a, "profile") });
+        const destination = selectedDestination(a);
+        const value = await registerWorkspace(root, { repo, mode, client, applyChecks: true, ...(destination ? { destination } : {}), profileId: string(a, "profile") });
         return { value, text: `Registered ${mode} workspace ${value.id}. No job was approved.\nNext: wring job new --workspace ${value.id} --intent 'YOUR REQUEST'\nApplication state: ${root}` };
     }
     if (a.command === "connect") {

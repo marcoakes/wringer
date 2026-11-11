@@ -362,7 +362,8 @@ export async function createAssistantService(root: string, options: { dependenci
             : cancelled ? "Work is cancelled. Inspect retained evidence."
             : busy ? "Work is running or uncertain. Inspect its recorded operation; do not restart it."
             : publicationStatus === "uncertain" ? "The handover outcome is uncertain. Inspect the existing publication record; do not send it again."
-            : publicationStatus === "blocked" ? "Handover is blocked. Inspect the recorded reason before any separate recovery."
+            // alpha.47: the forge's own recorded reason, and whether the branch already went.
+            : publicationStatus === "blocked" ? `${publication!.pushed ? "The branch was sent, but its review request was not opened" : "Handover is blocked"}${publication!.forge?.reason ? `: ${publication!.forge.reason}` : "."} Inspect the recorded reason before any separate recovery.`
             : publicationStatus === "branch-pushed" ? "The branch was sent. Audit its handover record from a fresh clone. No hosted review request or merge is implied."
             : publicationStatus && ["published", "recovered", "closed", "merged"].includes(publicationStatus) ? `The hosted handover is ${publicationStatus === "recovered" ? "recorded as open" : publicationStatus}. Inspect its recorded link and audit the handover evidence.`
             : !view.approval ? isPreparedJob(p.questions) ? PREPARED_JOB_NEXT : p.questions.length ? "Answer the recorded questions; submit a revised unapproved proposal." : "Review and approve the plan in the operator console."

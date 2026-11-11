@@ -2,7 +2,7 @@ import { lstat, mkdir, readFile, readdir, realpath, open, link, unlink } from "n
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { hashValue } from "@wringer/plan";
 import { requestContainedRevision } from "@wringer/workflow";
-import { deliverContained, readContainedDeliveryProjection, parseForgeConfiguration, assertForgeRepositoryBinding, type ContainedDeliveryResult } from "@wringer/delivery";
+import { deliverContained, readContainedDeliveryProjection, parseForgeConfiguration, assertForgeRepositoryBinding, forgeCredentialRefusal, type ContainedDeliveryResult } from "@wringer/delivery";
 import { Redactor, sha256 } from "@wringer/engine";
 import { readController, controllerStatus, resumeController, showControllerCandidate, reviewControllerCandidate, reviewControllerDecisions, type HumanDecisionInput, type ApplicationOptions } from "./controller";
 
@@ -215,6 +215,16 @@ export const WORKSPACE_HANDOVER_RECORDED = "This candidate has already been sent
 async function assertFreshHandover(state: string, command: WorkspaceCommand, deps: WorkspaceCommandDependencies) {
     if (["prepare-delivery", "publish"].includes(command.action) && workspacePublicationBlocksHandover(await latestWorkspacePublication(state, deps))) throw new Error(WORKSPACE_HANDOVER_RECORDED);
 }
+/** alpha.47: a Send that opens a pull or merge request is refused before its request is recorded when
+ * the token is missing, so nothing is pushed and the same Send can run once the token is set. */
+async function assertSendCredential(state: string, command: WorkspaceCommand) {
+    if (command.action !== "publish") return;
+    let forge: unknown;
+    try { forge = (await preparationRecord(state, field(command.payload, "preparedId"))).publication.forge; }
+    catch { return; /* The bound preparation check refuses an unreadable one with its own reason. */ }
+    const refusal = forge ? forgeCredentialRefusal(parseForgeConfiguration(forge)) : null;
+    if (refusal) throw new Error(refusal);
+}
 async function execute(state: string, command: WorkspaceCommand, options: ApplicationOptions): Promise<unknown> {
     const query = await controllerStatus(state), history = await readController(state, true, true), payload = command.payload;
     if (query.revision !== command.expectedRevision || query.candidateTree !== command.expectedCandidateTree) throw new Error("The run changed. Refresh and inspect the current result before acting.");
@@ -265,6 +275,7 @@ export async function queueWorkspaceCommand(stateDirectory: string, input: unkno
     // Identical retained commands above are observations, even after publication.
     // Only a fresh operation is refused, before another request is persisted.
     await assertFreshHandover(state, command, deps);
+    await assertSendCredential(state, command);
     const history = await deps.readController(state, false, true), clean = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(history.plan.runtime.env ?? [])]);
     if (clean.scrub(JSON.stringify(command)) !== JSON.stringify(command)) throw new Error("Command contains a detected credential; it was not recorded");
     const owner: Owner = { schema_version: "wringer.workspace-operation.v1", commandId: command.idempotencyKey, requestSha256: hashValue(command), pid: process.pid, token: crypto.randomUUID(), at: new Date().toISOString() };

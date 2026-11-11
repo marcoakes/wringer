@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { hashValue, validateExecutionPlan } from "@wringer/plan";
 import { git, Redactor } from "@wringer/engine";
+import { assertForgeRepositoryBinding, parseForgeConfiguration, type ForgeConfiguration } from "@wringer/delivery";
 import { assistantExists, assistantId, assistantInventory, assistantPath, createAssistantDirectory, readAssistantRecord, withAssistantProposalLock, writeAssistantRecord } from "./assistant-store";
 import { readWorkspace } from "./workspaces";
 import { applyDelegationProfile, inspectDelegationProfile, type DelegationSelection } from "./delegation-profile";
@@ -9,9 +10,10 @@ import { readJobLoopInspection } from "./loop-inspection";
 import { localSourceSiblings } from "./assistant-local-source";
 import { inheritWorkspaceImprovements } from "./job-improvements";
 import { readLoopTrajectories } from "@wringer/workflow";
+/** v2 (alpha.47) is the sibling whose destination names a forge: its Send opens a pull or merge request. */
 interface Context {
-    schema_version: "wringer.delegation-context.v1"; id: string; workspaceId: string; profileId: string; intent: string;
-    parentJobId: string | null; createdAt: string; destination: { remote: string; sourceBranch: string; targetBranch: string } | null;
+    schema_version: "wringer.delegation-context.v1" | "wringer.delegation-context.v2"; id: string; workspaceId: string; profileId: string; intent: string;
+    parentJobId: string | null; createdAt: string; destination: { remote: string; sourceBranch: string; targetBranch: string; forge?: ForgeConfiguration } | null;
 }
 export interface DelegationJob {
     schema_version: "wringer.delegation-job.v1"; id: string; workspaceId: string; contextId: string; mode: "delegation";
@@ -20,7 +22,8 @@ export interface DelegationJob {
 export async function delegationControllerRoot(root: string, workspaceId: string, contextId: string) { return assistantPath(root, `delegation-controllers/${assistantId(workspaceId)}/${assistantId(contextId)}`); }
 export async function readDelegationContext(root: string, workspaceId: string, contextId: string): Promise<Context> {
     const value = await readAssistantRecord<Context>(root, `delegation-contexts/${assistantId(workspaceId)}/${assistantId(contextId)}.json`);
-    if (value.schema_version !== "wringer.delegation-context.v1" || value.id !== contextId || value.workspaceId !== workspaceId) throw new Error("Delegation context identity changed");
+    if (!["wringer.delegation-context.v1", "wringer.delegation-context.v2"].includes(value.schema_version) || value.id !== contextId || value.workspaceId !== workspaceId || (value.schema_version === "wringer.delegation-context.v2") !== !!value.destination?.forge) throw new Error("Delegation context identity changed");
+    if (value.destination?.forge) assertForgeRepositoryBinding(value.destination.remote, parseForgeConfiguration(value.destination.forge));
     assistantId(value.profileId); return value;
 }
 async function deriveDelegationJob(root: string, context: Context, id: string): Promise<DelegationJob> {
@@ -78,8 +81,15 @@ export async function createDelegationJob(root: string, workspaceId: string, inp
                 // Beta gate run 2 (F11): named wringer/job-<this preparation's ID>, an ID the person never
                 // sees. The controller appends the job's own ID, so the branch is wringer/job/<job ID>.
                 destination = { remote, sourceBranch: "wringer/job", targetBranch: selectedDestination.base };
+                // alpha.47: a forge chosen at setup rides every new job, so Send pushes and opens the request.
+                if (selectedDestination.forge) {
+                    const forge = parseForgeConfiguration(selectedDestination.forge);
+                    try { assertForgeRepositoryBinding(remote, forge); }
+                    catch { throw new Error(`Remote ${selectedDestination.remote} no longer names ${forge.repo}; nothing was prepared. Repeat wring setup with the remote for that repository.`); }
+                    destination = { ...destination, forge };
+                }
             }
-            context = { schema_version: "wringer.delegation-context.v1", id, workspaceId, profileId: profile.id, intent: input.intent, parentJobId: input.parentJobId ?? null, createdAt: new Date().toISOString(), destination };
+            context = { schema_version: destination?.forge ? "wringer.delegation-context.v2" : "wringer.delegation-context.v1", id, workspaceId, profileId: profile.id, intent: input.intent, parentJobId: input.parentJobId ?? null, createdAt: new Date().toISOString(), destination };
             await writeAssistantRecord(root, contextFile, context);
         }
         const controller = await delegationControllerRoot(root, workspaceId, id), profile = await readAssistantRecord<any>(root, `profiles/${context.profileId}/profile-record.json`);

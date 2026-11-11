@@ -68,6 +68,7 @@ function jobClientRuntime() {
         const target = el(id); target.replaceChildren();
         if (!value) { target.append(node("p", "No handover destination is registered. The assistant cannot invent one.")); return; }
         addFact(target, "Repository", value.remote); addFact(target, "Review branch", value.sourceBranch); addFact(target, "Into", value.targetBranch);
+        if (value.opens) addFact(target, "Opens", `A ${value.opens.request} on ${value.opens.repository}, described by this job's evidence. Send uses the token in ${value.opens.tokenEnv}; it is never shown or kept.`);
     };
     const renderReports = (value: PmJob) => {
         clearVisuals();
@@ -267,7 +268,7 @@ function jobClientRuntime() {
         const limits = el("job-limits"); limits.replaceChildren(); for (const limit of value.limits) limits.append(node("li", limit));
         const publication = value.publication, link = safeJobReviewLink(publication?.url), anchor = el("review-request-link") as HTMLAnchorElement;
         anchor.hidden = !link; if (link) anchor.href = link; else anchor.removeAttribute("href");
-        el("publication-description").textContent = publication ? `Recorded status: ${publication.status}. Delivery: ${publication.deliveryId}. Sending a branch is not a merge or deployment.` : "No publication record is available. Do not infer a handover from this page alone.";
+        el("publication-description").textContent = publication ? link && ["published", "recovered"].includes(publication.status) ? `Wringer pushed the branch and opened the review request linked below; its description is this delivery's evidence. Delivery: ${publication.deliveryId}. Opening a review request is not a merge or deployment.` : `Recorded status: ${publication.status}. Delivery: ${publication.deliveryId}. Sending a branch is not a merge or deployment.` : "No publication record is available. Do not infer a handover from this page alone.";
         el("audit-command").textContent = publication?.auditCommand || "No audit command is recorded.";
         el("clone-command").textContent = publication?.cloneCommand || "Use the delivery's own instructions to obtain the reviewed branch.";
         el("audit-working-directory").textContent = publication?.cloneCommand ? "Start in a folder without an existing reviewed-change directory. Clone the reviewed branch, enter the new reviewed-change folder, then run the audit there. The copied instructions stop if cloning fails." : "Run the audit from the root of the reviewed repository clone, where its .wringer/deliveries folder is present.";

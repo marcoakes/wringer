@@ -186,6 +186,8 @@
   "replicate-identity-v1.schema.json": "bc7bee215c3f4fea6e33f26ab6dd6703cc5b5fa85c558a6461ff48d1e5b58889",
   "divergence-report-v1.schema.json": "2fd419d45b8abba42f2ac93d0824ac806f71e1dd4797338f0f431c4e37b44bb7",
   "proposer-evidence-v1.schema.json": "3424b434e6a2041b4383cb6cd580f494f4f21ffe47acdd25cb5dcdad5b8f378a",
-  "improvement-lesson-v1.schema.json": "5f04344814a6b7b95807841309e5608bb421a9e84083ac8c580da2602e66ade4"
+  "improvement-lesson-v1.schema.json": "5f04344814a6b7b95807841309e5608bb421a9e84083ac8c580da2602e66ade4",
+  "workspace-v3.schema.json": "2470a63ff749c7c3ee44a766f1539788540990b808f642dd4d3538ed86d577e6",
+  "delegation-context-v2.schema.json": "91adb91344eec85fe0cd79f3d5ffc8c45bc1618e65d2fa0174aaea32576c3d6d"
  }
 }

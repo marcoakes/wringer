@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/workspace-v3.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.workspace.v3"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "mode": {
+      "const": "delegation"
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384
+    },
+    "client": {
+      "enum": [
+        "claude-code",
+        "codex",
+        "generic"
+      ]
+    },
+    "preferences": {
+      "type": "object",
+      "properties": {
+        "destination": {
+          "type": "object",
+          "properties": {
+            "remote": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "base": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "forge": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "github",
+                    "gitlab"
+                  ]
+                },
+                "endpoint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                },
+                "repo": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$"
+                },
+                "token_env": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                }
+              },
+              "required": [
+                "kind",
+                "endpoint",
+                "repo",
+                "token_env"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "remote",
+            "base",
+            "forge"
+          ],
+          "additionalProperties": false
+        },
+        "profileId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 36,
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "credentialReferences": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Z_][A-Z0-9_]*$"
+          },
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "destination",
+        "profileId",
+        "credentialReferences"
+      ],
+      "additionalProperties": false
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "approval": {
+          "const": "cooperative-local"
+        },
+        "execution": {
+          "enum": [
+            "trusted-local",
+            "contained"
+          ]
+        }
+      },
+      "required": [
+        "approval",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "mode",
+    "repo",
+    "client",
+    "preferences",
+    "boundary",
+    "createdAt"
+  ],
+  "additionalProperties": false
+}

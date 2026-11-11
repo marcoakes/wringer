@@ -3026,6 +3026,32 @@ export type DelegationContextV1 = {
 };
 
 /**
+ * delegation-context-v2.schema.json
+ *
+ * Generated from `schema/delegation-context-v2.schema.json`. Do not edit.
+ */
+export type DelegationContextV2 = {
+  "schema_version": "wringer.delegation-context.v2";
+  "id": string;
+  "workspaceId": string;
+  "profileId": string;
+  "intent": string;
+  "parentJobId": string | null;
+  "createdAt": string;
+  "destination": {
+    "remote": string;
+    "sourceBranch": string;
+    "targetBranch": string;
+    "forge": {
+      "kind": "github" | "gitlab";
+      "endpoint": string;
+      "repo": string;
+      "token_env": string;
+    };
+  };
+};
+
+/**
  * delegation-job-v1.schema.json
  *
  * Generated from `schema/delegation-job-v1.schema.json`. Do not edit.
@@ -9383,6 +9409,38 @@ export type WorkspaceV2 = {
   "createdAt": string;
 };
 
+/**
+ * workspace-v3.schema.json
+ *
+ * Generated from `schema/workspace-v3.schema.json`. Do not edit.
+ */
+export type WorkspaceV3 = {
+  "schema_version": "wringer.workspace.v3";
+  "id": string;
+  "mode": "delegation";
+  "repo": string;
+  "client": "claude-code" | "codex" | "generic";
+  "preferences": {
+    "destination": {
+      "remote": string;
+      "base": string;
+      "forge": {
+        "kind": "github" | "gitlab";
+        "endpoint": string;
+        "repo": string;
+        "token_env": string;
+      };
+    };
+    "profileId": string | null;
+    "credentialReferences": string[];
+  };
+  "boundary": {
+    "approval": "cooperative-local";
+    "execution": "trusted-local" | "contained";
+  };
+  "createdAt": string;
+};
+
 /** Every schema file, and the `schema_version` it fixes — null when it fixes none. */
 export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.freeze({
   "acceptance-input-v1.schema.json": "wringer.acceptance-input.v1",
@@ -9453,6 +9511,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "decisions-v2.schema.json": "wringer.decisions.v2",
   "decisions.schema.json": "wringer.decisions.v1",
   "delegation-context-v1.schema.json": "wringer.delegation-context.v1",
+  "delegation-context-v2.schema.json": "wringer.delegation-context.v2",
   "delegation-job-v1.schema.json": "wringer.delegation-job.v1",
   "delegation-recovery-decision-v1.schema.json": "wringer.delegation-recovery-decision.v1",
   "delegation-recovery-preview-v1.schema.json": "wringer.delegation-recovery-preview.v1",
@@ -9620,6 +9679,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "workspace-recovery-request-v1.schema.json": "wringer.workspace-recovery-request.v1",
   "workspace-recovery-result-v1.schema.json": "wringer.workspace-recovery-result.v1",
   "workspace-v2.schema.json": "wringer.workspace.v2",
+  "workspace-v3.schema.json": "wringer.workspace.v3",
 });
 
 /** `schema_version` -> the schema file that claims it. */
@@ -9689,6 +9749,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.decisions.v2": "decisions-v2.schema.json",
   "wringer.decisions.v1": "decisions.schema.json",
   "wringer.delegation-context.v1": "delegation-context-v1.schema.json",
+  "wringer.delegation-context.v2": "delegation-context-v2.schema.json",
   "wringer.delegation-job.v1": "delegation-job-v1.schema.json",
   "wringer.delegation-recovery-decision.v1": "delegation-recovery-decision-v1.schema.json",
   "wringer.delegation-recovery-preview.v1": "delegation-recovery-preview-v1.schema.json",
@@ -9849,4 +9910,5 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.workspace-recovery-request.v1": "workspace-recovery-request-v1.schema.json",
   "wringer.workspace-recovery-result.v1": "workspace-recovery-result-v1.schema.json",
   "wringer.workspace.v2": "workspace-v2.schema.json",
+  "wringer.workspace.v3": "workspace-v3.schema.json",
 });
