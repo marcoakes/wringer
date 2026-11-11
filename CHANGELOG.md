@@ -8,7 +8,8 @@ package version and are listed per release.
 
 The narrowed product's promise is the evidence layer riding the PR, but a job's Send
 only pushed a branch: the person then opened a pull request by hand and pasted the
-evidence in, or did not.
+evidence in, or did not. This release also carries alpha.46 (source review on the job
+page, below), which was tagged but never published.
 
 - **Setup chooses a forge for the destination.** `wring setup … --remote NAME --base
   BRANCH --forge github|gitlab --forge-repo OWNER/NAME --forge-token-env NAME
@@ -45,6 +46,8 @@ evidence in, or did not.
 - 22 guards (`scripts/alpha47-guards.ts`), each undone alone, turned their tests red.
 
 ## 1.0.0-alpha.46 — source review on the job page
+
+Tagged at 657a45d and never published: the release run's Linux jobs failed three times on GitHub's Ubuntu runners resolving security.ubuntu.com; alpha.47 carries it.
 
 The first real change through Wringer stopped at source-history review on a fake key
 in the repository's own redaction test. Getting past it took an internal
