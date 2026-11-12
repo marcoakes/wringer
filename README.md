@@ -11,6 +11,9 @@ request → approved plan → worker → protected checks → independent judge
         → your review → separate Send → evidence a fresh clone can audit
 ```
 
+**Testing Wringer? Start with [docs/TRY_WRINGER.md](docs/TRY_WRINGER.md):** install it,
+run a sample job and then one on your own repository, in about 20 minutes.
+
 ## Two doors
 
 - **Coding agents start here: [docs/START_AGENT.md](docs/START_AGENT.md).**

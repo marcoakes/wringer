@@ -1,0 +1,83 @@
+name: Tester report
+description: How trying Wringer went, from docs/TRY_WRINGER.md
+title: "Tester report: "
+labels: ["tester-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for trying Wringer. Where you got stuck matters most, even if you got past it.
+        Never paste keys, tokens, private page links (127.0.0.1 addresses with a token) or private source.
+  - type: input
+    id: version
+    attributes:
+      label: Wringer version and computer
+      description: The output of `wring --version`, and macOS or Linux.
+      placeholder: Wringer native 1.0.0-alpha.47 (Bun 1.4.2), macOS 15 on Apple silicon
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Coding agent
+      options:
+        - Claude Code
+        - Codex
+        - Both (one as worker, one as reviewer)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: reached
+    attributes:
+      label: How far did you get?
+      description: The last step that worked.
+      options:
+        - "2. Install"
+        - "2. wring demo"
+        - "3. The sample repository"
+        - "4. Setup and job check"
+        - "5. Job new, connect and open"
+        - "5. My agent recorded the request"
+        - "5. Approved, and the work finished"
+        - "5. Read the change and sent it"
+        - "6. A change in my own repository"
+        - "6. A pull request opened on my own repository"
+    validations:
+      required: true
+  - type: textarea
+    id: stuck
+    attributes:
+      label: Where you got stuck or confused
+      description: What you did, what you expected, and what happened. Paste the exact message Wringer printed, with any secrets removed.
+    validations:
+      required: true
+  - type: input
+    id: time
+    attributes:
+      label: About how long it took
+      placeholder: 25 minutes, 10 of them on setup
+  - type: textarea
+    id: repository
+    attributes:
+      label: Your own repository, if you tried one
+      description: Language, test command and roughly how big. No names needed.
+  - type: dropdown
+    id: again
+    attributes:
+      label: Would you use it again for real work?
+      options:
+        - "Yes"
+        - Maybe, if something changed (say what below)
+        - "No"
+  - type: textarea
+    id: anything
+    attributes:
+      label: Anything else
+  - type: checkboxes
+    id: clean
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed keys, tokens, private page links and private source from this report.
+          required: true
