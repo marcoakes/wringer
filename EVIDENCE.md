@@ -4,35 +4,38 @@ The current verified public release is
 [1.0.0-alpha.47](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.47),
 commit `3ded3d1db7e8b6e7cd485729c4e0a512624e7f56`. Send now opens the pull request
 (GitHub) or merge request (GitLab) itself, from a forge chosen at setup, with the job's
-evidence as its description. The token is named at setup, read at Send, and never
-stored or printed. It also carries alpha.46, which was tagged at `657a45d` and never
-published: source review is decided on the job page, and an earlier decision on the
-same exact bytes is offered again, never applied by itself. The second real change
-through Wringer, a CSV export for ZenJev with Codex as the worker and Claude as the
-judge, cleared that stop on the page in about 30 seconds
-([its record](docs/adoption/evidence/alpha46/REAL_CHANGE_2_ZENJEV_2026-11-09.md)).
-Opening the request was proved only against a local stand-in for GitHub: no pull or
-merge request has been opened on GitHub or GitLab itself. Twenty-two guards for this
-release and six for source review, each undone alone, turned their tests red
-([alpha.47](docs/rebuild/evidence/alpha47-guards/reversions.json),
+evidence as its description. The token is named at setup, read at Send, and never stored
+or printed. It also carries alpha.46, which was tagged at `657a45d` and never published:
+source review is decided on the job page, and an earlier decision on the same exact
+bytes is offered again, never applied by itself. The second real change through Wringer,
+a CSV export for ZenJev with Codex as the worker and Claude as the judge, cleared that
+stop on the page in about 30 seconds ([its
+record](docs/adoption/evidence/alpha46/REAL_CHANGE_2_ZENJEV_2026-11-09.md)). On 12
+November the published alpha.47 opened a real pull request on GitHub,
+[marcoakes/ZenJev#2](https://github.com/marcoakes/ZenJev/pull/2): 4.5 minutes from
+approval, with Claude as the worker and Codex as the judge, its description byte for
+byte the delivered `mr.md`, a fresh clone of its branch passing the audit, and ZenJev's
+own CI passing on it
+([record](docs/adoption/evidence/alpha47/LIVE_PR_ZENJEV_2026-11-12.md)). Claude ran it
+acting for Marc. GitLab merge requests are still covered by tests only. Twenty-two
+guards for this release and six for source review, each undone alone, turned their tests
+red ([alpha.47](docs/rebuild/evidence/alpha47-guards/reversions.json),
 [alpha.46](docs/rebuild/evidence/alpha46-guards/reversions.json)).
 
 The alpha.47 guard record names baseline `0c15f44`, which is not on GitHub. GitHub's
-push protection refused a fake GitLab token in two test files, so the eight commits
-were rebuilt with that value written in two joined pieces; `0c15f44` is `77342cf`, and
-each rebuilt commit differs from the original only in those test lines
+push protection refused a fake GitLab token in two test files, so the eight commits were
+rebuilt with that value written in two joined pieces; `0c15f44` is `77342cf`, and each
+rebuilt commit differs from the original only in those test lines
 ([mapping](docs/adoption/evidence/alpha47/rebuild.json)). Three commits followed:
 `1dfd9d6` regenerates the assertion adapter for alpha.47's two new schemas, which the
-first CI build caught, and `319c8f7` and `3ded3d1` point CI's package manager at
-mirrors outside ubuntu.com, which GitHub's Ubuntu runners could not resolve on 11
-November. CI on the
-commit passed its ten test jobs and the DAC run on the first attempt, and each of the
-20 published releases, alpha.23 to alpha.45, upgraded on Linux and macOS 15
+first CI build caught, and `319c8f7` and `3ded3d1` point CI's package manager at mirrors
+outside ubuntu.com, which GitHub's Ubuntu runners could not resolve on 11 November. CI
+on the commit passed its ten test jobs and the DAC run on the first attempt, and each of
+the 20 published releases, alpha.23 to alpha.45, upgraded on Linux and macOS 15
 ([`ciHistory`](docs/adoption/evidence/alpha47/release.json)). All 14 public assets
 matched the clean source, both archives' signed provenance verified, public macOS
 extraction and installation passed 17/13 checks, and the published macOS binary still
-needs only macOS 13.0. No job has
-run on the published alpha.47.
+needs only macOS 13.0.
 
 [1.0.0-alpha.45](docs/adoption/evidence/alpha45/release.json) (commit `af53f93`) fixed
 what the first real change through Wringer found
