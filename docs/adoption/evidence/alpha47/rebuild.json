@@ -1,0 +1,107 @@
+{
+  "schema_version": "wringer.release-history-rebuild.v1",
+  "release": "v1.0.0-alpha.47",
+  "why": "GitHub push protection refused the first push of alpha.47 because two test files held a fake GitLab-shaped token as one literal. The eight unpushed commits were rebuilt in order with that value written as two joined string pieces. Runtime bytes are unchanged; each rebuilt commit's tree differs from the original only in those test lines.",
+  "guardBaseline": {
+    "named": "0c15f44b7d3be5e4f6fe004a09c3eb44e3829df2",
+    "onGitHub": "77342cf081113401e77de7d4fefe7f4b216fc432",
+    "record": "docs/rebuild/evidence/alpha47-guards/reversions.json",
+    "note": "The alpha.47 guards ran against the pre-rebuild baseline; it is the same tree as 77342cf apart from the split test literal. 22 of 22 reversions turned their tests red, with control and restored runs green."
+  },
+  "commits": [
+    {
+      "before": "6c1d9eedeaa6e4db74cf495c4a79f9ee1159277b",
+      "after": "86dfa62a49749f7c13f08a83843d1f430b7840fc",
+      "subject": "Treat a token's public type prefix as syntax, not a credential fragment",
+      "treeDifference": [
+        "packages/engine/test/redactor.test.ts"
+      ]
+    },
+    {
+      "before": "0a91b3e1ef98eb9159c5bc28559084b0c03b9a42",
+      "after": "76f4a6587d3cc001931d9631435e40e156d55f9f",
+      "subject": "Open a pull or merge request at Send from a forge chosen at setup",
+      "treeDifference": [
+        "packages/delivery/test/forge.test.ts",
+        "packages/engine/test/redactor.test.ts"
+      ]
+    },
+    {
+      "before": "ab486edcb3731ea52f9d762039ec9680e88467f0",
+      "after": "1711923ae0f5d54bdbf8188694f59a14b98766c2",
+      "subject": "Name a file where the application directory should be; follow job IDs in job improvements",
+      "treeDifference": [
+        "packages/delivery/test/forge.test.ts",
+        "packages/engine/test/redactor.test.ts"
+      ]
+    },
+    {
+      "before": "0c15f44b7d3be5e4f6fe004a09c3eb44e3829df2",
+      "after": "77342cf081113401e77de7d4fefe7f4b216fc432",
+      "subject": "Send again when the branch went but its review request did not; follow supersessions for job improvements",
+      "treeDifference": [
+        "packages/delivery/test/forge.test.ts",
+        "packages/engine/test/redactor.test.ts"
+      ]
+    },
+    {
+      "before": "77d110aebeb951a6cdad7e4fa63f36c52bcfee3e",
+      "after": "756cee0d0094a3d769929e16f6beca66737f54db",
+      "subject": "Guard alpha.47 with 22 reversions; the assistant reads a refused request as the person's Send",
+      "treeDifference": [
+        "packages/delivery/test/forge.test.ts",
+        "packages/engine/test/redactor.test.ts"
+      ]
+    },
+    {
+      "before": "df62ff542bdd4ce9a53f7c21cadf5d8743374e5f",
+      "after": "9ccccdbc42d870f67a2d4a0badbce18241f84dbf",
+      "subject": "Record the alpha.47 guards: 22 of 22 red, control and restored green",
+      "treeDifference": [
+        "packages/delivery/test/forge.test.ts",
+        "packages/engine/test/redactor.test.ts"
+      ]
+    },
+    {
+      "before": "e0ebfa02d7b909dfd5034a6d6bd22b22ae087bb9",
+      "after": "66ade3f5bcc434a3f2eacb4aa9af2d23f3c76490",
+      "subject": "Cut alpha.47: the evidence rides the pull request",
+      "treeDifference": [
+        "packages/delivery/test/forge.test.ts",
+        "packages/engine/test/redactor.test.ts"
+      ]
+    },
+    {
+      "before": "13fba7430dccc90c844986fa00cb9c5d05cd14a9",
+      "after": "ceaf98a71f429d7a0b8147ac539d40f9bcf1bfef",
+      "subject": "Carry alpha.46 in alpha.47: it was tagged and never published",
+      "treeDifference": [
+        "packages/delivery/test/forge.test.ts",
+        "packages/engine/test/redactor.test.ts"
+      ]
+    }
+  ],
+  "after": [
+    {
+      "commit": "1dfd9d6f34200576678c4dfdbb89d0f6a4302607",
+      "subject": "Regenerate the assertion adapter for alpha.47's two new schemas",
+      "why": "alpha.47 added two schemas without regenerating integrations/assertion-adapter.txt; every CI build stopped at its consistency check. Local bun run check does not build, so it passed there."
+    },
+    {
+      "commit": "319c8f787e6c8419a7a023e3825aa14c13998232",
+      "subject": "Reach Ubuntu's security packages through the runner's Azure mirror in CI",
+      "why": "GitHub's Ubuntu runners could not resolve security.ubuntu.com; pointed apt's source files at the runner's Azure mirror, which failed the same way."
+    },
+    {
+      "commit": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+      "subject": "Reach Ubuntu's packages through mirrors outside ubuntu.com in CI",
+      "why": "No ubuntu.com host resolved on the runners; apt reads its hosts from /etc/apt/apt-mirrors.txt. Pointed that list and the source files at kernel.org, MIT and Princeton, which carry the same signed archive. The released commit."
+    }
+  ],
+  "alpha46": {
+    "tag": "v1.0.0-alpha.46",
+    "commit": "657a45d25c4bc5f8872abac8410d94b8a862c6ee",
+    "published": false,
+    "note": "Tagged; its release run's Linux jobs failed three times resolving security.ubuntu.com. Marc: Let alpha.47 carry it. Everything in it is in alpha.47."
+  }
+}

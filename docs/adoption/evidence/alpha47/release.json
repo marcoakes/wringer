@@ -1,0 +1,326 @@
+{
+  "release_name": "adoption alpha.47",
+  "release": {
+    "tag": "v1.0.0-alpha.47",
+    "url": "https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.47",
+    "publishedAt": "2026-11-12T15:40:15Z",
+    "isDraft": false
+  },
+  "source": {
+    "commit": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+    "dirty": false,
+    "contentSha256": "52972159520cd8a0e9ec28c428cc2a784d01ca27fc66a876c5523c00a32c7f95"
+  },
+  "assets": [
+    {
+      "name": "wringer-1.0.0-alpha.47-darwin-arm64.tar.gz",
+      "sha256": "91019e8d1fa4b03b28e6149f1c7f0ae88a39d41487bd965ef8ffeae0711f8910",
+      "bytes": 30015577
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-darwin-arm64.tar.gz.sha256",
+      "sha256": "697f99c7a3cece23e2806bbd33f38544577e7ac889d2de08a978840ba30626f2",
+      "bytes": 109
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-darwin-arm64.tar.gz.manifest.json",
+      "sha256": "38ee437f4196e9fcc48fe5e9b4a1fd7ec6cb885222bd145ae040a07b8a6cff4e",
+      "bytes": 152503
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-darwin-arm64.tar.gz.inventory.json",
+      "sha256": "8f8233c196cece89ba6b80441ebe472d99f6e6879e46c474650e6c1d27a146ee",
+      "bytes": 64725
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-darwin-arm64.tar.gz.claims.json",
+      "sha256": "9ecaaba8ceceb138228987409437951a740322139ddabc6c6c07b02895ba53f7",
+      "bytes": 1185
+    },
+    {
+      "name": "wring-1.0.0-alpha.47-darwin-arm64",
+      "sha256": "503f5b64ccf25b7b61bf2ba8cadf0bbbbc136bc2c4d683cf4418ee915e295b3e",
+      "bytes": 76542834
+    },
+    {
+      "name": "wring-1.0.0-alpha.47-darwin-arm64.sha256",
+      "sha256": "83a4ba57adef62a0247a38a388fc8512e54925a23f2ed3973f0c5c1654dc9a84",
+      "bytes": 100
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-linux-x64.tar.gz",
+      "sha256": "e717a72918e63c2e53f0db018d44b23038cbaf61bbb7b72c0afe06f40c3e67a3",
+      "bytes": 40784673
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-linux-x64.tar.gz.sha256",
+      "sha256": "a59043a52dd4825ff9f9a2467c5ab9c4b65c7546de222198cc3f1ec4893e6157",
+      "bytes": 106
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-linux-x64.tar.gz.manifest.json",
+      "sha256": "01614576252df63c1c91bb8fbbce8cd90c5d1069431ccca99aa80eccdf88de33",
+      "bytes": 152500
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-linux-x64.tar.gz.inventory.json",
+      "sha256": "49abf5d3e3472945a4ed970ad196d71aa490d8ce3433ac58c8afae967f77c165",
+      "bytes": 64719
+    },
+    {
+      "name": "wringer-1.0.0-alpha.47-linux-x64.tar.gz.claims.json",
+      "sha256": "962f09c60dbd278f826c10946a560068e279490a8e6556a9f409aed1cbca06ca",
+      "bytes": 1179
+    },
+    {
+      "name": "wring-1.0.0-alpha.47-linux-x64",
+      "sha256": "8f282e7dbd69eeb92a8b30b79d54a8f053907be085eb7653a2c324bb8fe960f6",
+      "bytes": 95520224
+    },
+    {
+      "name": "wring-1.0.0-alpha.47-linux-x64.sha256",
+      "sha256": "1b0e362f410eb1b54793be7890de053ccbba14c126c7e0ad37e5c2beb66256c6",
+      "bytes": 97
+    }
+  ],
+  "runs": [
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170",
+      "source": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Upgrade from published releases / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648818970",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upgrade from published releases / macos-15",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819319",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-15",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819363",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819380",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Temporal / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819427",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "action",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819434",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819456",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819494",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / macos-15",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819587",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819645",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/43056945276",
+      "source": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43056945276/job/130648818990",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/43245593039",
+      "source": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "rehearsals (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43245593039/job/131277266961",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (macos-15, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43245593039/job/131277267251",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (macos-15, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43245593039/job/131277267396",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "permission-adversary / permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43245593039/job/131277267576",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43245593039/job/131277267726",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "publish-draft",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/43245593039/job/131293204859",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "ciHistory": {
+    "schema_version": "wringer.release-ci-history.v1",
+    "note": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56 is the alpha.47 candidate. Its tests run passed all ten jobs and its permission run passed, each on the first attempt. Two earlier heads failed: ceaf98a, because alpha.47 added two schemas without regenerating integrations/assertion-adapter.txt (every build stopped at its consistency check; fixed in 1dfd9d6), and on Linux because GitHub's Ubuntu runners could not resolve any ubuntu.com host while installing the browser's fonts; 319c8f7 pointed apt's source files at the runner's Azure mirror, which failed the same way, and 3ded3d1 points apt's mirror list and source files at kernel.org, MIT and Princeton.",
+    "attempts": [
+      {
+        "commit": "ceaf98a71f429d7a0b8147ac539d40f9bcf1bfef",
+        "workflow": "tests",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/43047953418",
+        "attempt": 1,
+        "conclusion": "failure",
+        "cause": "assertion adapter not regenerated for two new schemas (build), and ubuntu.com unresolvable on GitHub's Linux runners"
+      },
+      {
+        "commit": "ceaf98a71f429d7a0b8147ac539d40f9bcf1bfef",
+        "workflow": "Linux permission adversary",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/43047953801",
+        "attempt": 1,
+        "conclusion": "success"
+      },
+      {
+        "commit": "319c8f787e6c8419a7a023e3825aa14c13998232",
+        "workflow": "tests",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/43050302411",
+        "attempt": 1,
+        "conclusion": "failure",
+        "cause": "ubuntu.com, including the runner's Azure mirror, unresolvable on GitHub's Linux runners; the three Linux jobs that install the browser failed, the seven others passed"
+      },
+      {
+        "commit": "319c8f787e6c8419a7a023e3825aa14c13998232",
+        "workflow": "Linux permission adversary",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/43050302574",
+        "attempt": 1,
+        "conclusion": "success"
+      },
+      {
+        "commit": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+        "workflow": "tests",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/43056945170",
+        "attempt": 1,
+        "conclusion": "success"
+      },
+      {
+        "commit": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+        "workflow": "Linux permission adversary",
+        "run": "https://github.com/marcoakes/wringer/actions/runs/43056945276",
+        "attempt": 1,
+        "conclusion": "success"
+      }
+    ],
+    "upgradeFromPublished": {
+      "note": "From the job logs of the tests run on this commit; the upgrade-evidence artifacts were not downloaded. Each published release installed itself with its own installer over a finished job's retained records; an archive that run built from this commit, not the published asset, upgraded it and previewed the way back. alpha.46 was tagged and never published, so no upgrade started from it.",
+      "run": "https://github.com/marcoakes/wringer/actions/runs/43056945170",
+      "ubuntu-latest (linux-x64)": {
+        "line": "Upgraded to 1.0.0-alpha.47 from 20 published releases on linux-x64 (0 skipped); each way back was held exactly on the record formats the candidate adds, and applied where it adds none",
+        "releases": 20,
+        "skipped": 0,
+        "job": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648818970"
+      },
+      "macos-15 (darwin-arm64)": {
+        "line": "Upgraded to 1.0.0-alpha.47 from 20 published releases on darwin-arm64 (0 skipped); each way back was held exactly on the record formats the candidate adds, and applied where it adds none",
+        "releases": 20,
+        "skipped": 0,
+        "job": "https://github.com/marcoakes/wringer/actions/runs/43056945170/job/130648819319"
+      }
+    }
+  },
+  "attestations": [
+    {
+      "platform": "darwin-arm64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+        "sourceRef": "refs/tags/v1.0.0-alpha.47"
+      }
+    },
+    {
+      "platform": "linux-x64",
+      "verified": true,
+      "policy": {
+        "repository": "marcoakes/wringer",
+        "workflow": ".github/workflows/release.yml",
+        "sourceDigest": "3ded3d1db7e8b6e7cd485729c4e0a512624e7f56",
+        "sourceRef": "refs/tags/v1.0.0-alpha.47"
+      }
+    }
+  ],
+  "publicVerification": {
+    "download": "Authenticated GitHub release download after publication; anonymous installation not measured",
+    "darwinArm64": {
+      "extractedChecks": 17,
+      "installerChecks": 13,
+      "minimumMacOS": "13.0"
+    },
+    "linuxX64": "Native Linux CI; archive bytes, manifests and signed provenance verified locally"
+  },
+  "limits": [
+    "Engineering fixtures establish mechanisms, not live benefit, live containment or independent human acceptance.",
+    "No pull or merge request was opened on GitHub or GitLab itself: every forge request in this release's tests went to a local stand-in for GitHub on 127.0.0.1, and the repository's SSH remote reached a local bare repository through a stand-in ssh. GitLab's request path is covered by the existing forge unit tests only.",
+    "The HTTPS push credential was checked through Git's own credential protocol (git credential fill), not by a push to a live HTTPS server.",
+    "The token check is presence only: a token that is set but wrong, expired or without permission is found by the forge, after the branch is pushed; the page then offers Send again.",
+    "Source review on the job page (carried from alpha.46, tagged at 657a45d and never published) was used once live, in the second real change on ZenJev on 2026-11-09, by Claude acting for Marc as a delegated agent; no independent human used it. That run used a build of its source before the alpha.46 cut.",
+    "An exact earlier source-review decision offered again was exercised by tests only.",
+    "Source-review decisions are operator assertions in cooperative-local state, not authenticated human judgements, and not a secret-free certificate.",
+    "Each upgrade check started from every published release, so from alpha.45 and earlier: alpha.46 was tagged but never published, and no installation started from it. Each used an archive the tests run built from this commit, not the published asset, on GitHub runners (ubuntu-latest, macos-15). An upgrade on a person's own machine is not measured.",
+    "A trusted-local delivery is still named contained-… in its records and its evidence commit message, because frozen records name it.",
+    "The release run's artifacts were not downloaded; its job records were used."
+  ]
+}
