@@ -28,23 +28,39 @@ Code or Codex plan: the sample job took one worker and one review session.
 cd ~
 curl -fsSLO https://raw.githubusercontent.com/marcoakes/wringer/v1.0.0-alpha.47/packaging/install.sh
 less install.sh
+```
+
+The installer is 98 lines of shell; read it before running it, and press `q` to leave
+`less`. Then:
+
+```sh
 sh install.sh --release 1.0.0-alpha.47 --download-to "$HOME/wringer-download-47" > "$HOME/wringer-install-preview.json"
 ```
 
-The installer is 98 lines of shell; read it before running it. The last command
-downloads the release from GitHub, checks it, and writes a preview of what it would
-install. Nothing is installed yet. To install exactly what it previewed:
+That downloads the release from GitHub, checks it, and writes a preview of what it
+would install. Nothing is installed yet. To install exactly what it previewed:
 
 ```sh
 ID=$(sed -n 's/.*"identity": *"\([0-9a-f]*\)".*/\1/p' "$HOME/wringer-install-preview.json" | head -1)
 sh install.sh --release 1.0.0-alpha.47 --download-to "$HOME/wringer-download-47" --apply --expected "$ID"
 ```
 
-The installer changes no shell profile. Put Wringer on your PATH for this terminal:
+The installer changes no shell profile. Put Wringer on your PATH for this terminal.
+On macOS:
 
 ```sh
-export PATH="$HOME/Library/Application Support/WringerInstall/bin:$PATH"   # macOS
-export PATH="$HOME/.local/share/wringer-install/bin:$PATH"                 # Linux
+export PATH="$HOME/Library/Application Support/WringerInstall/bin:$PATH"
+```
+
+On Linux:
+
+```sh
+export PATH="$HOME/.local/share/wringer-install/bin:$PATH"
+```
+
+Then check it runs:
+
+```sh
 wring --version
 wring demo
 ```
@@ -89,22 +105,42 @@ git remote add origin "$TRY/first-job-origin.git" && git push -q -u origin main
 
 ## 4. Set it up
 
+Say which coding agent you use. For Claude Code:
+
 ```sh
-SETUP=(--repo "$PWD" --client claude-code --mode delegation --runtime trusted-local
-  --worker-adapter claude-agent-acp --judge-adapter claude-agent-acp
+CLIENT=claude-code ADAPTER=claude-agent-acp
+```
+
+For Codex, run this line instead:
+
+```sh
+CLIENT=codex ADAPTER=codex-acp
+```
+
+Then preview the setup and read it:
+
+```sh
+SETUP=(--repo "$PWD" --client "$CLIENT" --mode delegation --runtime trusted-local
+  --worker-adapter "$ADAPTER" --judge-adapter "$ADAPTER"
   --source local --dependencies none --writable src --remote origin --base main)
 wring setup "${SETUP[@]}" --dry-run --json > ../setup-preview.json
 less ../setup-preview.json
+```
+
+It names the agents, the check, what the worker may change and where a finished job is
+sent. Press `q`, then apply exactly what you read and check the agents start:
+
+```sh
 ID=$(sed -n 's/.*"identity": *"\([0-9a-f]*\)".*/\1/p' ../setup-preview.json | head -1)
-wring setup "${SETUP[@]}" --apply --expected "$ID" --actor "YOUR NAME" --cooperative-local --json > ../setup.json
+wring setup "${SETUP[@]}" --apply --expected "$ID" --actor "$USER" --cooperative-local --json > ../setup.json
 WID=$(grep -o '"id": *"[0-9a-f-]*"' ../setup.json | head -1 | tr -d '" ' | cut -d: -f2)
 wring job check --workspace "$WID"
 ```
 
-Using Codex: `--client codex --worker-adapter codex-acp --judge-adapter codex-acp`.
-You may also mix them, for example Claude as the worker and Codex as the reviewer.
 `job check` starts each agent and sends no prompt. The first run downloads the agent
-adapter through `npx`.
+adapter through `npx`. If you have both agents, you may mix them: name one in
+`--worker-adapter` and the other in `--judge-adapter`, so a different model reviews
+the work.
 
 ## 5. Run a job
 
@@ -112,15 +148,21 @@ Write your request once, here. Then connect your agent and open the job page:
 
 ```sh
 wring job new --workspace "$WID" --intent "Make slug() join words with single hyphens and trim them from the ends, so the slug test passes."
-wring connect --workspace "$WID" --client claude-code --scope project --dry-run --json > ../connect-preview.json
+wring connect --workspace "$WID" --client "$CLIENT" --scope project --dry-run --json > ../connect-preview.json
 ID=$(sed -n 's/.*"identity": *"\([0-9a-f]*\)".*/\1/p' ../connect-preview.json | head -1)
-wring connect --workspace "$WID" --client claude-code --scope project --apply --expected "$ID"
+wring connect --workspace "$WID" --client "$CLIENT" --scope project --apply --expected "$ID"
 wring job open --workspace "$WID"
 ```
 
 `job open` opens your private job page in the browser and leaves Wringer running in
-the background until `wring job close`. In the same folder, start Claude Code
-(`claude`), accept the project's `wringer` server when it asks, and say:
+the background until `wring job close`. In the same folder, start your agent:
+
+- **Claude Code:** run `claude` and accept the project's `wringer` server when it asks.
+- **Codex:** run `codex` and trust the folder when it asks; Codex reads a project's
+  settings only in a folder it trusts. It then asks before each Wringer tool that
+  records something. Allow them.
+
+Then say:
 
 > Use Wringer to do the job I prepared.
 
@@ -136,6 +178,16 @@ See what arrived, and audit it from a fresh clone; the page shows the exact comm
 git fetch -q origin && git branch -r
 ```
 
+**Coming back in a new terminal?** The PATH and the variables are gone. Run the
+`export PATH` line from step 2 again, then list your jobs:
+
+```sh
+wring job list
+```
+
+Each job is printed with its `workspaceId`. Set `WID` to it, and `CLIENT` as in step 4,
+then `wring job open --workspace "$WID"` reopens the page.
+
 ## 6. Try it on your own repository
 
 Pick a small change and commit a test that fails today; Wringer refuses work whose
@@ -144,12 +196,15 @@ your folders in `--writable` (repeat it for each) and, for an npm project,
 `--dependencies npm-ci`.
 
 To have Send open a GitHub pull request, add these to `SETUP`:
-`--forge github --forge-repo OWNER/NAME --forge-token-env GITHUB_TOKEN`. Then open the
-page with your GitHub CLI login's token, which Wringer reads at Send and never stores:
+`--forge github --forge-repo OWNER/NAME --forge-token-env GITHUB_TOKEN`. Then start
+Wringer with your GitHub CLI login's token, which it reads at Send and never stores:
 
 ```sh
+wring job close --workspace "$WID"
 GITHUB_TOKEN="$(gh auth token)" wring job open --workspace "$WID"
 ```
+
+The first line stops a Wringer that was started without the token.
 
 ## Rough edges we know about
 
@@ -161,6 +216,8 @@ GITHUB_TOKEN="$(gh auth token)" wring job open --workspace "$WID"
   stops once before Send and lists each match by file. Give a reason for each on the
   page, or do not send if one is real.
 - A mistyped workspace ID prints a raw "no such file" error.
+- If the page says it is locked and `wring job open` does not unlock it, run
+  `wring job close --workspace "$WID"` and open it again. Your jobs are kept.
 
 ## 7. Tell us how it went
 
@@ -170,11 +227,22 @@ private page links or private source.
 
 ## When you are done
 
+Stop Wringer and take its connection out of the repository, from the repository's
+folder. This removes exactly the files `wring connect` added:
+
 ```sh
 wring job close --workspace "$WID"
+wring connect --workspace "$WID" --client "$CLIENT" --scope project --remove --dry-run --json > ../remove-preview.json
+ID=$(sed -n 's/.*"identity": *"\([0-9a-f]*\)".*/\1/p' ../remove-preview.json | head -1)
+wring connect --workspace "$WID" --client "$CLIENT" --scope project --remove --apply --expected "$ID"
+```
+
+To remove Wringer itself, preview it first:
+
+```sh
 wring uninstall --dry-run --json
 ```
 
-`wring uninstall` previews what it would remove; repeat it with
-`--apply --expected IDENTITY` to remove it. `wring connect --help` shows how to remove
-the project connection.
+It lists what it would remove and anything still in the way. Repeat it with
+`--apply --expected IDENTITY`, using the `identity` it printed. Your jobs and their
+evidence stay in Wringer's application folder until you delete it.
